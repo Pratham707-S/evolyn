@@ -1,3 +1,24 @@
+/**
+ * ============================================================================
+ * DATABASE SCHEMA & RELATIONS (apps/api/src/db/schema.ts)
+ * ----------------------------------------------------------------------------
+ * ASSIGNED OWNERS: Pratham (Project Lead & Architect) & Ayan (Backend Lead)
+ * ----------------------------------------------------------------------------
+ * RESPONSIBILITIES & TASKS IN THIS FOLDER:
+ * - Define Drizzle ORM PostgreSQL tables with native pgvector (768-dim) support.
+ * - Maintain relational foreign keys, cascade deletes, and timestamp triggers.
+ * - Tables defined:
+ *   1. guidelines & guideline_rules (embedding vector(768)) -> [Mann]
+ *   2. guideline_conflicts (cross-rule contradiction pairs) -> [Mann]
+ *   3. approved_facts (embedding vector(768) + proof sources) -> [Mann]
+ *   4. content_submissions (marketing copy drafts & metadata) -> [Ayan]
+ *   5. review_runs (audit executions & timestamps) -> [Ayan & Pratham]
+ *   6. detected_issues (verbatim citations & evidence scores) -> [Ayan & Pratham]
+ *   7. decisions (immutable human approval sign-offs) -> [Ayan]
+ *   8. recurring_mistakes (violation patterns & refinements) -> [Pratham]
+ * ============================================================================
+ */
+
 import {
   pgTable,
   uuid,
