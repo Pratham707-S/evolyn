@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { ZodError } from 'zod';
 import { SubmissionService } from '../modules/submissions/submissions.service.js';
 import type {
   DecisionRecord,
@@ -11,6 +10,8 @@ import type {
 } from '../modules/submissions/submissions.repository.js';
 
 const submissionId = 'c0a80123-4567-4890-a123-456789abcdef';
+const isZodError = (error: unknown): boolean =>
+  error instanceof Error && error.name === 'ZodError';
 
 function createSubmissionRecord(
   overrides: Partial<SubmissionRecord> = {}
@@ -92,7 +93,7 @@ describe('SubmissionService', () => {
 
     await assert.rejects(
       service.createSubmission({ title: '', rawText: 'too short' }),
-      ZodError
+      isZodError
     );
     assert.equal(createCalled, false);
   });
@@ -109,7 +110,7 @@ describe('SubmissionService', () => {
     assert.equal(submissions.length, 1);
     assert.equal(submissions[0].id, submissionId);
 
-    await assert.rejects(service.listSubmissions({ status: 'UNKNOWN' }), ZodError);
+    await assert.rejects(service.listSubmissions({ status: 'UNKNOWN' }), isZodError);
   });
 
   it('returns the submission with its latest review and decision', async () => {
@@ -144,7 +145,7 @@ describe('SubmissionService', () => {
     const result = await service.getSubmissionById(submissionId);
     assert.equal(result?.reviewRun?.id, reviewRun.id);
     assert.equal(result?.decision?.decision, 'APPROVED');
-    await assert.rejects(service.getSubmissionById('not-a-uuid'), ZodError);
+    await assert.rejects(service.getSubmissionById('not-a-uuid'), isZodError);
   });
 
   it('updates status only for valid IDs and statuses', async () => {
