@@ -26,8 +26,9 @@ function getExcerptOffsets(
     throw new Error('Finding character offsets must include both start and end');
   }
 
-  if (hasStart && hasEnd) {
-    const { charStart, charEnd } = finding;
+  if (typeof finding.charStart === 'number' && typeof finding.charEnd === 'number') {
+    const charStart = finding.charStart;
+    const charEnd = finding.charEnd;
     if (
       charStart < 0 ||
       charEnd < charStart ||
