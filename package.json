@@ -1,0 +1,31 @@
+{
+  "name": "evolyn",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Evolyn - AI-Powered Brand Governance Platform",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run --workspaces --parallel --if-present dev",
+    "dev:api": "npm --workspace=@evolyn/api run dev",
+    "dev:web": "npm --workspace=@evolyn/web run dev",
+    "build": "npm run --workspace=@evolyn/shared build && npm run --workspaces --if-present build",
+    "typecheck": "npm run --workspaces --if-present typecheck",
+    "test": "npm run --workspaces --if-present test",
+    "lint": "npm run --workspaces --if-present lint",
+    "db:generate": "npm --workspace=@evolyn/api run db:generate",
+    "db:migrate": "npm --workspace=@evolyn/api run db:migrate",
+    "db:seed": "npm --workspace=@evolyn/api run db:seed"
+  },
+  "keywords": [
+    "brand-governance",
+    "gemini",
+    "pgvector",
+    "nextjs",
+    "express"
+  ],
+  "author": "Team Matrix Mechanics",
+  "license": "UNLICENSED"
+}
