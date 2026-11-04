@@ -104,10 +104,20 @@ describe('API Foundation & Health Routing (In-Memory)', () => {
     const req = {} as Request;
     const res = createMockResponse();
     const next: NextFunction = () => {};
+    const originalConsoleError = console.error;
+    let loggedMessage: string | undefined;
 
-    errorHandler(error, req, res, next);
+    console.error = (message?: unknown) => {
+      loggedMessage = String(message);
+    };
+    try {
+      errorHandler(error, req, res, next);
+    } finally {
+      console.error = originalConsoleError;
+    }
 
     assert.equal(res.statusCode, 500);
     assert.equal(res.jsonData.error, 'Database connection timed out');
+    assert.equal(loggedMessage, '[API Error] Database connection timed out');
   });
 });
