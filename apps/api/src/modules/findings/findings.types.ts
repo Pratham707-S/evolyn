@@ -10,6 +10,7 @@ export interface RawFindingInput {
   explanation: string;
   suggestedFix?: string;
   sourceQuote: string;
+  sourceText: string;
   confidenceScore?: number;
   evidenceStrengthScore?: number;
 }
