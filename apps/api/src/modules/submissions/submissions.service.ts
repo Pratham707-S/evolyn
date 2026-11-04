@@ -12,6 +12,7 @@ import type {
   SubmissionChannel,
   SubmissionStatus,
 } from '@evolyn/shared';
+import { z } from 'zod';
 import type { ISubmissionService } from './index.js';
 import {
   SubmissionRepository,
@@ -21,6 +22,12 @@ import {
   type SubmissionRecord,
 } from './submissions.repository.js';
 import type { SubmissionWithReview } from './submissions.types.js';
+
+const reviewSummarySchema = z.object({
+  passedChecksCount: z.number(),
+  failedChecksCount: z.number(),
+  notes: z.string().optional(),
+});
 
 function mapSubmission(record: SubmissionRecord): ContentSubmission {
   return {
@@ -37,14 +44,8 @@ function mapSubmission(record: SubmissionRecord): ContentSubmission {
 }
 
 function mapReviewRun(record: ReviewRunRecord): ReviewRun {
-  const summary = record.summary;
-  if (
-    typeof summary !== 'object' ||
-    summary === null ||
-    typeof summary.passedChecksCount !== 'number' ||
-    typeof summary.failedChecksCount !== 'number' ||
-    (summary.notes !== undefined && typeof summary.notes !== 'string')
-  ) {
+  const summary = reviewSummarySchema.safeParse(record.summary);
+  if (!summary.success) {
     throw new Error(`Review run ${record.id} has an invalid summary`);
   }
 
@@ -54,11 +55,7 @@ function mapReviewRun(record: ReviewRunRecord): ReviewRun {
     overallComplianceScore: record.overallComplianceScore,
     totalIssuesCount: record.totalIssuesCount,
     modelUsed: record.modelUsed,
-    summary: {
-      passedChecksCount: summary.passedChecksCount,
-      failedChecksCount: summary.failedChecksCount,
-      ...(summary.notes === undefined ? {} : { notes: summary.notes }),
-    },
+    summary: summary.data,
     createdAt: record.createdAt.toISOString(),
   };
 }
