@@ -15,9 +15,8 @@
 
 ## 2. Expected Inputs & Outputs
 - **Inputs:**
-  - Raw findings array from review execution.
-  - Target guideline rules and approved facts.
-  - Original submitted content.
+  - Raw findings array from review execution, each carrying the guideline/fact source text used for its citation.
+  - Original submitted content for validating or deriving excerpt offsets.
 - **Outputs:**
   - Persisted `detected_issues` records with validated quotes, confidence scores, and evidence strength scores.
 
@@ -32,9 +31,11 @@
 ## 4. Public Interface Contract
 Exported via `modules/findings/index.ts`:
 - `FindingsService`:
-  - `recordFindings(reviewRunId: string, rawFindings: RawFindingInput[]): Promise<DetectedIssue[]>`
+  - `recordFindings(reviewRunId: string, rawFindings: RawFindingInput[], submissionText: string): Promise<DetectedIssue[]>`
   - `verifyVerbatimQuote(quote: string, sourceText: string): boolean`
   - `getFindingsByReviewRunId(reviewRunId: string): Promise<DetectedIssue[]>`
+
+The read endpoint `GET /api/review-runs/:reviewRunId/findings` returns findings for a review run. Citation and excerpt validation happen before findings are persisted; invalid findings are rejected as a batch.
 
 ---
 
