@@ -20,7 +20,12 @@
  * ============================================================================
  */
 
-import type { ContentSubmission, CreateSubmissionInput, SubmissionStatus } from '@evolyn/shared';
+import type {
+  ContentSubmission,
+  CreateSubmissionInput,
+  SubmissionChannel,
+  SubmissionStatus,
+} from '@evolyn/shared';
 import type { SubmissionWithReview } from './submissions.types.js';
 
 export interface ISubmissionService {
