@@ -82,6 +82,23 @@ describe('API Foundation & Health Routing (In-Memory)', () => {
     assert.equal(res.jsonData.details[0].message, 'Content must be at least 10 chars');
   });
 
+  it('errorHandler recognizes validation errors from another Zod runtime instance', () => {
+    const sharedZodError = {
+      name: 'ZodError',
+      errors: [{ path: ['title'], message: 'Title is required' }],
+    };
+    const req = {} as Request;
+    const res = createMockResponse();
+    const next: NextFunction = () => {};
+
+    errorHandler(sharedZodError, req, res, next);
+
+    assert.equal(res.statusCode, 400);
+    assert.equal(res.jsonData.error, 'Validation failed');
+    assert.equal(res.jsonData.details[0].field, 'title');
+    assert.equal(res.jsonData.details[0].message, 'Title is required');
+  });
+
   it('errorHandler catches generic Error and returns 500 without leaking stack traces', () => {
     const error = new Error('Database connection timed out');
     const req = {} as Request;
