@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'http';
 import { Socket } from 'net';
@@ -20,6 +20,11 @@ interface DispatchResult {
   headers: Record<string, any>;
 }
 
+/**
+ * Reliable In-Memory Express Request Dispatcher
+ * Exercises the complete Express app stack (middlewares, routing, error-handlers)
+ * without requiring ephemeral TCP port binding (immune to sandbox/network restrictions).
+ */
 function dispatch(options: DispatchOptions): Promise<DispatchResult> {
   return new Promise((resolve, reject) => {
     try {
@@ -54,7 +59,7 @@ function dispatch(options: DispatchOptions): Promise<DispatchResult> {
         try {
           parsed = JSON.parse(rawOutput);
         } catch {
-          // Keep raw string if not JSON
+          // Keep raw string if non-JSON payload
         }
         resolve({
           statusCode: res.statusCode,
@@ -105,6 +110,27 @@ const sampleRule: GuidelineRuleRecord = {
 };
 
 describe('Guidelines Integration Tests (Express App E2E)', () => {
+  // Capture original repository methods to guarantee restoration and prevent state leakage
+  const originalCreate = guidelinesRepository.create;
+  const originalFindMany = guidelinesRepository.findMany;
+  const originalFindById = guidelinesRepository.findById;
+  const originalFindRules = guidelinesRepository.findRulesByGuidelineId;
+
+  function restoreRepositoryMocks() {
+    guidelinesRepository.create = originalCreate;
+    guidelinesRepository.findMany = originalFindMany;
+    guidelinesRepository.findById = originalFindById;
+    guidelinesRepository.findRulesByGuidelineId = originalFindRules;
+  }
+
+  beforeEach(() => {
+    restoreRepositoryMocks();
+  });
+
+  afterEach(() => {
+    restoreRepositoryMocks();
+  });
+
   it('mounts guidelinesRouter and handles GET /api/guidelines', async () => {
     guidelinesRepository.findMany = async () => [sampleRecord];
 
