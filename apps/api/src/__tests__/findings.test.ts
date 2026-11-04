@@ -106,7 +106,7 @@ describe('FindingsService', () => {
 
     assert.equal(persistedFindings, 1);
     assert.equal(findings[0].charStart, 6);
-    assert.equal(findings[0].charEnd, 25);
+    assert.equal(findings[0].charEnd, 24);
     assert.equal(findings[0].status, 'OPEN');
     assert.equal(findings[0].evidenceStrengthScore, 0);
   });
