@@ -1,5 +1,9 @@
 import {
     createGuidelineSchema,
+    GUIDELINE_CATEGORIES,
+    GUIDELINE_STATUSES,
+    RULE_TYPES,
+    SEVERITY_LEVELS,
 } from '@evolyn/shared';
 
 import type {
@@ -34,31 +38,6 @@ type GuidelinesRepositoryPort = Pick<
     | 'findRulesByGuidelineId'
 >;
 
-// Validate database enum values before mapping them
-const categories = [
-    'TONE',
-    'TERMINOLOGY',
-    'CLAIMS',
-    'VISUAL',
-    'LEGAL',
-    'GENERAL',
-] as const;
-
-const statuses = ['ACTIVE', 'ARCHIVED', 'DRAFT'] as const;
-
-const ruleTypes = [
-    'MANDATORY',
-    'PROHIBITED',
-    'CONDITIONAL',
-    'RECOMMENDED',
-] as const;
-
-const severities = [
-    'CRITICAL',
-    'WARNING',
-    'SUGGESTION',
-] as const;
-
 function validateEnum<T extends readonly string[]>(
     value: string,
     allowed: T,
@@ -78,7 +57,7 @@ function mapGuideline(record: GuidelineRecord): Guideline {
         title: record.title,
         category: validateEnum(
             record.category,
-            categories,
+            GUIDELINE_CATEGORIES,
             'category',
         ),
         version: record.version,
@@ -86,7 +65,7 @@ function mapGuideline(record: GuidelineRecord): Guideline {
         s3Url: record.s3Url,
         status: validateEnum(
             record.status,
-            statuses,
+            GUIDELINE_STATUSES,
             'status',
         ),
         createdAt: record.createdAt.toISOString(),
@@ -103,14 +82,14 @@ function mapRule(record: GuidelineRuleRecord): GuidelineRule {
         guidelineId: record.guidelineId,
         ruleType: validateEnum(
             record.ruleType,
-            ruleTypes,
+            RULE_TYPES,
             'ruleType',
         ),
         ruleStatement: record.ruleStatement,
         explanation: record.explanation,
         severity: validateEnum(
             record.severity,
-            severities,
+            SEVERITY_LEVELS,
             'severity',
         ),
         ...(metadata &&
@@ -122,11 +101,7 @@ function mapRule(record: GuidelineRuleRecord): GuidelineRule {
     };
 }
 
-export class GuidelinesService
-    implements Pick<
-        IGuidelineService,
-        'createGuideline' | 'getGuidelines' | 'getGuidelineById'
-    > {
+export class GuidelinesService implements IGuidelineService {
     constructor(
         private readonly repository: GuidelinesRepositoryPort,
     ) { }
@@ -144,7 +119,7 @@ export class GuidelinesService
 
     // Retrieve guidelines
     async getGuidelines(
-        filter?: Pick<GuidelineQueryFilter, 'status' | 'category'>,
+        filter?: GuidelineQueryFilter,
     ): Promise<Guideline[]> {
         const records = await this.repository.findMany(filter);
 

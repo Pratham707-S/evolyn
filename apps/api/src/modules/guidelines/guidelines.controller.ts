@@ -1,12 +1,16 @@
 import type { Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
+import { guidelineCategorySchema, guidelineStatusSchema } from '@evolyn/shared';
 
 import type { IGuidelineService } from './index.js';
 import { guidelinesService } from './guidelines.service.js';
 
-type GuidelinesControllerService = Pick<
-  IGuidelineService,
-  'createGuideline' | 'getGuidelines' | 'getGuidelineById'
->;
+export const guidelineQuerySchema = z.object({
+  category: guidelineCategorySchema.optional(),
+  status: guidelineStatusSchema.optional(),
+});
+
+type GuidelinesControllerService = IGuidelineService;
 
 export function createGuidelinesController(
   service: GuidelinesControllerService = guidelinesService,
@@ -33,21 +37,9 @@ export function createGuidelinesController(
     next: NextFunction,
   ) => {
     try {
-      const { category, status } = req.query;
+      const validatedQuery = guidelineQuerySchema.parse(req.query);
 
-      if (
-        (category !== undefined && typeof category !== 'string') ||
-        (status !== undefined && typeof status !== 'string')
-      ) {
-        return res.status(400).json({
-          error: 'Invalid query parameters',
-        });
-      }
-
-      const guidelines = await service.getGuidelines({
-        ...(category !== undefined ? { category } : {}),
-        ...(status !== undefined ? { status } : {}),
-      });
+      const guidelines = await service.getGuidelines(validatedQuery);
 
       return res.status(200).json(guidelines);
     } catch (error) {

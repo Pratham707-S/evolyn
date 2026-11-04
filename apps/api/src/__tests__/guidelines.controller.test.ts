@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { ZodError } from 'zod';
 import type { Request, Response, NextFunction } from 'express';
 import type { Guideline } from '@evolyn/shared';
 
@@ -91,7 +92,7 @@ describe('GuidelinesController', () => {
         assert.deepEqual(res.body, expected);
     });
 
-    it('rejects non-string query parameters with 400', async () => {
+    it('rejects invalid query parameters by forwarding ZodError to error middleware', async () => {
         const service = {
             createGuideline: async () => mockGuideline,
             getGuidelines: async () => [],
@@ -103,15 +104,46 @@ describe('GuidelinesController', () => {
             query: { category: ['TONE', 'LEGAL'] } as unknown as Request['query'],
         });
         const res = createResponse();
+        let forwardedError: unknown;
+        const next: NextFunction = (error?: unknown) => {
+            forwardedError = error;
+            return undefined as never;
+        };
 
         await controller.getGuidelines(
             req,
             res as unknown as Response,
-            (() => { }) as NextFunction,
+            next,
         );
 
-        assert.equal(res.statusCode, 400);
-        assert.deepEqual(res.body, { error: 'Invalid query parameters' });
+        assert.ok(forwardedError instanceof ZodError);
+    });
+
+    it('rejects invalid category enum query parameter by forwarding ZodError', async () => {
+        const service = {
+            createGuideline: async () => mockGuideline,
+            getGuidelines: async () => [],
+            getGuidelineById: async () => null,
+        };
+
+        const controller = createGuidelinesController(service);
+        const req = createRequest({
+            query: { category: 'NON_EXISTENT_CATEGORY' } as unknown as Request['query'],
+        });
+        const res = createResponse();
+        let forwardedError: unknown;
+        const next: NextFunction = (error?: unknown) => {
+            forwardedError = error;
+            return undefined as never;
+        };
+
+        await controller.getGuidelines(
+            req,
+            res as unknown as Response,
+            next,
+        );
+
+        assert.ok(forwardedError instanceof ZodError);
     });
 
     it('returns 404 when guideline does not exist', async () => {

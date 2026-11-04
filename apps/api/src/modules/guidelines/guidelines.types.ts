@@ -1,14 +1,20 @@
-import type { Guideline, GuidelineRule } from '@evolyn/shared';
+import type {
+  Guideline,
+  GuidelineRule,
+  GuidelineCategory,
+  GuidelineStatus,
+  RuleType,
+  Severity,
+} from '@evolyn/shared';
 
 export interface GuidelineQueryFilter {
-  category?: string;
-  status?: string;
-  limit?: number;
+  category?: GuidelineCategory;
+  status?: GuidelineStatus;
 }
 
 export interface RuleExtractionResult {
   ruleStatement: string;
-  ruleType: 'MANDATORY' | 'PROHIBITED' | 'CONDITIONAL' | 'RECOMMENDED';
+  ruleType: RuleType;
   explanation: string;
-  severity: 'CRITICAL' | 'WARNING' | 'SUGGESTION';
+  severity: Severity;
 }

@@ -46,17 +46,11 @@ export class GuidelinesRepository {
             ? and(...conditions)
             : undefined;
 
-        const query = db
+        return db
             .select()
             .from(guidelines)
             .where(whereClause)
             .orderBy(desc(guidelines.createdAt));
-
-        if (filter.limit !== undefined) {
-            return query.limit(filter.limit);
-        }
-
-        return query;
     }
 
     async findById(id: string): Promise<GuidelineRecord | null> {
