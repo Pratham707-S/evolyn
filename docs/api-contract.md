@@ -99,13 +99,18 @@ Submits marketing or communication copy for brand governance review.
 **Response `201 Created`:**
 ```json
 {
-  "id": "e4a2b910-...",
-  "title": "Launch Copy - Social Post",
-  "channel": "SOCIAL",
-  "status": "PENDING",
-  "createdAt": "2026-11-04T11:25:00.000Z"
+  "submission": {
+    "id": "e4a2b910-...",
+    "title": "Launch Copy - Social Post",
+    "channel": "SOCIAL",
+    "status": "PENDING",
+    "createdAt": "2026-11-04T11:25:00.000Z"
+  }
 }
 ```
+
+`GET /api/submissions` lists submissions and accepts optional `status` and `channel` filters.
+`GET /api/submissions/:id` returns the submission with its latest review run and decision, or `404` when it does not exist.
 
 ---
 
