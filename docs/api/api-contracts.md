@@ -29,7 +29,11 @@
   - Body: `CreateSubmissionRequest`
   - Response: `CreateSubmissionResponse`
 - `GET /api/submissions` — List past submissions
+  - Optional query filters: `status`, `channel`
   - Response: `ListSubmissionsResponse`
+- `GET /api/submissions/:id` — Get a submission with its latest review run and decision
+  - Response: `{ submission: ContentSubmission & { reviewRun: ReviewRun | null; decision: Decision | null } }`
+  - Returns `404` when the submission does not exist
 
 ## 5. Reviews Module (`modules/reviews`)
 - `POST /api/submissions/:id/analyze` — Trigger governance audit
