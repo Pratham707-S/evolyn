@@ -82,13 +82,6 @@ describe('API Foundation & Health Routing (In-Memory)', () => {
     assert.equal(res.jsonData.details[0].message, 'Content must be at least 10 chars');
   });
 
-<<<<<<< HEAD
-  it('errorHandler recognizes validation errors from another Zod runtime instance', () => {
-    const sharedZodError = {
-      name: 'ZodError',
-      errors: [{ path: ['title'], message: 'Title is required' }],
-    };
-=======
   it('errorHandler accepts structurally valid cross-package Zod-like objects', () => {
     const crossPackageZodError = {
       name: 'ZodError',
@@ -100,16 +93,11 @@ describe('API Foundation & Health Routing (In-Memory)', () => {
       ],
     };
 
->>>>>>> e4b10b54100f783ab3cb739f5d4791ac0dc627be
     const req = {} as Request;
     const res = createMockResponse();
     const next: NextFunction = () => {};
 
-<<<<<<< HEAD
-    errorHandler(sharedZodError, req, res, next);
-=======
     errorHandler(crossPackageZodError, req, res, next);
->>>>>>> e4b10b54100f783ab3cb739f5d4791ac0dc627be
 
     assert.equal(res.statusCode, 400);
     assert.equal(res.jsonData.error, 'Validation failed');
@@ -117,8 +105,6 @@ describe('API Foundation & Health Routing (In-Memory)', () => {
     assert.equal(res.jsonData.details[0].message, 'Title is required');
   });
 
-<<<<<<< HEAD
-=======
   it('errorHandler safely treats malformed Zod-like error objects as 500 internal error', () => {
     const malformedErrors = [
       { name: 'ZodError', errors: 'not-an-array' },
@@ -127,20 +113,31 @@ describe('API Foundation & Health Routing (In-Memory)', () => {
       { name: 'ZodError', errors: [{ path: ['field'], message: 123 }] },
       { name: 'ZodError' },
     ];
+    const originalConsoleError = console.error;
+    const loggedErrors: unknown[][] = [];
 
-    for (const malformed of malformedErrors) {
-      const req = {} as Request;
-      const res = createMockResponse();
-      const next: NextFunction = () => {};
+    console.error = (...args: unknown[]) => {
+      loggedErrors.push(args);
+    };
+    try {
+      for (const malformed of malformedErrors) {
+        const req = {} as Request;
+        const res = createMockResponse();
+        const next: NextFunction = () => {};
 
-      errorHandler(malformed, req, res, next);
+        errorHandler(malformed, req, res, next);
 
-      assert.equal(res.statusCode, 500);
-      assert.equal(res.jsonData.error, 'Internal server error');
+        assert.equal(res.statusCode, 500);
+        assert.equal(res.jsonData.error, 'Internal server error');
+      }
+    } finally {
+      console.error = originalConsoleError;
     }
+
+    assert.equal(loggedErrors.length, malformedErrors.length);
+    assert.ok(loggedErrors.every(([message]) => message === '[API Error] Unknown exception:'));
   });
 
->>>>>>> e4b10b54100f783ab3cb739f5d4791ac0dc627be
   it('errorHandler catches generic Error and returns 500 without leaking stack traces', () => {
     const error = new Error('Database connection timed out');
     const req = {} as Request;
@@ -167,10 +164,20 @@ describe('API Foundation & Health Routing (In-Memory)', () => {
     const req = {} as Request;
     const res = createMockResponse();
     const next: NextFunction = () => {};
+    const originalConsoleError = console.error;
+    let loggedMessage: unknown;
 
-    errorHandler('Fatal string crash', req, res, next);
+    console.error = (message?: unknown) => {
+      loggedMessage = message;
+    };
+    try {
+      errorHandler('Fatal string crash', req, res, next);
+    } finally {
+      console.error = originalConsoleError;
+    }
 
     assert.equal(res.statusCode, 500);
     assert.equal(res.jsonData.error, 'Internal server error');
+    assert.equal(loggedMessage, '[API Error] Unknown exception:');
   });
 });
