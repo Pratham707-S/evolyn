@@ -4,6 +4,7 @@ import { healthRouter } from './routes/health.js';
 import { guidelinesRouter } from './modules/guidelines/guidelines.routes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { submissionsRouter } from './modules/submissions/submissions.routes.js';
+import { findingsRouter } from './modules/findings/findings.routes.js';
 
 export const app = express();
 
@@ -26,6 +27,7 @@ app.get('/', (req, res) => {
 app.use('/', healthRouter);
 app.use('/api', healthRouter);
 app.use('/api/submissions', submissionsRouter);
+app.use('/api/review-runs', findingsRouter);
 
 // Guidelines Module
 app.use('/api/guidelines', guidelinesRouter);

@@ -146,6 +146,38 @@ Triggers the multi-layer semantic audit against brand rules and approved facts.
 }
 ```
 
+### `GET /api/review-runs/:reviewRunId/findings`
+Returns the verified findings stored for a review run.
+
+**Response `200 OK`:**
+```json
+{
+  "reviewRunId": "9b12c34a-...",
+  "findings": [],
+  "total": 0
+}
+```
+
+**Response `404 Not Found`:**
+```json
+{
+  "error": "Review run not found"
+}
+```
+
+**Response `400 Bad Request`:**
+```json
+{
+  "error": "Validation failed",
+  "details": [
+    {
+      "field": "reviewRunId",
+      "message": "Invalid uuid"
+    }
+  ]
+}
+```
+
 ---
 
 ## 6. Human Review Decisions (Ayan & Pratham Kave)

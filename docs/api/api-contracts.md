@@ -40,6 +40,10 @@
   - Response: `AnalyzeSubmissionResponse`
 - `GET /api/submissions/:id/review` — Review details with highlighted issues
   - Response: `ReviewDetailsResponse`
+- `GET /api/review-runs/:reviewRunId/findings` — List verified findings for a review run
+  - Response: `{ reviewRunId: string, findings: DetectedIssue[], total: number }`
+  - Returns `404` when the review run does not exist
+  - Returns `400` when `reviewRunId` is not a valid UUID
 
 ## 6. Decisions Module (`modules/decisions`)
 - `POST /api/submissions/:id/decision` — Submit human review sign-off
