@@ -15,7 +15,10 @@ import {
 } from '../../db/schema.js';
 
 import type { CreateGuidelineInput } from '@evolyn/shared';
-import type { GuidelineQueryFilter } from './guidelines.types.js';
+import type {
+    GuidelineQueryFilter,
+    RuleExtractionResult,
+} from './guidelines.types.js';
 import type { DetectedConflict } from './conflict-detector.js';
 
 export type GuidelineRecord = typeof guidelines.$inferSelect;
@@ -24,8 +27,12 @@ export type GuidelineConflictRecord =
     typeof guidelineConflicts.$inferSelect;
 
 export class GuidelinesRepository {
+    constructor(
+        private readonly database: typeof db = db,
+    ) { }
+
     async create(input: CreateGuidelineInput): Promise<GuidelineRecord> {
-        const [guideline] = await db
+        const [guideline] = await this.database
             .insert(guidelines)
             .values({
                 title: input.title,
@@ -41,6 +48,76 @@ export class GuidelinesRepository {
         }
 
         return guideline;
+    }
+
+    /**
+     * Persist multiple extracted rules for a guideline (append mode).
+     */
+    async createRules(
+        guidelineId: string,
+        rules: RuleExtractionResult[],
+    ): Promise<GuidelineRuleRecord[]> {
+        if (rules.length === 0) {
+            return [];
+        }
+
+        return this.database
+            .insert(guidelineRules)
+            .values(
+                rules.map((rule) => ({
+                    guidelineId,
+                    ruleType: rule.ruleType,
+                    ruleStatement: rule.ruleStatement,
+                    explanation: rule.explanation,
+                    severity: rule.severity,
+                })),
+            )
+            .returning();
+    }
+
+    /**
+     * Atomically replace all rules for a guideline (safe re-extraction).
+     * Prevents duplicate rules upon repeated extraction runs.
+     * Enforces database transaction support — non-transactional deletion fallback is strictly forbidden.
+     */
+    async replaceRules(
+        guidelineId: string,
+        rules: RuleExtractionResult[],
+    ): Promise<GuidelineRuleRecord[]> {
+        const executor =
+            'transaction' in this.database &&
+            typeof this.database.transaction === 'function'
+                ? this.database
+                : null;
+
+        if (!executor) {
+            throw new Error(
+                'Database transaction support is required for atomic rule replacement',
+            );
+        }
+
+        return executor.transaction(async (tx) => {
+            await tx
+                .delete(guidelineRules)
+                .where(eq(guidelineRules.guidelineId, guidelineId));
+
+            if (rules.length === 0) {
+                return [];
+            }
+
+            return tx
+                .insert(guidelineRules)
+                .values(
+                    rules.map((rule) => ({
+                        guidelineId,
+                        ruleType: rule.ruleType,
+                        ruleStatement: rule.ruleStatement,
+                        explanation: rule.explanation,
+                        severity: rule.severity,
+                    })),
+                )
+                .returning();
+        });
     }
 
     async findMany(
@@ -60,7 +137,7 @@ export class GuidelinesRepository {
             ? and(...conditions)
             : undefined;
 
-        return db
+        return this.database
             .select()
             .from(guidelines)
             .where(whereClause)
@@ -68,7 +145,7 @@ export class GuidelinesRepository {
     }
 
     async findById(id: string): Promise<GuidelineRecord | null> {
-        const [guideline] = await db
+        const [guideline] = await this.database
             .select()
             .from(guidelines)
             .where(eq(guidelines.id, id))
@@ -80,7 +157,7 @@ export class GuidelinesRepository {
     async findRulesByGuidelineId(
         guidelineId: string,
     ): Promise<GuidelineRuleRecord[]> {
-        return db
+        return this.database
             .select()
             .from(guidelineRules)
             .where(eq(guidelineRules.guidelineId, guidelineId))
@@ -94,7 +171,7 @@ export class GuidelinesRepository {
             return [];
         }
 
-        return db
+        return this.database
             .select()
             .from(guidelineConflicts)
             .where(
@@ -105,6 +182,11 @@ export class GuidelinesRepository {
             );
     }
 
+    /**
+     * Persist detected guideline rule conflicts with concurrency safety.
+     * Enforces canonical rule ID ordering (ruleAId <= ruleBId) to prevent mirror duplicates (A:B vs B:A).
+     * Uses onConflictDoNothing to guarantee concurrent insertion safety against database unique index.
+     */
     async createConflicts(
         conflicts: DetectedConflict[],
     ): Promise<GuidelineConflictRecord[]> {
@@ -112,18 +194,40 @@ export class GuidelinesRepository {
             return [];
         }
 
-        return db
+        // Canonical ordering: ensure ruleAId is always <= ruleBId
+        const normalized = conflicts.map((conflict) => {
+            const [ruleAId, ruleBId] =
+                conflict.ruleAId <= conflict.ruleBId
+                    ? [conflict.ruleAId, conflict.ruleBId]
+                    : [conflict.ruleBId, conflict.ruleAId];
+
+            return {
+                ruleAId,
+                ruleBId,
+                conflictType: conflict.conflictType,
+                explanation: conflict.explanation,
+                severity: conflict.severity,
+                status: 'OPEN' as const,
+            };
+        });
+
+        // Deduplicate within the same batch to avoid duplicate key violations in single SQL statement
+        const seen = new Set<string>();
+        const uniqueConflicts = normalized.filter((c) => {
+            const key = `${c.ruleAId}:${c.ruleBId}:${c.conflictType}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+
+        if (uniqueConflicts.length === 0) {
+            return [];
+        }
+
+        return this.database
             .insert(guidelineConflicts)
-            .values(
-                conflicts.map((conflict) => ({
-                    ruleAId: conflict.ruleAId,
-                    ruleBId: conflict.ruleBId,
-                    conflictType: conflict.conflictType,
-                    explanation: conflict.explanation,
-                    severity: conflict.severity,
-                    status: 'OPEN',
-                })),
-            )
+            .values(uniqueConflicts)
+            .onConflictDoNothing()
             .returning();
     }
 }

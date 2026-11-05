@@ -60,6 +60,51 @@ Creates or uploads a brand guideline document.
 ### `GET /api/guidelines`
 Lists all active brand guidelines.
 
+### `POST /api/guidelines/:id/extract-rules`
+Extracts and persists atomic, verifiable brand rules strictly from the guideline's canonical stored content.
+Caller-supplied request body overrides are disallowed.
+Re-extraction replaces existing rules atomically inside a transaction to prevent duplicate accumulation.
+Empty extraction results are rejected to protect existing rules.
+
+**Response `200 OK`:**
+```json
+{
+  "guidelineId": "7f8b3c21-...",
+  "rules": [
+    {
+      "id": "11ab22cd-...",
+      "guidelineId": "7f8b3c21-...",
+      "ruleType": "MANDATORY",
+      "ruleStatement": "Always write brand name as Evolyn.",
+      "explanation": "Maintains brand consistency.",
+      "severity": "CRITICAL",
+      "createdAt": "2026-11-04T11:20:00.000Z"
+    }
+  ],
+  "total": 1
+}
+```
+
+**Response `404 Not Found`:**
+```json
+{
+  "error": "Guideline not found"
+}
+```
+
+**Response `400 Bad Request`:**
+```json
+{
+  "error": "Validation failed",
+  "details": [
+    {
+      "field": "id",
+      "message": "Invalid uuid"
+    }
+  ]
+}
+```
+
 ---
 
 ## 3. Approved Knowledge & Facts (Mann)
@@ -99,13 +144,18 @@ Submits marketing or communication copy for brand governance review.
 **Response `201 Created`:**
 ```json
 {
-  "id": "e4a2b910-...",
-  "title": "Launch Copy - Social Post",
-  "channel": "SOCIAL",
-  "status": "PENDING",
-  "createdAt": "2026-11-04T11:25:00.000Z"
+  "submission": {
+    "id": "e4a2b910-...",
+    "title": "Launch Copy - Social Post",
+    "channel": "SOCIAL",
+    "status": "PENDING",
+    "createdAt": "2026-11-04T11:25:00.000Z"
+  }
 }
 ```
+
+`GET /api/submissions` lists submissions and accepts optional `status` and `channel` filters.
+`GET /api/submissions/:id` returns the submission with its latest review run and decision, or `404` when it does not exist.
 
 ---
 
@@ -136,6 +186,38 @@ Triggers the multi-layer semantic audit against brand rules and approved facts.
       "confidenceScore": 0.98,
       "evidenceStrengthScore": 0.05,
       "status": "OPEN"
+    }
+  ]
+}
+```
+
+### `GET /api/review-runs/:reviewRunId/findings`
+Returns the verified findings stored for a review run.
+
+**Response `200 OK`:**
+```json
+{
+  "reviewRunId": "9b12c34a-...",
+  "findings": [],
+  "total": 0
+}
+```
+
+**Response `404 Not Found`:**
+```json
+{
+  "error": "Review run not found"
+}
+```
+
+**Response `400 Bad Request`:**
+```json
+{
+  "error": "Validation failed",
+  "details": [
+    {
+      "field": "reviewRunId",
+      "message": "Invalid uuid"
     }
   ]
 }

@@ -5,6 +5,7 @@ import { Socket } from 'net';
 
 import { app } from '../app.js';
 import { guidelinesRepository } from '../modules/guidelines/guidelines.repository.js';
+import { guidelinesService } from '../modules/guidelines/guidelines.service.js';
 import type { GuidelineRecord, GuidelineRuleRecord } from '../modules/guidelines/guidelines.repository.js';
 
 interface DispatchOptions {
@@ -115,12 +116,15 @@ describe('Guidelines Integration Tests (Express App E2E)', () => {
   const originalFindMany = guidelinesRepository.findMany;
   const originalFindById = guidelinesRepository.findById;
   const originalFindRules = guidelinesRepository.findRulesByGuidelineId;
+  const originalReplaceRules = guidelinesRepository.replaceRules;
 
   function restoreRepositoryMocks() {
     guidelinesRepository.create = originalCreate;
     guidelinesRepository.findMany = originalFindMany;
     guidelinesRepository.findById = originalFindById;
     guidelinesRepository.findRulesByGuidelineId = originalFindRules;
+    guidelinesRepository.replaceRules = originalReplaceRules;
+    guidelinesService.setRuleExtractor(undefined);
   }
 
   beforeEach(() => {
@@ -269,5 +273,191 @@ describe('Guidelines Integration Tests (Express App E2E)', () => {
 
     assert.equal(res.statusCode, 404);
     assert.ok(res.body.error.includes('Route not found'));
+  });
+
+  describe('POST /api/guidelines/:id/extract-rules', () => {
+    const validGuidelineId = 'c0a80123-4567-4890-a123-456789abcdef';
+
+    it('extracts and saves rules successfully using canonical guideline content', async () => {
+      guidelinesRepository.findById = async (id) =>
+        id === validGuidelineId
+          ? {
+              ...sampleRecord,
+              id: validGuidelineId,
+              rawContent: 'Brand Rule: Always use authentic colors.',
+            }
+          : null;
+
+      guidelinesService.setRuleExtractor({
+        extractRules: async (content: string) => {
+          assert.equal(content, 'Brand Rule: Always use authentic colors.');
+          return [
+            {
+              ruleStatement: 'Always use authentic colors.',
+              ruleType: 'MANDATORY',
+              explanation: 'Preserves visual identity.',
+              severity: 'CRITICAL',
+            },
+          ];
+        },
+      });
+
+      guidelinesRepository.replaceRules = async (id, rules) => {
+        assert.equal(id, validGuidelineId);
+        assert.equal(rules.length, 1);
+        return [
+          {
+            ...sampleRule,
+            id: 'r-extracted-1',
+            guidelineId: validGuidelineId,
+            ruleStatement: rules[0]!.ruleStatement,
+            ruleType: rules[0]!.ruleType,
+            explanation: rules[0]!.explanation,
+            severity: rules[0]!.severity,
+          },
+        ];
+      };
+
+      const res = await dispatch({
+        method: 'POST',
+        url: `/api/guidelines/${validGuidelineId}/extract-rules`,
+      });
+
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.body.guidelineId, validGuidelineId);
+      assert.equal(res.body.total, 1);
+      assert.ok(Array.isArray(res.body.rules));
+      assert.equal(res.body.rules[0].ruleStatement, 'Always use authentic colors.');
+    });
+
+    it('returns 400 when guideline id is not a valid UUID', async () => {
+      const res = await dispatch({
+        method: 'POST',
+        url: '/api/guidelines/not-a-valid-uuid/extract-rules',
+      });
+
+      assert.equal(res.statusCode, 400);
+      assert.equal(res.body.error, 'Validation failed');
+      assert.ok(Array.isArray(res.body.details));
+      assert.equal(res.body.details[0].field, 'id');
+    });
+
+    it('returns 404 when guideline does not exist', async () => {
+      guidelinesRepository.findById = async () => null;
+
+      const res = await dispatch({
+        method: 'POST',
+        url: `/api/guidelines/${validGuidelineId}/extract-rules`,
+      });
+
+      assert.equal(res.statusCode, 404);
+      assert.deepEqual(res.body, { error: 'Guideline not found' });
+    });
+
+    it('returns 400 when canonical guideline content is empty', async () => {
+      guidelinesRepository.findById = async () => ({
+        ...sampleRecord,
+        id: validGuidelineId,
+        rawContent: '   ',
+      });
+
+      const res = await dispatch({
+        method: 'POST',
+        url: `/api/guidelines/${validGuidelineId}/extract-rules`,
+      });
+
+      assert.equal(res.statusCode, 400);
+      assert.deepEqual(res.body, { error: 'Guideline content cannot be empty' });
+    });
+
+    it('returns 500 without leaking stack traces when extractor is not configured', async () => {
+      guidelinesRepository.findById = async () => ({
+        ...sampleRecord,
+        id: validGuidelineId,
+      });
+
+      // Extractor is undefined
+      guidelinesService.setRuleExtractor(undefined);
+
+      const res = await dispatch({
+        method: 'POST',
+        url: `/api/guidelines/${validGuidelineId}/extract-rules`,
+      });
+
+      assert.equal(res.statusCode, 500);
+      assert.equal(res.body.error, 'Rule extractor is not configured');
+      assert.equal(res.body.stack, undefined);
+    });
+
+    it('returns 400 when request body contains rawContent or unexpected fields', async () => {
+      const res = await dispatch({
+        method: 'POST',
+        url: `/api/guidelines/${validGuidelineId}/extract-rules`,
+        body: { rawContent: 'Malicious or untrusted override content' },
+      });
+
+      assert.equal(res.statusCode, 400);
+      assert.equal(res.body.error, 'Validation failed');
+      assert.ok(Array.isArray(res.body.details));
+      assert.ok(res.body.details.some((d: any) => d.message?.includes('stored canonical guideline content')));
+    });
+
+    it('returns 400 when extractor returns an empty array, preserving existing rules', async () => {
+      guidelinesRepository.findById = async () => ({
+        ...sampleRecord,
+        id: validGuidelineId,
+        rawContent: 'Brand guideline without extractable atomic rules.',
+      });
+
+      guidelinesService.setRuleExtractor({
+        extractRules: async () => [],
+      });
+
+      let replaceRulesCalled = false;
+      guidelinesRepository.replaceRules = async () => {
+        replaceRulesCalled = true;
+        return [];
+      };
+
+      const res = await dispatch({
+        method: 'POST',
+        url: `/api/guidelines/${validGuidelineId}/extract-rules`,
+      });
+
+      assert.equal(res.statusCode, 400);
+      assert.deepEqual(res.body, { error: 'No atomic rules could be extracted from the guideline content' });
+      assert.equal(replaceRulesCalled, false, 'replaceRules must not be called when extractor returns empty');
+    });
+
+    it('returns 500 when database transaction support is unavailable during rule replacement', async () => {
+      guidelinesRepository.findById = async () => ({
+        ...sampleRecord,
+        id: validGuidelineId,
+        rawContent: 'Valid guideline content.',
+      });
+
+      guidelinesService.setRuleExtractor({
+        extractRules: async () => [
+          {
+            ruleStatement: 'Valid rule statement.',
+            ruleType: 'MANDATORY',
+            explanation: 'Valid explanation.',
+            severity: 'CRITICAL',
+          },
+        ],
+      });
+
+      guidelinesRepository.replaceRules = async () => {
+        throw new Error('Database transaction support is required for atomic rule replacement');
+      };
+
+      const res = await dispatch({
+        method: 'POST',
+        url: `/api/guidelines/${validGuidelineId}/extract-rules`,
+      });
+
+      assert.equal(res.statusCode, 500);
+      assert.equal(res.body.error, 'Database transaction support is required for atomic rule replacement');
+    });
   });
 });

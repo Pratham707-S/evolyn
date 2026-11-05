@@ -17,6 +17,10 @@
   - Response: `ListGuidelinesResponse`
 - `GET /api/guidelines/:id` — Guideline details with rules & conflicts
   - Response: `GuidelineDetailResponse`
+- `POST /api/guidelines/:id/extract-rules` — Extract and persist atomic brand rules
+  - Response: `{ guidelineId: string, rules: GuidelineRule[], total: number }`
+  - Returns `404` when the guideline does not exist
+  - Returns `400` when `id` is not a valid UUID or content is empty
 
 ## 3. Knowledge Module (`modules/knowledge`)
 - `POST /api/facts` — Store approved factual claim with verified citation
@@ -29,13 +33,21 @@
   - Body: `CreateSubmissionRequest`
   - Response: `CreateSubmissionResponse`
 - `GET /api/submissions` — List past submissions
+  - Optional query filters: `status`, `channel`
   - Response: `ListSubmissionsResponse`
+- `GET /api/submissions/:id` — Get a submission with its latest review run and decision
+  - Response: `{ submission: ContentSubmission & { reviewRun: ReviewRun | null; decision: Decision | null } }`
+  - Returns `404` when the submission does not exist
 
 ## 5. Reviews Module (`modules/reviews`)
 - `POST /api/submissions/:id/analyze` — Trigger governance audit
   - Response: `AnalyzeSubmissionResponse`
 - `GET /api/submissions/:id/review` — Review details with highlighted issues
   - Response: `ReviewDetailsResponse`
+- `GET /api/review-runs/:reviewRunId/findings` — List verified findings for a review run
+  - Response: `{ reviewRunId: string, findings: DetectedIssue[], total: number }`
+  - Returns `404` when the review run does not exist
+  - Returns `400` when `reviewRunId` is not a valid UUID
 
 ## 6. Decisions Module (`modules/decisions`)
 - `POST /api/submissions/:id/decision` — Submit human review sign-off
