@@ -239,8 +239,8 @@ export function DashboardSidebar({
 
   return (
     <>
-      {/* Desktop fixed sidebar */}
-      <aside className="hidden lg:block fixed inset-y-0 left-0 z-30">
+      {/* Desktop sticky sidebar: in-flow flex item that never overlaps content */}
+      <aside className="hidden lg:block w-60 shrink-0 sticky top-0 h-screen z-30">
         {content}
       </aside>
 
@@ -260,4 +260,3 @@ export function DashboardSidebar({
     </>
   );
 }
-
