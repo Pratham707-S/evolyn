@@ -1,4 +1,4 @@
-import type { DetectedIssue, IssueType } from '@evolyn/shared';
+import type { IssueType } from '@evolyn/shared';
 
 export interface RawFindingInput {
   ruleId?: string | null;
@@ -10,6 +10,7 @@ export interface RawFindingInput {
   explanation: string;
   suggestedFix?: string;
   sourceQuote: string;
+  sourceText?: string;
   confidenceScore?: number;
   evidenceStrengthScore?: number;
 }

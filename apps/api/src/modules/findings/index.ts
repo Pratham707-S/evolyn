@@ -7,7 +7,7 @@
  * RESPONSIBILITIES & TASKS IN THIS FOLDER:
  * 1. Anti-Hallucination Verbatim Quote Guard:
  *    - `verifyVerbatimQuote(quote, sourceText)`: Confirms `sourceQuote` exists verbatim
- *      inside original submission copy before an issue is allowed to persist.
+ *      inside canonical stored source before an issue is allowed to persist.
  * 2. Innovation 2 — Claim Evidence Strength Engine:
  *    - For every factual claim flagged, compute evidence strength (0% to 100%).
  *    - Cross-reference with verified facts in knowledge repo.
@@ -24,9 +24,16 @@ import type { DetectedIssue } from '@evolyn/shared';
 import type { RawFindingInput } from './findings.types.js';
 
 export interface IFindingsService {
-  recordFindings(reviewRunId: string, rawFindings: RawFindingInput[]): Promise<DetectedIssue[]>;
+  recordFindings(
+    reviewRunId: string,
+    rawFindings: RawFindingInput[],
+    submissionText: string
+  ): Promise<DetectedIssue[]>;
   verifyVerbatimQuote(quote: string, sourceText: string): boolean;
-  getFindingsByReviewRunId(reviewRunId: string): Promise<DetectedIssue[]>;
+  getFindingsByReviewRunId(reviewRunId: string): Promise<DetectedIssue[] | null>;
 }
 
+export { FindingsService, findingsService } from './findings.service.js';
+export { FindingsRepository, findingsRepository } from './findings.repository.js';
+export { FindingsController, findingsController } from './findings.controller.js';
 export * from './findings.types.js';
