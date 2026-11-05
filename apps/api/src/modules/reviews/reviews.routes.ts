@@ -6,6 +6,7 @@ import type { ISubmissionService } from '../submissions/index.js';
 import { submissionService } from '../submissions/index.js';
 import { findingsService } from '../findings/index.js';
 import { knowledgeService } from '../knowledge/index.js';
+import { guidelinesService } from '../guidelines/index.js';
 import { GeminiAIProvider } from '../../infrastructure/ai/gemini.provider.js';
 import { db } from '../../db/index.js';
 import { guidelineRules } from '../../db/schema.js';
@@ -22,6 +23,7 @@ export function createReviewsRouter(
 
   router.post('/submissions/:id/analyze', controller.analyze);
   router.get('/submissions/:id/review', controller.getBySubmissionId);
+  router.get('/submissions/:id/reviews', controller.getHistoryBySubmissionId);
 
   return router;
 }
@@ -61,7 +63,7 @@ export const defaultGuidelineRuleSearch = {
 
 export const reviewService: IReviewService = new ReviewService({
   submissions: submissionService,
-  guidelines: defaultGuidelineRuleSearch,
+  guidelines: guidelinesService,
   knowledge: knowledgeService,
   findings: findingsService,
   ai: new GeminiAIProvider(),

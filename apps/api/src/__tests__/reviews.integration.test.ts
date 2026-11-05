@@ -117,11 +117,13 @@ const sampleSubmission: SubmissionWithReview = {
 describe('Reviews Integration Tests (Express App E2E)', () => {
   const originalExecuteReview = reviewService.executeReview.bind(reviewService);
   const originalGetReviewBySubmissionId = reviewService.getReviewBySubmissionId.bind(reviewService);
+  const originalGetReviewHistory = reviewService.getReviewHistory?.bind(reviewService);
   const originalGetSubmissionById = submissionService.getSubmissionById.bind(submissionService);
 
   function restoreMocks() {
     reviewService.executeReview = originalExecuteReview;
     reviewService.getReviewBySubmissionId = originalGetReviewBySubmissionId;
+    reviewService.getReviewHistory = originalGetReviewHistory;
     submissionService.getSubmissionById = originalGetSubmissionById;
   }
 
@@ -154,6 +156,27 @@ describe('Reviews Integration Tests (Express App E2E)', () => {
       assert.equal(res.body.overallComplianceScore, 92);
       assert.equal(res.body.totalIssuesCount, 0);
       assert.deepEqual(res.body.issues, []);
+    });
+
+    it('accepts revised content and executes review on revision', async () => {
+      let passedOptions: unknown;
+      reviewService.executeReview = async (id: string, options) => {
+        assert.equal(id, validSubmissionId);
+        passedOptions = options;
+        return {
+          reviewRun: sampleReviewRun,
+          issues: [],
+        };
+      };
+
+      const res = await dispatch({
+        method: 'POST',
+        url: `/api/submissions/${validSubmissionId}/analyze`,
+        body: { content: 'Brand compliant revision text.' },
+      });
+
+      assert.equal(res.statusCode, 200);
+      assert.deepEqual(passedOptions, { content: 'Brand compliant revision text.' });
     });
 
     it('returns 400 when :id is not a valid UUID', async () => {
@@ -280,6 +303,41 @@ describe('Reviews Integration Tests (Express App E2E)', () => {
 
       assert.equal(res.statusCode, 404);
       assert.equal(res.body.error, 'Review not found');
+    });
+  });
+
+  describe('GET /api/submissions/:id/reviews', () => {
+    it('returns 200 with chronological review history array and total count', async () => {
+      submissionService.getSubmissionById = async () => sampleSubmission;
+      reviewService.getReviewHistory = async () => [
+        {
+          reviewRun: sampleReviewRun,
+          issues: [],
+        },
+      ];
+
+      const res = await dispatch({
+        method: 'GET',
+        url: `/api/submissions/${validSubmissionId}/reviews`,
+      });
+
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.body.submissionId, validSubmissionId);
+      assert.equal(res.body.total, 1);
+      assert.equal(res.body.reviews.length, 1);
+      assert.equal(res.body.reviews[0].reviewRun.id, validReviewRunId);
+    });
+
+    it('returns 404 when submission does not exist', async () => {
+      submissionService.getSubmissionById = async () => null;
+
+      const res = await dispatch({
+        method: 'GET',
+        url: `/api/submissions/${validSubmissionId}/reviews`,
+      });
+
+      assert.equal(res.statusCode, 404);
+      assert.equal(res.body.error, 'Submission not found');
     });
   });
 });
