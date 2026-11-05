@@ -30,4 +30,5 @@ export interface IKnowledgeService {
   findRelevantFacts(queryVector: number[], limit?: number): Promise<FactMatchResult[]>;
 }
 
+export { KnowledgeService } from './knowledge.service.js';
 export * from './knowledge.types.js';
