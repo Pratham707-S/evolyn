@@ -16,6 +16,7 @@ import { z } from 'zod';
 import type { ISubmissionService } from './index.js';
 import {
   SubmissionRepository,
+  submissionRepository,
   type DecisionRecord,
   type ReviewRunRecord,
   type SubmissionDetailsRecord,
@@ -92,7 +93,7 @@ export class SubmissionService implements ISubmissionService {
     private readonly repository: Pick<
       SubmissionRepository,
       'create' | 'findById' | 'list' | 'updateStatus'
-    > = new SubmissionRepository()
+    > = submissionRepository
   ) {}
 
   async createSubmission(input: unknown): Promise<ContentSubmission> {
@@ -129,3 +130,5 @@ export class SubmissionService implements ISubmissionService {
     await this.repository.updateStatus(submissionId, validatedStatus);
   }
 }
+
+export const submissionService = new SubmissionService(submissionRepository);
