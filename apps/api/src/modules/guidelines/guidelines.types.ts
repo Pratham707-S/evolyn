@@ -30,3 +30,15 @@ export interface GuidelineRuleExtractor {
     rawContent: string,
   ): Promise<RuleExtractionResult[]>;
 }
+
+export interface GuidelineEmbeddingGenerator {
+  generateEmbedding(
+    text: string,
+    options?: { dimensions?: number },
+  ): Promise<number[]>;
+}
+
+export interface EmbeddingGenerationResult {
+  guidelineId: string;
+  generatedCount: number;
+}

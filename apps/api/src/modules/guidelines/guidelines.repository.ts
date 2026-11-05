@@ -3,6 +3,7 @@ import {
     desc,
     eq,
     inArray,
+    isNull,
     or,
     type SQL,
 } from 'drizzle-orm';
@@ -162,6 +163,38 @@ export class GuidelinesRepository {
             .from(guidelineRules)
             .where(eq(guidelineRules.guidelineId, guidelineId))
             .orderBy(desc(guidelineRules.createdAt));
+    }
+
+    async findRulesWithoutEmbeddings(
+        guidelineId: string,
+    ): Promise<GuidelineRuleRecord[]> {
+        return this.database
+            .select()
+            .from(guidelineRules)
+            .where(
+                and(
+                    eq(guidelineRules.guidelineId, guidelineId),
+                    isNull(guidelineRules.embedding),
+                ),
+            )
+            .orderBy(desc(guidelineRules.createdAt));
+    }
+
+    async updateRuleEmbedding(
+        ruleId: string,
+        embedding: number[],
+    ): Promise<GuidelineRuleRecord> {
+        const [updatedRule] = await this.database
+            .update(guidelineRules)
+            .set({ embedding })
+            .where(eq(guidelineRules.id, ruleId))
+            .returning();
+
+        if (!updatedRule) {
+            throw new Error(`Failed to update embedding for rule: ${ruleId}`);
+        }
+
+        return updatedRule;
     }
 
     async findConflictsByRuleIds(
