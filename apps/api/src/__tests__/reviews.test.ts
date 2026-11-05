@@ -124,12 +124,19 @@ function createDependencies(
 
 function createRepository(
   overrides: Partial<
-    Pick<ReviewsRepository, 'create' | 'findLatestBySubmissionId' | 'deleteById'>
+    Pick<
+      ReviewsRepository,
+      'create' | 'findLatestBySubmissionId' | 'listBySubmissionId' | 'deleteById'
+    >
   > = {}
-): Pick<ReviewsRepository, 'create' | 'findLatestBySubmissionId' | 'deleteById'> {
+): Pick<
+  ReviewsRepository,
+  'create' | 'findLatestBySubmissionId' | 'listBySubmissionId' | 'deleteById'
+> {
   return {
     create: async () => createReviewRunRecord(),
     findLatestBySubmissionId: async () => null,
+    listBySubmissionId: async () => [],
     deleteById: async () => {},
     ...overrides,
   };
