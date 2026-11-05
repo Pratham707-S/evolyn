@@ -1,140 +1,148 @@
-import { FileText, CheckCircle2, AlertTriangle, Sparkles, Scale, RefreshCw } from 'lucide-react';
-import { Navbar } from '../components/layout/Navbar';
+'use client';
+
+import React, { useState } from 'react';
+import {
+  DashboardSidebar,
+  DashboardHeader,
+  WorkflowStepper,
+  ComplianceOverview,
+  ContentStatusChart,
+  DashboardMetrics,
+  RecentSubmissions,
+  SubmissionItem,
+  NewSubmissionModal,
+} from '../components/dashboard';
 
 export default function Home() {
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [activeNav, setActiveNav] = useState('Dashboard');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [notificationToast, setNotificationToast] = useState<string | null>(null);
+
+  // Initial submissions matching the reference image exactly
+  const [submissions, setSubmissions] = useState<SubmissionItem[]>([
+    {
+      id: 'sub-1',
+      title: 'Q3 Product Campaign (LinkedIn)',
+      timestamp: '2h ago',
+      status: 'Needs changes',
+    },
+    {
+      id: 'sub-2',
+      title: 'Website Hero Update',
+      timestamp: '4h ago',
+      status: 'Approved',
+    },
+    {
+      id: 'sub-3',
+      title: 'Product Launch Email',
+      timestamp: '6h ago',
+      status: 'Approved',
+    },
+    {
+      id: 'sub-4',
+      title: 'Customer Case Study',
+      timestamp: 'Yesterday',
+      status: 'Needs changes',
+    },
+  ]);
+
+  const handleNewSubmissionSuccess = (newSub: SubmissionItem) => {
+    setSubmissions([newSub, ...submissions.slice(0, 3)]);
+    setNotificationToast(`Audit initialized for "${newSub.title}"`);
+    setTimeout(() => {
+      setNotificationToast(null);
+    }, 4000);
+  };
+
+  const handleStepClick = (stepId: string) => {
+    if (stepId === 'submit') {
+      setIsModalOpen(true);
+    } else {
+      setNotificationToast(`Navigated to ${stepId.toUpperCase()} stage review.`);
+      setTimeout(() => setNotificationToast(null), 3000);
+    }
+  };
+
   return (
-    <main className="min-h-screen px-4 py-8 md:px-12 max-w-7xl mx-auto">
-      {/* Header */}
-      <Navbar />
+    <div className="min-h-screen bg-[#F7F5F0] text-[#25251F] font-sans antialiased selection:bg-[#68745D] selection:text-white flex">
+      {/* Sidebar (Desktop fixed & Mobile drawer) */}
+      <DashboardSidebar
+        mobileOpen={mobileSidebarOpen}
+        onMobileClose={() => setMobileSidebarOpen(false)}
+        activeItem={activeNav}
+        onNavigate={(item) => setActiveNav(item)}
+      />
 
-      {/* Hero / Judge Evaluation Notice */}
-      <section className="mt-8 p-6 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-xl">
-        <div className="max-w-3xl">
-          <span className="text-xs uppercase tracking-wider font-semibold text-blue-400">
-            Phase 1 Foundation Complete
-          </span>
-          <h2 className="mt-2 text-2xl font-semibold tracking-tight">
-            High-Precision Brand Governance for Autonomous Content Verification
-          </h2>
-          <p className="mt-2 text-slate-300 text-sm leading-relaxed">
-            Evolyn ensures zero ungrounded marketing claims, enforces strict brand consistency, and provides full transparency with verbatim source citations before human review decisions.
-          </p>
-        </div>
-      </section>
-
-      {/* 5-Step Core Judge Workflow */}
-      <section className="mt-10">
-        <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-          <CheckCircle2 className="w-5 h-5 text-blue-600" />
-          The 5-Step Judge Evaluation Workflow
-        </h3>
-        <p className="text-sm text-slate-600 mt-1">
-          Our highest priority architecture paths configured for Round 2:
-        </p>
-
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-5 gap-4">
-          {[
-            {
-              step: '01',
-              title: 'Upload Guidelines',
-              desc: 'Ingest brand rules, legal policies, and approved facts with pgvector embeddings.',
-              icon: FileText,
-            },
-            {
-              step: '02',
-              title: 'Submit Content',
-              desc: 'Submit copy, press releases, or marketing assets for governance evaluation.',
-              icon: Scale,
-            },
-            {
-              step: '03',
-              title: 'Verify Rules & Facts',
-              desc: 'Multi-layer semantic audit matching claims against approved truth sources.',
-              icon: Scale,
-            },
-            {
-              step: '04',
-              title: 'Inspect Citations',
-              desc: 'Review flagged issues with exact source quotes and evidence strength scores.',
-              icon: AlertTriangle,
-            },
-            {
-              step: '05',
-              title: 'Human Decision',
-              desc: 'Mandatory human approval or rejection with structured feedback recording.',
-              icon: CheckCircle2,
-            },
-          ].map((item) => (
-            <div
-              key={item.step}
-              className="p-5 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col justify-between"
-            >
-              <div>
-                <span className="text-xs font-mono font-semibold text-blue-600">
-                  STEP {item.step}
-                </span>
-                <div className="mt-2 flex items-center gap-2">
-                  <item.icon className="w-4 h-4 text-slate-700" />
-                  <h4 className="font-semibold text-sm text-slate-900">
-                    {item.title}
-                  </h4>
-                </div>
-                <p className="mt-2 text-xs text-slate-600 leading-relaxed">
-                  {item.desc}
-                </p>
-              </div>
+      {/* Main Content Area */}
+      <main className="flex-1 min-w-0 lg:pl-60">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-4">
+          {/* Toast feedback banner */}
+          {notificationToast && (
+            <div className="fixed top-4 right-4 z-50 bg-[#25251F] text-white text-xs px-4 py-2.5 rounded-lg shadow-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
+              <span className="w-2 h-2 rounded-full bg-[#64816A]" />
+              <span>{notificationToast}</span>
             </div>
-          ))}
-        </div>
-      </section>
+          )}
 
-      {/* 3 Core Innovations Section */}
-      <section className="mt-10">
-        <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-indigo-600" />
-          Three Core Innovations (Prepared for Phase 2-5)
-        </h3>
+          {/* Header */}
+          <DashboardHeader
+            onNewSubmission={() => setIsModalOpen(true)}
+            onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
+            unreadNotificationsCount={2}
+          />
 
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="p-5 rounded-xl border border-indigo-100 bg-indigo-50/40">
-            <div className="flex items-center gap-2 text-indigo-900 font-semibold text-sm">
-              <Scale className="w-4 h-4 text-indigo-600" />
-              1. Guideline Conflict & Ambiguity Detector
-            </div>
-            <p className="mt-2 text-xs text-slate-600 leading-relaxed">
-              Detects contradictions, overlapping boundaries, and vague wording across active brand guidelines before they cause compliance errors.
+          {/* Row 1: 5-Step Core Workflow Stepper */}
+          <section aria-label="Governance Workflow">
+            <WorkflowStepper onStepClick={handleStepClick} />
+          </section>
+
+          {/* Row 2: Middle Charts (Brand Compliance & Content by Status) */}
+          <section
+            aria-label="Compliance and Review Analytics"
+            className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+          >
+            <ComplianceOverview score={92.4} delta={4.8} />
+            <ContentStatusChart />
+          </section>
+
+          {/* Row 3: Bottom Analytics (4 KPI Metrics & Recent Submissions) */}
+          <section
+            aria-label="Platform Health and Recent Audits"
+            className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start"
+          >
+            <DashboardMetrics />
+            <RecentSubmissions
+              submissions={submissions}
+              onViewAll={() => {
+                setNotificationToast('Loading full submissions repository...');
+                setTimeout(() => setNotificationToast(null), 3000);
+              }}
+              onSelectSubmission={(sub) => {
+                setNotificationToast(`Selected audit: ${sub.title} (${sub.status})`);
+                setTimeout(() => setNotificationToast(null), 3000);
+              }}
+            />
+          </section>
+
+          {/* Minimal Editorial Footer */}
+          <footer className="pt-4 pb-2 border-t border-[#E5E1D8]/60 flex flex-col sm:flex-row items-center justify-between text-[11px] text-[#A09D92] gap-2">
+            <p>
+              Evolyn Brand Governance · Team Matrix Mechanics
             </p>
-          </div>
-
-          <div className="p-5 rounded-xl border border-emerald-100 bg-emerald-50/40">
-            <div className="flex items-center gap-2 text-emerald-900 font-semibold text-sm">
-              <Scale className="w-4 h-4 text-emerald-600" />
-              2. Claim Evidence Strength Engine
-            </div>
-            <p className="mt-2 text-xs text-slate-600 leading-relaxed">
-              Quantifies evidence strength (0-100%) for factual claims, ensuring no metric is accepted without verbatim proof.
+            <p>
+              Autonomous Compliance & Verbatim Evidence Architecture
             </p>
-          </div>
-
-          <div className="p-5 rounded-xl border border-amber-100 bg-amber-50/40">
-            <div className="flex items-center gap-2 text-amber-900 font-semibold text-sm">
-              <RefreshCw className="w-4 h-4 text-amber-600" />
-              3. Recurring Mistake Loop
-            </div>
-            <p className="mt-2 text-xs text-slate-600 leading-relaxed">
-              Synthesizes frequent review violations into actionable guideline improvements to permanently eliminate recurring human errors.
-            </p>
-          </div>
+          </footer>
         </div>
-      </section>
+      </main>
 
-      {/* Team Matrix Mechanics Footer */}
-      <footer className="mt-14 pt-6 border-t border-slate-200 flex flex-col md:flex-row items-center justify-between text-xs text-slate-500 gap-2">
-        <p>
-          Built by <strong className="text-slate-700">Team Matrix Mechanics</strong>: Pratham (Lead & Architecture), Ayan (Backend & DB), Mann (Knowledge & Retrieval), Pratham Kave (Frontend & UI).
-        </p>
-        <p>Evolyn Platform · Phase 1 Scaffolding Verified</p>
-      </footer>
-    </main>
+      {/* New Submission Modal */}
+      <NewSubmissionModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmitSuccess={handleNewSubmissionSuccess}
+      />
+    </div>
   );
 }
