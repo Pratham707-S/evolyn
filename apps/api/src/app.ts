@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { healthRouter } from './routes/health.js';
+import { guidelinesRouter } from './modules/guidelines/guidelines.routes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { submissionsRouter } from './modules/submissions/submissions.routes.js';
 
@@ -25,6 +26,9 @@ app.get('/', (req, res) => {
 app.use('/', healthRouter);
 app.use('/api', healthRouter);
 app.use('/api/submissions', submissionsRouter);
+
+// Guidelines Module
+app.use('/api/guidelines', guidelinesRouter);
 
 // 404 Handler
 app.use((req, res) => {

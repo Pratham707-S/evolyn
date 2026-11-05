@@ -1,39 +1,36 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 
-interface ValidationIssue {
-  path: (string | number)[];
+interface ZodIssueLike {
+  path: unknown[];
   message: string;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function isValidationIssue(value: unknown): value is ValidationIssue {
+function isZodIssueLike(issue: unknown): issue is ZodIssueLike {
   return (
-    isRecord(value) &&
-    Array.isArray(value.path) &&
-    value.path.every((part) => typeof part === 'string' || typeof part === 'number') &&
-    typeof value.message === 'string'
+    issue !== null &&
+    typeof issue === 'object' &&
+    'path' in issue &&
+    Array.isArray(issue.path) &&
+    'message' in issue &&
+    typeof issue.message === 'string'
   );
 }
 
-function getValidationIssues(error: unknown): ValidationIssue[] | null {
-  if (error instanceof ZodError) {
-    return error.errors;
+function isValidZodError(err: unknown): err is ZodError {
+  if (err instanceof ZodError) {
+    return true;
   }
 
-  if (
-    !isRecord(error) ||
-    error.name !== 'ZodError' ||
-    !Array.isArray(error.errors) ||
-    !error.errors.every(isValidationIssue)
-  ) {
-    return null;
-  }
-
-  return error.errors;
+  return (
+    err !== null &&
+    typeof err === 'object' &&
+    'name' in err &&
+    err.name === 'ZodError' &&
+    'errors' in err &&
+    Array.isArray(err.errors) &&
+    err.errors.every(isZodIssueLike)
+  );
 }
 
 export function errorHandler(
@@ -43,13 +40,13 @@ export function errorHandler(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   next: NextFunction
 ) {
-  const validationIssues = getValidationIssues(err);
-  if (validationIssues) {
+  // Handle Valid Zod Validation Errors (with cross-package structural validation)
+  if (isValidZodError(err)) {
     return res.status(400).json({
       error: 'Validation failed',
-      details: validationIssues.map((e) => ({
-        field: e.path.join('.'),
-        message: e.message,
+      details: err.errors.map((e) => ({
+        field: Array.isArray(e.path) ? e.path.join('.') : '',
+        message: typeof e.message === 'string' ? e.message : 'Invalid value',
       })),
     });
   }
@@ -62,7 +59,7 @@ export function errorHandler(
     });
   }
 
-  // Fallback
+  // Fallback for non-Error or malformed objects
   console.error('[API Error] Unknown exception:', err);
   return res.status(500).json({
     error: 'Internal server error',
