@@ -149,7 +149,14 @@ export class GeminiAIProvider implements AIProvider {
       throw new Error('Gemini returned invalid JSON for the review audit');
     }
 
-    return auditResponseSchema.parse(response);
+    const parsed = auditResponseSchema.parse(response);
+    return {
+      issues: parsed.issues.map(({ ruleId, factId, ...issue }) => ({
+        ...issue,
+        ...(ruleId ? { ruleId } : {}),
+        ...(factId ? { factId } : {}),
+      })),
+    };
   }
 
   private async request(
