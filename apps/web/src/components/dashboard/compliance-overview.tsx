@@ -124,13 +124,16 @@ export function ComplianceOverview({
       {/* Top Header */}
       <div>
         <div className="flex items-center justify-between relative">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <h2 className="font-semibold text-base text-[#25251F]">
               Brand Compliance
             </h2>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-[#A09D92] bg-[#F1EFE8] px-1.5 py-0.5 rounded">
+              Sample Data
+            </span>
             <div
               className="group relative cursor-pointer"
-              title="Calculated from guideline conformance and claim verification audits."
+              title="Sample data: illustrative brand compliance curve."
             >
               <Info className="w-3.5 h-3.5 text-[#A09D92] hover:text-[#25251F] transition-colors" />
             </div>

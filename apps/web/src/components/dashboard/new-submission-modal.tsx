@@ -670,11 +670,11 @@ export function NewSubmissionModal({
               className="bg-[#25251F] hover:bg-[#383832] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-medium px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-xs transition-colors"
             >
               {isSubmitting ? (
-                <span>Submitting...</span>
+                <span>Adding...</span>
               ) : (
                 <>
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>Run AI Brand Audit</span>
+                  <span>Add Demo Submission</span>
                 </>
               )}
             </button>

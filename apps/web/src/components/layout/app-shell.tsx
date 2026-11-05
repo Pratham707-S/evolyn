@@ -41,7 +41,7 @@ export function AppShell({ children, activeItem }: AppShellProps) {
   };
 
   const handleNewSubmission = (newSub: SubmissionItem) => {
-    setToastMessage(`New audit created for "${newSub.title}"`);
+    setToastMessage(`Demo notice: "${newSub.title}" is not persisted on placeholder routes.`);
     setTimeout(() => setToastMessage(null), 4000);
   };
 

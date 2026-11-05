@@ -49,7 +49,7 @@ export default function Home() {
 
   const handleNewSubmissionSuccess = (newSub: SubmissionItem) => {
     setSubmissions([newSub, ...submissions.slice(0, 3)]);
-    setNotificationToast(`Audit initialized for "${newSub.title}"`);
+    setNotificationToast(`Added "${newSub.title}" to local demo state (not persisted).`);
     setTimeout(() => {
       setNotificationToast(null);
     }, 4000);
@@ -59,7 +59,7 @@ export default function Home() {
     if (stepId === 'submit') {
       setIsModalOpen(true);
     } else {
-      setNotificationToast(`Navigated to ${stepId.toUpperCase()} stage review.`);
+      setNotificationToast(`Stage ${stepId.toUpperCase()} selected (demo preview).`);
       setTimeout(() => setNotificationToast(null), 3000);
     }
   };
@@ -115,11 +115,11 @@ export default function Home() {
             <RecentSubmissions
               submissions={submissions}
               onViewAll={() => {
-                setNotificationToast('Loading full submissions repository...');
+                setNotificationToast('Submissions page is currently a demo placeholder.');
                 setTimeout(() => setNotificationToast(null), 3000);
               }}
               onSelectSubmission={(sub) => {
-                setNotificationToast(`Selected audit: ${sub.title} (${sub.status})`);
+                setNotificationToast(`Selected demo item: ${sub.title} (${sub.status})`);
                 setTimeout(() => setNotificationToast(null), 3000);
               }}
             />

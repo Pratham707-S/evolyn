@@ -54,9 +54,14 @@ export function RecentSubmissions({
     <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-5 flex flex-col justify-between h-full">
       {/* Header */}
       <div className="flex items-center justify-between pb-2">
-        <h2 className="font-serif text-lg font-normal text-[#25251F] tracking-tight">
-          Recent Submissions
-        </h2>
+        <div className="flex items-center gap-2">
+          <h2 className="font-serif text-lg font-normal text-[#25251F] tracking-tight">
+            Recent Submissions
+          </h2>
+          <span className="text-[10px] font-mono uppercase tracking-wider text-[#A09D92] bg-[#F1EFE8] px-1.5 py-0.5 rounded">
+            Demo Preview
+          </span>
+        </div>
         <button
           type="button"
           onClick={onViewAll}

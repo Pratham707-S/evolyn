@@ -123,9 +123,14 @@ export function ContentStatusChart({ data }: ContentStatusChartProps) {
       {/* Header */}
       <div>
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-base text-[#25251F]">
-            Content by Status
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="font-semibold text-base text-[#25251F]">
+              Content by Status
+            </h2>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-[#A09D92] bg-[#F1EFE8] px-1.5 py-0.5 rounded">
+              Sample Data
+            </span>
+          </div>
 
           <div className="relative">
             <button

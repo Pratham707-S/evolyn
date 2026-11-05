@@ -77,9 +77,14 @@ export function DashboardMetrics({ metrics }: DashboardMetricsProps) {
                 : 'border border-[#E5E1D8] hover:border-[#68745D]/40'
             }`}
           >
-            {/* 1. Icon (Consistent 20px size) */}
-            <div className="w-5 h-5 flex items-center justify-center text-[#25251F]">
-              <Icon className="w-5 h-5 text-[#25251F]" />
+            {/* 1. Icon (Consistent 20px size) and Sample Indicator */}
+            <div className="flex items-center justify-between text-[#25251F]">
+              <div className="w-5 h-5 flex items-center justify-center">
+                <Icon className="w-5 h-5 text-[#25251F]" />
+              </div>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[#A09D92] bg-[#F1EFE8] px-1.5 py-0.5 rounded">
+                Sample
+              </span>
             </div>
 
             {/* 2. Metric Number (32-36px, Instrument Serif) */}
