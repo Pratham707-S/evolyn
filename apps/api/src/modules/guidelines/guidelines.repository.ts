@@ -37,7 +37,7 @@ export class GuidelinesRepository {
     }
 
     /**
-     * Persist multiple extracted rules for a guideline.
+     * Persist multiple extracted rules for a guideline (append mode).
      */
     async createRules(
         guidelineId: string,
@@ -59,6 +59,51 @@ export class GuidelinesRepository {
                 })),
             )
             .returning();
+    }
+
+    /**
+     * Atomically replace all rules for a guideline (safe re-extraction).
+     * Prevents duplicate rules upon repeated extraction runs.
+     * Enforces database transaction support — non-transactional deletion fallback is strictly forbidden.
+     */
+    async replaceRules(
+        guidelineId: string,
+        rules: RuleExtractionResult[],
+    ): Promise<GuidelineRuleRecord[]> {
+        const executor =
+            'transaction' in this.database &&
+            typeof this.database.transaction === 'function'
+                ? this.database
+                : null;
+
+        if (!executor) {
+            throw new Error(
+                'Database transaction support is required for atomic rule replacement',
+            );
+        }
+
+        return executor.transaction(async (tx) => {
+            await tx
+                .delete(guidelineRules)
+                .where(eq(guidelineRules.guidelineId, guidelineId));
+
+            if (rules.length === 0) {
+                return [];
+            }
+
+            return tx
+                .insert(guidelineRules)
+                .values(
+                    rules.map((rule) => ({
+                        guidelineId,
+                        ruleType: rule.ruleType,
+                        ruleStatement: rule.ruleStatement,
+                        explanation: rule.explanation,
+                        severity: rule.severity,
+                    })),
+                )
+                .returning();
+        });
     }
 
     async findMany(

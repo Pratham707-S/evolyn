@@ -35,9 +35,12 @@ export interface IGuidelineService {
   getGuidelineById(id: string): Promise<GuidelineWithRules | null>;
   extractAndSaveRules(
     guidelineId: string,
-    rawContent: string,
   ): Promise<GuidelineRule[]>;
 }
+
+export { GuidelinesService, guidelinesService } from './guidelines.service.js';
+export { GuidelinesRepository, guidelinesRepository } from './guidelines.repository.js';
+export { createGuidelinesController, guidelinesController } from './guidelines.controller.js';
 
 // Module boundary re-exports
 export * from './guidelines.types.js';

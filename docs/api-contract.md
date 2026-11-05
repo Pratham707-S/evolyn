@@ -60,6 +60,51 @@ Creates or uploads a brand guideline document.
 ### `GET /api/guidelines`
 Lists all active brand guidelines.
 
+### `POST /api/guidelines/:id/extract-rules`
+Extracts and persists atomic, verifiable brand rules strictly from the guideline's canonical stored content.
+Caller-supplied request body overrides are disallowed.
+Re-extraction replaces existing rules atomically inside a transaction to prevent duplicate accumulation.
+Empty extraction results are rejected to protect existing rules.
+
+**Response `200 OK`:**
+```json
+{
+  "guidelineId": "7f8b3c21-...",
+  "rules": [
+    {
+      "id": "11ab22cd-...",
+      "guidelineId": "7f8b3c21-...",
+      "ruleType": "MANDATORY",
+      "ruleStatement": "Always write brand name as Evolyn.",
+      "explanation": "Maintains brand consistency.",
+      "severity": "CRITICAL",
+      "createdAt": "2026-11-04T11:20:00.000Z"
+    }
+  ],
+  "total": 1
+}
+```
+
+**Response `404 Not Found`:**
+```json
+{
+  "error": "Guideline not found"
+}
+```
+
+**Response `400 Bad Request`:**
+```json
+{
+  "error": "Validation failed",
+  "details": [
+    {
+      "field": "id",
+      "message": "Invalid uuid"
+    }
+  ]
+}
+```
+
 ---
 
 ## 3. Approved Knowledge & Facts (Mann)

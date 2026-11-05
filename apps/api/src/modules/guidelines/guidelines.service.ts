@@ -1,7 +1,5 @@
 import {
     createGuidelineSchema,
-    GUIDELINE_CATEGORIES,
-    GUIDELINE_STATUSES,
     RULE_TYPES,
     SEVERITY_LEVELS,
 } from '@evolyn/shared';
@@ -11,20 +9,17 @@ import type {
     GuidelineRule,
 } from '@evolyn/shared';
 
-import type {
-    GuidelineWithRules,
-    IGuidelineService,
-} from './index.js';
-
 import {
-    GuidelinesRepository,
     guidelinesRepository,
+    GuidelinesRepository,
+    type GuidelineRecord,
+    type GuidelineRuleRecord,
 } from './guidelines.repository.js';
 
 import type {
-    GuidelineRecord,
-    GuidelineRuleRecord,
-} from './guidelines.repository.js';
+    IGuidelineService,
+    GuidelineWithRules,
+} from './index.js';
 
 import type {
     GuidelineQueryFilter,
@@ -39,62 +34,49 @@ type GuidelinesRepositoryPort = Pick<
     | 'findById'
     | 'findRulesByGuidelineId'
     | 'createRules'
->;
+> & {
+    replaceRules?: (
+        guidelineId: string,
+        rules: RuleExtractionResult[],
+    ) => Promise<GuidelineRuleRecord[]>;
+};
 
 function validateEnum<T extends readonly string[]>(
     value: string,
-    allowed: T,
-    field: string,
-): T[number] {
-    if (!allowed.includes(value)) {
-        throw new Error(`Invalid ${field} value: ${value}`);
+    allowedValues: T,
+    fieldName: string,
+): void {
+    if (!allowedValues.includes(value as T[number])) {
+        throw new Error(
+            `Invalid ${fieldName}: ${value}. Allowed values: ${allowedValues.join(', ')}`,
+        );
     }
-
-    return value as T[number];
 }
 
-// Convert database record into shared Guideline type
 function mapGuideline(record: GuidelineRecord): Guideline {
     return {
         id: record.id,
         title: record.title,
-        category: validateEnum(
-            record.category,
-            GUIDELINE_CATEGORIES,
-            'category',
-        ),
+        category: record.category as Guideline['category'],
         version: record.version,
         rawContent: record.rawContent,
         s3Url: record.s3Url,
-        status: validateEnum(
-            record.status,
-            GUIDELINE_STATUSES,
-            'status',
-        ),
+        status: record.status as Guideline['status'],
         createdAt: record.createdAt.toISOString(),
         updatedAt: record.updatedAt.toISOString(),
     };
 }
 
-// Convert database rule into shared GuidelineRule type
 function mapRule(record: GuidelineRuleRecord): GuidelineRule {
     const metadata = record.metadata;
 
     return {
         id: record.id,
         guidelineId: record.guidelineId,
-        ruleType: validateEnum(
-            record.ruleType,
-            RULE_TYPES,
-            'ruleType',
-        ),
+        ruleType: record.ruleType as GuidelineRule['ruleType'],
         ruleStatement: record.ruleStatement,
         explanation: record.explanation,
-        severity: validateEnum(
-            record.severity,
-            SEVERITY_LEVELS,
-            'severity',
-        ),
+        severity: record.severity as GuidelineRule['severity'],
         ...(metadata &&
             typeof metadata === 'object' &&
             !Array.isArray(metadata)
@@ -106,9 +88,13 @@ function mapRule(record: GuidelineRuleRecord): GuidelineRule {
 
 export class GuidelinesService implements IGuidelineService {
     constructor(
-        private readonly repository: GuidelinesRepositoryPort,
-        private readonly ruleExtractor?: GuidelineRuleExtractor,
+        private readonly repository: GuidelinesRepositoryPort = guidelinesRepository,
+        private ruleExtractor?: GuidelineRuleExtractor,
     ) { }
+
+    setRuleExtractor(extractor?: GuidelineRuleExtractor): void {
+        this.ruleExtractor = extractor;
+    }
 
     /**
      * Extract and validate atomic rules from guideline content.
@@ -173,11 +159,13 @@ export class GuidelinesService implements IGuidelineService {
     }
 
     /**
-     * Extract rules from guideline    content and persist them.
-    */
+     * Extract rules strictly from canonical guideline content and persist them.
+     * Always uses canonical guideline.rawContent stored in database; caller-supplied override is disallowed.
+     * Replaces rules atomically to prevent duplicate accumulation upon re-extraction.
+     * Rejects empty extraction output before persistence to protect existing stored rules.
+     */
     async extractAndSaveRules(
         guidelineId: string,
-        rawContent: string,
     ): Promise<GuidelineRule[]> {
         if (!guidelineId || !guidelineId.trim()) {
             throw new Error('Guideline ID cannot be empty');
@@ -189,9 +177,24 @@ export class GuidelinesService implements IGuidelineService {
             throw new Error('Guideline not found');
         }
 
-        const extractedRules = await this.extractRules(rawContent);
+        const contentToExtract = guideline.rawContent?.trim();
 
-        const savedRules = await this.repository.createRules(
+        if (!contentToExtract) {
+            throw new Error('Guideline content cannot be empty');
+        }
+
+        const extractedRules = await this.extractRules(contentToExtract);
+
+        if (extractedRules.length === 0) {
+            throw new Error('No atomic rules could be extracted from the guideline content');
+        }
+
+        const persistenceMethod =
+            typeof this.repository.replaceRules === 'function'
+                ? this.repository.replaceRules.bind(this.repository)
+                : this.repository.createRules.bind(this.repository);
+
+        const savedRules = await persistenceMethod(
             guidelineId,
             extractedRules,
         );
@@ -210,19 +213,39 @@ export class GuidelinesService implements IGuidelineService {
         return mapGuideline(guideline);
     }
 
-    // Retrieve guidelines
+    // Retrieve guidelines with optional filters
     async getGuidelines(
-        filter?: GuidelineQueryFilter,
+        filter: GuidelineQueryFilter = {},
     ): Promise<Guideline[]> {
+        if (filter.category) {
+            validateEnum(
+                filter.category,
+                ['TONE', 'TERMINOLOGY', 'CLAIM_VERIFICATION', 'COMPLIANCE', 'GENERAL'],
+                'category filter',
+            );
+        }
+
+        if (filter.status) {
+            validateEnum(
+                filter.status,
+                ['DRAFT', 'ACTIVE', 'ARCHIVED'],
+                'status filter',
+            );
+        }
+
         const records = await this.repository.findMany(filter);
 
         return records.map(mapGuideline);
     }
 
-    // Retrieve one guideline with its associated rules
+    // Retrieve a guideline with associated atomic rules
     async getGuidelineById(
         id: string,
     ): Promise<GuidelineWithRules | null> {
+        if (!id || !id.trim()) {
+            throw new Error('Guideline ID cannot be empty');
+        }
+
         const guideline = await this.repository.findById(id);
 
         if (!guideline) {
