@@ -33,6 +33,10 @@ export interface IGuidelineService {
   createGuideline(input: CreateGuidelineInput): Promise<Guideline>;
   getGuidelines(filter?: GuidelineQueryFilter): Promise<Guideline[]>;
   getGuidelineById(id: string): Promise<GuidelineWithRules | null>;
+  extractAndSaveRules(
+    guidelineId: string,
+    rawContent: string,
+  ): Promise<GuidelineRule[]>;
 }
 
 // Module boundary re-exports

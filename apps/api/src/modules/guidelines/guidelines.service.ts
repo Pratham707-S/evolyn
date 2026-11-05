@@ -28,6 +28,8 @@ import type {
 
 import type {
     GuidelineQueryFilter,
+    GuidelineRuleExtractor,
+    RuleExtractionResult,
 } from './guidelines.types.js';
 
 type GuidelinesRepositoryPort = Pick<
@@ -36,6 +38,7 @@ type GuidelinesRepositoryPort = Pick<
     | 'findMany'
     | 'findById'
     | 'findRulesByGuidelineId'
+    | 'createRules'
 >;
 
 function validateEnum<T extends readonly string[]>(
@@ -104,7 +107,97 @@ function mapRule(record: GuidelineRuleRecord): GuidelineRule {
 export class GuidelinesService implements IGuidelineService {
     constructor(
         private readonly repository: GuidelinesRepositoryPort,
+        private readonly ruleExtractor?: GuidelineRuleExtractor,
     ) { }
+
+    /**
+     * Extract and validate atomic rules from guideline content.
+     */
+    async extractRules(
+        rawContent: string,
+    ): Promise<RuleExtractionResult[]> {
+        if (!rawContent || !rawContent.trim()) {
+            throw new Error('Guideline content cannot be empty');
+        }
+
+        if (!this.ruleExtractor) {
+            throw new Error('Rule extractor is not configured');
+        }
+
+        const extractedRules =
+            await this.ruleExtractor.extractRules(rawContent);
+
+        if (!Array.isArray(extractedRules)) {
+            throw new Error('Rule extractor returned an invalid response');
+        }
+
+        return extractedRules.map((rule, index) => {
+            if (
+                !rule ||
+                typeof rule.ruleStatement !== 'string' ||
+                !rule.ruleStatement.trim()
+            ) {
+                throw new Error(
+                    `Invalid rule statement at index ${index}`,
+                );
+            }
+
+            if (!RULE_TYPES.includes(rule.ruleType)) {
+                throw new Error(
+                    `Invalid rule type at index ${index}`,
+                );
+            }
+
+            if (
+                typeof rule.explanation !== 'string' ||
+                !rule.explanation.trim()
+            ) {
+                throw new Error(
+                    `Invalid rule explanation at index ${index}`,
+                );
+            }
+
+            if (!SEVERITY_LEVELS.includes(rule.severity)) {
+                throw new Error(
+                    `Invalid rule severity at index ${index}`,
+                );
+            }
+
+            return {
+                ruleStatement: rule.ruleStatement.trim(),
+                ruleType: rule.ruleType,
+                explanation: rule.explanation.trim(),
+                severity: rule.severity,
+            };
+        });
+    }
+
+    /**
+     * Extract rules from guideline    content and persist them.
+    */
+    async extractAndSaveRules(
+        guidelineId: string,
+        rawContent: string,
+    ): Promise<GuidelineRule[]> {
+        if (!guidelineId || !guidelineId.trim()) {
+            throw new Error('Guideline ID cannot be empty');
+        }
+
+        const guideline = await this.repository.findById(guidelineId);
+
+        if (!guideline) {
+            throw new Error('Guideline not found');
+        }
+
+        const extractedRules = await this.extractRules(rawContent);
+
+        const savedRules = await this.repository.createRules(
+            guidelineId,
+            extractedRules,
+        );
+
+        return savedRules.map(mapRule);
+    }
 
     // Create a new guideline
     async createGuideline(

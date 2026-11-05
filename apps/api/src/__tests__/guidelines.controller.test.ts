@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { ZodError } from 'zod';
 import type { Request, Response, NextFunction } from 'express';
 import type { Guideline } from '@evolyn/shared';
-
 import { createGuidelinesController } from '../modules/guidelines/guidelines.controller.js';
 
 const mockGuideline: Guideline = {
@@ -53,6 +52,7 @@ describe('GuidelinesController', () => {
             createGuideline: async () => expected,
             getGuidelines: async () => [],
             getGuidelineById: async () => null,
+            extractAndSaveRules: async () => [],
         };
 
         const controller = createGuidelinesController(service);
@@ -76,6 +76,7 @@ describe('GuidelinesController', () => {
             createGuideline: async () => expected[0],
             getGuidelines: async () => expected,
             getGuidelineById: async () => null,
+            extractAndSaveRules: async () => [],
         };
 
         const controller = createGuidelinesController(service);
@@ -97,6 +98,7 @@ describe('GuidelinesController', () => {
             createGuideline: async () => mockGuideline,
             getGuidelines: async () => [],
             getGuidelineById: async () => null,
+            extractAndSaveRules: async () => [],
         };
 
         const controller = createGuidelinesController(service);
@@ -124,6 +126,7 @@ describe('GuidelinesController', () => {
             createGuideline: async () => mockGuideline,
             getGuidelines: async () => [],
             getGuidelineById: async () => null,
+            extractAndSaveRules: async () => [],
         };
 
         const controller = createGuidelinesController(service);
@@ -151,6 +154,7 @@ describe('GuidelinesController', () => {
             createGuideline: async () => mockGuideline,
             getGuidelines: async () => [],
             getGuidelineById: async () => null,
+            extractAndSaveRules: async () => [],
         };
 
         const controller = createGuidelinesController(service);
@@ -177,6 +181,7 @@ describe('GuidelinesController', () => {
             },
             getGuidelines: async () => [],
             getGuidelineById: async () => null,
+            extractAndSaveRules: async () => [],
         };
 
         const controller = createGuidelinesController(service);
@@ -203,6 +208,7 @@ describe('GuidelinesController', () => {
                 return [];
             },
             getGuidelineById: async () => null,
+            extractAndSaveRules: async () => [],
         };
 
         const controller = createGuidelinesController(service);
@@ -233,6 +239,7 @@ describe('GuidelinesController', () => {
             createGuideline: async () => mockGuideline,
             getGuidelines: async () => [],
             getGuidelineById: async () => expected,
+            extractAndSaveRules: async () => [],
         };
 
         const controller = createGuidelinesController(service);
