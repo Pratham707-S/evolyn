@@ -78,6 +78,7 @@ describe('ReviewsController', () => {
 
     assert.deepEqual(routes, [
       { path: '/submissions/:id/analyze', methods: ['post'] },
+      { path: '/submissions/:id/rewrite', methods: ['post'] },
       { path: '/submissions/:id/review', methods: ['get'] },
       { path: '/submissions/:id/reviews', methods: ['get'] },
     ]);
@@ -135,5 +136,65 @@ describe('ReviewsController', () => {
       next
     );
     assert.equal(missingResponse.statusCode, 404);
+  });
+
+  it('handles rewrite requests and returns the rewrite response contract', async () => {
+    const controller = new ReviewsController(
+      createReviewService({
+        rewrite: async () => ({
+          originalText: 'Original text to rewrite',
+          rewrittenText: 'Concise text',
+          action: 'MAKE_SHORTER',
+          rationale: 'Removed superfluous words.',
+        }),
+      }),
+      createSubmissionService()
+    );
+    const req = {
+      params: { id: submissionId },
+      body: {
+        action: 'MAKE_SHORTER',
+        content: 'Original text to rewrite',
+      },
+    } as unknown as Request<{ id: string }>;
+    const res = createResponse();
+    const next: NextFunction = (error?: unknown) => {
+      if (error) throw error;
+    };
+
+    await controller.rewrite(req, res as unknown as Response, next);
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(res.body, {
+      originalText: 'Original text to rewrite',
+      rewrittenText: 'Concise text',
+      action: 'MAKE_SHORTER',
+      rationale: 'Removed superfluous words.',
+    });
+  });
+
+  it('returns 404 from rewrite handler when submission is not found', async () => {
+    const controller = new ReviewsController(
+      createReviewService({
+        rewrite: async () => {
+          throw new Error(`Submission not found: ${submissionId}`);
+        },
+      }),
+      createSubmissionService()
+    );
+    const req = {
+      params: { id: submissionId },
+      body: {
+        action: 'IMPROVE_WRITING',
+        content: 'Text to improve',
+      },
+    } as unknown as Request<{ id: string }>;
+    const res = createResponse();
+    const next: NextFunction = (error?: unknown) => {
+      if (error) throw error;
+    };
+
+    await controller.rewrite(req, res as unknown as Response, next);
+    assert.equal(res.statusCode, 404);
+    assert.deepEqual(res.body, { error: 'Submission not found' });
   });
 });

@@ -59,3 +59,14 @@ export const CONFLICT_TYPES = [
 ] as const;
 
 export const CONFLICT_STATUSES = ['OPEN', 'RESOLVED', 'ACKNOWLEDGED'] as const;
+
+export const REWRITE_ACTIONS = [
+  'IMPROVE_WRITING',
+  'GRAMMAR_SPELLING',
+  'MAKE_SHORTER',
+  'MAKE_LONGER',
+  'SIMPLIFY',
+  'CHANGE_TONE',
+  'HUMANIZE',
+  'SUMMARIZE',
+] as const;

@@ -3,7 +3,11 @@ import type {
   GuidelineRule,
   ReviewRun,
 } from '@evolyn/shared';
-import type { AIProvider } from '../../infrastructure/ai/index.js';
+import type {
+  AIProvider,
+  AIRewriteParams,
+  AIRewriteResult,
+} from '../../infrastructure/ai/index.js';
 import type { IFindingsService } from '../findings/index.js';
 import type { IKnowledgeService } from '../knowledge/index.js';
 import type { ISubmissionService } from '../submissions/index.js';
@@ -25,5 +29,7 @@ export interface ReviewDependencies {
   };
   knowledge: Pick<IKnowledgeService, 'findRelevantFacts'>;
   findings: Pick<IFindingsService, 'recordFindings' | 'getFindingsByReviewRunId'>;
-  ai: Pick<AIProvider, 'generateEmbedding' | 'auditContent'>;
+  ai: Pick<AIProvider, 'generateEmbedding' | 'auditContent'> & {
+    rewriteContent?(params: AIRewriteParams): Promise<AIRewriteResult>;
+  };
 }

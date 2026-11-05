@@ -1,4 +1,4 @@
-import { uuidSchema } from '@evolyn/shared';
+import { rewriteContentSchema, uuidSchema } from '@evolyn/shared';
 import type { NextFunction, Request, Response } from 'express';
 import type { ISubmissionService } from '../submissions/index.js';
 import type { IReviewService } from './index.js';
@@ -96,6 +96,33 @@ export class ReviewsController {
         total: reviews.length,
       });
     } catch (error) {
+      next(error);
+    }
+  };
+
+  rewrite = async (
+    req: Request<{ id: string }>,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const submissionId = uuidSchema.parse(req.params.id);
+      const input = rewriteContentSchema.parse(req.body);
+      if (!this.reviews.rewrite) {
+        throw new Error('Review service does not support rewrite');
+      }
+
+      const result = await this.reviews.rewrite(submissionId, input);
+      res.status(200).json(result);
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.message === 'Submission not found' ||
+          error.message.startsWith('Submission not found:'))
+      ) {
+        res.status(404).json({ error: 'Submission not found' });
+        return;
+      }
       next(error);
     }
   };

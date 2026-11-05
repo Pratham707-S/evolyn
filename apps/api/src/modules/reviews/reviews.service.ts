@@ -1,11 +1,15 @@
 import {
   issueTypeSchema,
+  rewriteContentSchema,
   uuidSchema,
 } from '@evolyn/shared';
 import type {
+  ApprovedFact,
   DetectedIssue,
   GuidelineRule,
   ReviewRun,
+  RewriteContentInput,
+  RewriteResponse,
 } from '@evolyn/shared';
 import { z } from 'zod';
 import { env } from '../../config/env.js';
@@ -374,5 +378,85 @@ export class ReviewService implements IReviewService {
         issues: (await this.dependencies.findings.getFindingsByReviewRunId(run.id)) ?? [],
       }))
     );
+  }
+
+  async rewrite(
+    submissionId: string,
+    input: RewriteContentInput
+  ): Promise<RewriteResponse> {
+    const id = uuidSchema.parse(submissionId);
+    const validatedInput = rewriteContentSchema.parse(input);
+
+    const submission = await this.dependencies.submissions.getSubmissionById(id);
+    if (!submission) {
+      throw new Error(`Submission not found: ${id}`);
+    }
+
+    if (!this.dependencies.ai.rewriteContent) {
+      throw new Error('AI provider does not support rewriteContent');
+    }
+
+    let rules: GuidelineRule[] = [];
+    let facts: ApprovedFact[] = [];
+
+    try {
+      const embedding = await this.dependencies.ai.generateEmbedding(
+        validatedInput.content,
+        { dimensions: EMBEDDING_DIMENSIONS }
+      );
+
+      if (
+        embedding.length === EMBEDDING_DIMENSIONS &&
+        embedding.every((value) => Number.isFinite(value))
+      ) {
+        const ruleSearch = this.dependencies.guidelines.findRelevantRules
+          ? (vector: number[], limit?: number) =>
+              this.dependencies.guidelines.findRelevantRules!(vector, limit)
+          : (vector: number[], limit?: number) =>
+              this.dependencies.guidelines.findSimilarRules!(vector, limit);
+
+        const [retrievedRules, retrievedFacts] = await Promise.all([
+          ruleSearch ? ruleSearch(embedding, RULE_SEARCH_LIMIT) : [],
+          this.dependencies.knowledge.findRelevantFacts(embedding, FACT_SEARCH_LIMIT),
+        ]);
+
+        rules = retrievedRules;
+        facts = retrievedFacts;
+      }
+    } catch {
+      rules = [];
+      facts = [];
+    }
+
+    const aiResult = await this.dependencies.ai.rewriteContent({
+      action: validatedInput.action,
+      content: validatedInput.content,
+      instructions: validatedInput.instructions,
+      rules: rules.map((r) => ({
+        id: r.id,
+        statement: r.ruleStatement,
+        severity: r.severity,
+      })),
+      facts: facts.map((f) => ({
+        id: f.id,
+        claim: f.claimStatement,
+        source: f.approvedProofSource,
+      })),
+    });
+
+    if (!aiResult.rewrittenText || !aiResult.rewrittenText.trim()) {
+      throw new Error('Gemini returned empty rewritten text');
+    }
+
+    // Step 6 Immutability Guarantee:
+    // Never update content_submissions.rawText.
+    // Never overwrite original submission.
+    // Never automatically accept, approve, or persist review/decision.
+    return {
+      originalText: validatedInput.content,
+      rewrittenText: aiResult.rewrittenText.trim(),
+      action: validatedInput.action,
+      rationale: aiResult.rationale.trim(),
+    };
   }
 }
