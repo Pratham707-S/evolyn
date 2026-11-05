@@ -302,4 +302,102 @@ describe('GeminiAIProvider', () => {
       assert.ok(!error.message.includes(secretKey));
     }
   });
+
+  it('uses hardened defaults (gemini-3.1-flash-lite and gemini-embedding-001) from environment configuration', async () => {
+    let capturedUrl = '';
+    const defaultProvider = new GeminiAIProvider(
+      'mock-api-key',
+      undefined,
+      undefined,
+      async (input) => {
+        capturedUrl = String(input);
+        return createResponse({
+          embedding: { values: Array(768).fill(0.1) },
+        });
+      }
+    );
+
+    const vec = await defaultProvider.generateEmbedding('Brand rules');
+    assert.ok(capturedUrl.includes('/models/gemini-embedding-001:embedContent'));
+    assert.equal(vec.length, 768);
+  });
+
+  it('uses default generation model (gemini-3.1-flash-lite) for content rewriting and auditing', async () => {
+    let capturedUrl = '';
+    const defaultProvider = new GeminiAIProvider(
+      'mock-api-key',
+      undefined,
+      undefined,
+      async (input) => {
+        capturedUrl = String(input);
+        return createResponse({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({
+                      rewrittenText: 'Polished copy.',
+                      rationale: 'Cleaned grammar.',
+                    }),
+                  },
+                ],
+              },
+            },
+          ],
+        });
+      }
+    );
+
+    await defaultProvider.rewriteContent({
+      action: 'IMPROVE_WRITING',
+      content: 'Raw copy.',
+    });
+    assert.ok(capturedUrl.includes('/models/gemini-3.1-flash-lite:generateContent'));
+  });
+
+  it('allows explicit model and embedding model overrides via constructor or environment', async () => {
+    let capturedRewriteUrl = '';
+    let capturedEmbeddingUrl = '';
+    const customProvider = new GeminiAIProvider(
+      'mock-api-key',
+      'custom-generation-model',
+      'custom-embedding-model',
+      async (input) => {
+        const urlStr = String(input);
+        if (urlStr.includes(':embedContent')) {
+          capturedEmbeddingUrl = urlStr;
+          return createResponse({
+            embedding: { values: Array(768).fill(0.2) },
+          });
+        }
+        capturedRewriteUrl = urlStr;
+        return createResponse({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({
+                      rewrittenText: 'Custom rewritten copy.',
+                      rationale: 'Custom rationale.',
+                    }),
+                  },
+                ],
+              },
+            },
+          ],
+        });
+      }
+    );
+
+    await customProvider.generateEmbedding('Custom embedding text');
+    assert.ok(capturedEmbeddingUrl.includes('/models/custom-embedding-model:embedContent'));
+
+    await customProvider.rewriteContent({
+      action: 'SIMPLIFY',
+      content: 'Complex text to simplify.',
+    });
+    assert.ok(capturedRewriteUrl.includes('/models/custom-generation-model:generateContent'));
+  });
 });
