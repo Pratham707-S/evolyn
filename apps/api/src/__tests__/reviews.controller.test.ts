@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import type { Request, Response, NextFunction } from 'express';
 import type { ReviewRun } from '@evolyn/shared';
 import { ReviewsController } from '../modules/reviews/reviews.controller.js';
+import { createReviewsRouter } from '../modules/reviews/reviews.routes.js';
 import type { IReviewService } from '../modules/reviews/index.js';
 import type { ISubmissionService } from '../modules/submissions/index.js';
 
@@ -63,6 +64,24 @@ function createSubmissionService(
 }
 
 describe('ReviewsController', () => {
+  it('registers analyze and review detail routes', () => {
+    const router = createReviewsRouter(
+      createReviewService(),
+      createSubmissionService()
+    );
+    const routes = router.stack
+      .filter((layer) => layer.route)
+      .map((layer) => ({
+        path: layer.route?.path,
+        methods: layer.route?.methods,
+      }));
+
+    assert.deepEqual(routes, [
+      { path: '/submissions/:id/analyze', methods: { post: true } },
+      { path: '/submissions/:id/review', methods: { get: true } },
+    ]);
+  });
+
   it('returns the analyze response contract', async () => {
     const controller = new ReviewsController(createReviewService(), createSubmissionService());
     const req = { params: { id: submissionId } } as Request<{ id: string }>;
