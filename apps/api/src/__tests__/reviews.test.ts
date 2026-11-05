@@ -247,6 +247,66 @@ describe('ReviewService', () => {
     assert.equal(auditCalled, false);
   });
 
+  it('coalesces concurrent review requests for the same submission', async () => {
+    let releaseAudit!: () => void;
+    const auditGate = new Promise<void>((resolve) => {
+      releaseAudit = resolve;
+    });
+    let auditCalls = 0;
+    let createCalls = 0;
+    const dependencies = createDependencies({
+      ai: {
+        generateEmbedding: async () => Array(768).fill(0.25),
+        auditContent: async () => {
+          auditCalls += 1;
+          await auditGate;
+          return { issues: [] };
+        },
+      },
+    });
+    const repository = createRepository({
+      create: async () => {
+        createCalls += 1;
+        return createReviewRunRecord({ totalIssuesCount: 0 });
+      },
+    });
+    const service = new ReviewService(dependencies, repository);
+
+    const firstRequest = service.executeReview(submissionId);
+    const concurrentRequest = service.executeReview(submissionId);
+    releaseAudit();
+    const [firstResult, concurrentResult] = await Promise.all([
+      firstRequest,
+      concurrentRequest,
+    ]);
+
+    assert.equal(firstResult.reviewRun.id, concurrentResult.reviewRun.id);
+    assert.equal(auditCalls, 1);
+    assert.equal(createCalls, 1);
+  });
+
+  it('does not transition a finalized submission back into review', async () => {
+    const statuses: string[] = [];
+    const dependencies = createDependencies(
+      {
+        submissions: {
+          getSubmissionById: async () => ({ ...submission, status: 'APPROVED' }),
+          updateSubmissionStatus: async (_id, status) => {
+            statuses.push(status);
+          },
+        },
+      },
+      statuses
+    );
+    const service = new ReviewService(dependencies, createRepository());
+
+    await assert.rejects(
+      service.executeReview(submissionId),
+      /Cannot review submission in APPROVED status/
+    );
+    assert.deepEqual(statuses, []);
+  });
+
   it('restores the original submission status when analysis fails', async () => {
     const statuses: string[] = [];
     const dependencies = createDependencies(
