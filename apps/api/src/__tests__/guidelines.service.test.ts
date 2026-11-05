@@ -65,6 +65,13 @@ function createRepositoryMock(
       [mockRule],
 
     createRules: async (_guidelineId, _rules) => [mockRule],
+
+    findRulesWithoutEmbeddings: async (_id: string) => [mockRule],
+
+    updateRuleEmbedding: async (_ruleId: string, embedding: number[]) => ({
+      ...mockRule,
+      embedding,
+    }),
   };
 
   return {
@@ -434,5 +441,177 @@ describe('GuidelinesService', () => {
 
     assert.deepEqual(result, []);
     assert.equal(createRulesCalled, true);
+  });
+
+  it('generates and saves a valid 768-dimensional embedding', async () => {
+    const embedding = Array(768).fill(0.1);
+    let savedEmbedding: number[] | undefined;
+    let receivedDimensions: number | undefined;
+
+    const repository = createRepositoryMock({
+      updateRuleEmbedding: async (_id, vector) => {
+        savedEmbedding = vector;
+        return { ...mockRule, embedding: vector };
+      },
+    });
+
+    const generator = {
+      generateEmbedding: async (
+        _text: string,
+        options?: { dimensions?: number },
+      ) => {
+        receivedDimensions = options?.dimensions;
+        return embedding;
+      },
+    };
+
+    const service = new GuidelinesService(
+      repository,
+      undefined,
+      generator,
+    );
+
+    const result = await service.generateAndSaveEmbeddings(
+      'guideline-123',
+    );
+
+    assert.equal(result.generatedCount, 1);
+    assert.equal(result.guidelineId, 'guideline-123');
+    assert.equal(receivedDimensions, 768);
+    assert.deepEqual(savedEmbedding, embedding);
+  });
+
+  it('rejects embeddings with invalid dimensions', async () => {
+    const generator = {
+      generateEmbedding: async () => Array(767).fill(0.1),
+    };
+
+    const service = new GuidelinesService(
+      createRepositoryMock(),
+      undefined,
+      generator,
+    );
+
+    await assert.rejects(
+      service.generateAndSaveEmbeddings('guideline-123'),
+      /Invalid embedding generated/,
+    );
+  });
+
+  it('rejects embeddings containing NaN or Infinity', async () => {
+    const invalidEmbedding = Array(768).fill(0.1);
+    invalidEmbedding[10] = Number.NaN;
+
+    const generator = {
+      generateEmbedding: async () => invalidEmbedding,
+    };
+
+    const service = new GuidelinesService(
+      createRepositoryMock(),
+      undefined,
+      generator,
+    );
+
+    await assert.rejects(
+      service.generateAndSaveEmbeddings('guideline-123'),
+      /Invalid embedding generated/,
+    );
+  });
+
+  it('does not generate embeddings when all rules are already embedded', async () => {
+    let generatorCalled = false;
+
+    const repository = createRepositoryMock({
+      findRulesWithoutEmbeddings: async () => [],
+    });
+
+    const generator = {
+      generateEmbedding: async () => {
+        generatorCalled = true;
+        return Array(768).fill(0.1);
+      },
+    };
+
+    const service = new GuidelinesService(
+      repository,
+      undefined,
+      generator,
+    );
+
+    const result = await service.generateAndSaveEmbeddings(
+      'guideline-123',
+    );
+
+    assert.equal(result.generatedCount, 0);
+    assert.equal(generatorCalled, false);
+  });
+
+  it('rejects when guideline does not exist', async () => {
+    let generatorCalled = false;
+
+    const repository = createRepositoryMock({
+      findById: async () => null,
+    });
+
+    const generator = {
+      generateEmbedding: async () => {
+        generatorCalled = true;
+        return Array(768).fill(0.1);
+      },
+    };
+
+    const service = new GuidelinesService(
+      repository,
+      undefined,
+      generator,
+    );
+
+    await assert.rejects(
+      service.generateAndSaveEmbeddings('missing-guideline'),
+      /Guideline not found/,
+    );
+
+    assert.equal(generatorCalled, false);
+  });
+
+  it('rejects when embedding generator is not configured', async () => {
+    const service = new GuidelinesService(
+      createRepositoryMock(),
+    );
+
+    await assert.rejects(
+      service.generateAndSaveEmbeddings('guideline-123'),
+      /Embedding generator is not configured/,
+    );
+  });
+
+  it('propagates embedding provider errors without saving', async () => {
+    let saveCalled = false;
+
+    const repository = createRepositoryMock({
+      updateRuleEmbedding: async (_id, vector) => {
+        saveCalled = true;
+        return { ...mockRule, embedding: vector };
+      },
+    });
+
+    const generator = {
+      generateEmbedding: async () => {
+        throw new Error('Gemini API unavailable');
+      },
+    };
+
+    const service = new GuidelinesService(
+      repository,
+      undefined,
+      generator,
+    );
+
+    await assert.rejects(
+      service.generateAndSaveEmbeddings('guideline-123'),
+      /Gemini API unavailable/,
+    );
+
+    assert.equal(saveCalled, false);
   });
 });

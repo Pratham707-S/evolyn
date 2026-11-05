@@ -89,4 +89,91 @@ describe('GuidelinesRepository', () => {
         assert.deepEqual(result, []);
         assert.equal(insertCalled, false);
     });
+
+    it('fetches only rules without embeddings for a guideline', async () => {
+        const expectedRules = [
+            {
+                id: 'rule-1',
+                guidelineId: 'guideline-123',
+                ruleType: 'MANDATORY',
+                ruleStatement: 'Use the official logo.',
+                explanation: 'Brand consistency.',
+                severity: 'CRITICAL',
+                embedding: null,
+                metadata: {},
+                createdAt: new Date(),
+            },
+        ];
+
+        let whereCalled = false;
+        let orderByCalled = false;
+
+        const fakeDatabase = {
+            select: () => ({
+                from: () => ({
+                    where: () => {
+                        whereCalled = true;
+                        return {
+                            orderBy: async () => {
+                                orderByCalled = true;
+                                return expectedRules;
+                            },
+                        };
+                    },
+                }),
+            }),
+        } as unknown as typeof db;
+
+        const repository = new GuidelinesRepository(fakeDatabase);
+
+        const result = await repository.findRulesWithoutEmbeddings(
+            'guideline-123',
+        );
+
+        assert.deepEqual(result, expectedRules);
+        assert.equal(whereCalled, true);
+        assert.equal(orderByCalled, true);
+    });
+
+    it('updates and returns a rule embedding', async () => {
+        const embedding = Array(768).fill(0.1);
+
+        const updatedRule = {
+            id: 'rule-1',
+            guidelineId: 'guideline-123',
+            ruleType: 'MANDATORY',
+            ruleStatement: 'Use the official logo.',
+            explanation: 'Brand consistency.',
+            severity: 'CRITICAL',
+            embedding,
+            metadata: {},
+            createdAt: new Date(),
+        };
+
+        let capturedValues: unknown;
+
+        const fakeDatabase = {
+            update: () => ({
+                set: (values: unknown) => {
+                    capturedValues = values;
+
+                    return {
+                        where: () => ({
+                            returning: async () => [updatedRule],
+                        }),
+                    };
+                },
+            }),
+        } as unknown as typeof db;
+
+        const repository = new GuidelinesRepository(fakeDatabase);
+
+        const result = await repository.updateRuleEmbedding(
+            'rule-1',
+            embedding,
+        );
+
+        assert.deepEqual(capturedValues, { embedding });
+        assert.deepEqual(result, updatedRule);
+    });
 });

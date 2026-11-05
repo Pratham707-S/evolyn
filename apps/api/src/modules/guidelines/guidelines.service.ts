@@ -30,6 +30,8 @@ import type {
     GuidelineQueryFilter,
     GuidelineRuleExtractor,
     RuleExtractionResult,
+    GuidelineEmbeddingGenerator,
+    EmbeddingGenerationResult,
 } from './guidelines.types.js';
 
 type GuidelinesRepositoryPort = Pick<
@@ -39,6 +41,8 @@ type GuidelinesRepositoryPort = Pick<
     | 'findById'
     | 'findRulesByGuidelineId'
     | 'createRules'
+    | 'findRulesWithoutEmbeddings'
+    | 'updateRuleEmbedding'
 >;
 
 function validateEnum<T extends readonly string[]>(
@@ -108,7 +112,58 @@ export class GuidelinesService implements IGuidelineService {
     constructor(
         private readonly repository: GuidelinesRepositoryPort,
         private readonly ruleExtractor?: GuidelineRuleExtractor,
+        private readonly embeddingGenerator?: GuidelineEmbeddingGenerator,
     ) { }
+
+    async generateAndSaveEmbeddings(
+        guidelineId: string,
+    ): Promise<EmbeddingGenerationResult> {
+        if (!guidelineId || !guidelineId.trim()) {
+            throw new Error('Guideline ID cannot be empty');
+        }
+
+        if (!this.embeddingGenerator) {
+            throw new Error('Embedding generator is not configured');
+        }
+
+        const guideline = await this.repository.findById(guidelineId);
+
+        if (!guideline) {
+            throw new Error('Guideline not found');
+        }
+
+        const rules = await this.repository.findRulesWithoutEmbeddings(
+            guidelineId,
+        );
+
+        let generatedCount = 0;
+
+        for (const rule of rules) {
+            const embedding = await this.embeddingGenerator.generateEmbedding(
+                rule.ruleStatement,
+                { dimensions: 768 },
+            );
+
+            if (
+                !Array.isArray(embedding) ||
+                embedding.length !== 768 ||
+                !embedding.every(Number.isFinite)
+            ) {
+                throw new Error(
+                    `Invalid embedding generated for rule: ${rule.id}`,
+                );
+            }
+
+            await this.repository.updateRuleEmbedding(rule.id, embedding);
+
+            generatedCount++;
+        }
+
+        return {
+            guidelineId,
+            generatedCount,
+        };
+    }
 
     /**
      * Extract and validate atomic rules from guideline content.
