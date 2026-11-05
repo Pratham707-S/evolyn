@@ -22,6 +22,7 @@ export function createReviewsRouter(
   const controller = new ReviewsController(reviews, submissions);
 
   router.post('/submissions/:id/analyze', controller.analyze);
+  router.post('/submissions/:id/rewrite', controller.rewrite);
   router.get('/submissions/:id/review', controller.getBySubmissionId);
   router.get('/submissions/:id/reviews', controller.getHistoryBySubmissionId);
 
