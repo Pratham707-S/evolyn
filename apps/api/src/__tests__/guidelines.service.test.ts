@@ -10,6 +10,7 @@ import {
 import type {
   GuidelineRecord,
   GuidelineRuleRecord,
+  GuidelineConflictRecord,
 } from '../modules/guidelines/guidelines.repository.js';
 
 import type {
@@ -43,6 +44,26 @@ const mockRule: GuidelineRuleRecord = {
   createdAt,
 };
 
+const contradictoryRule: GuidelineRuleRecord = {
+  ...mockRule,
+  id: 'rule-456',
+  ruleType: 'PROHIBITED',
+  ruleStatement: 'Never use the official brand logo.',
+  severity: 'WARNING',
+};
+
+const mockConflict: GuidelineConflictRecord = {
+  id: 'conflict-123',
+  ruleAId: mockRule.id,
+  ruleBId: contradictoryRule.id,
+  conflictType: 'CONTRADICTION',
+  explanation:
+    'Both rules describe the same requirement but express opposite instructions.',
+  severity: 'CRITICAL',
+  status: 'OPEN',
+  createdAt,
+};
+
 // Mock repository
 type RepositoryMock = ConstructorParameters<
   typeof GuidelinesService
@@ -63,6 +84,10 @@ function createRepositoryMock(
 
     findRulesByGuidelineId: async (_id: string) =>
       [mockRule],
+
+    findConflictsByRuleIds: async () => [],
+
+    createConflicts: async () => [],
   };
 
   return {
@@ -184,5 +209,101 @@ describe('GuidelinesService', () => {
     );
 
     assert.equal(result, null);
+  });
+
+
+  it('detects and saves guideline conflicts', async () => {
+    let savedConflicts: unknown[] = [];
+
+    const repository = createRepositoryMock({
+      findRulesByGuidelineId: async () => [
+        mockRule,
+        contradictoryRule,
+      ],
+      createConflicts: async (conflicts) => {
+        savedConflicts = conflicts;
+        return [mockConflict];
+      },
+    });
+
+    const service = new GuidelinesService(repository);
+
+    const result = await service.detectAndSaveConflicts(
+      'guideline-123',
+    );
+
+    assert.equal(result.length, 1);
+    assert.equal(result[0]?.conflictType, 'CONTRADICTION');
+    assert.equal(result[0]?.status, 'OPEN');
+    assert.equal(savedConflicts.length, 1);
+  });
+
+  it('does not save duplicate conflicts', async () => {
+    let createCalled = false;
+
+    const repository = createRepositoryMock({
+      findRulesByGuidelineId: async () => [
+        mockRule,
+        contradictoryRule,
+      ],
+      findConflictsByRuleIds: async () => [mockConflict],
+      createConflicts: async () => {
+        createCalled = true;
+        return [];
+      },
+    });
+
+    const service = new GuidelinesService(repository);
+
+    const result = await service.detectAndSaveConflicts(
+      'guideline-123',
+    );
+
+    assert.deepEqual(result, []);
+    assert.equal(createCalled, false);
+  });
+
+  it('throws an error when guideline does not exist', async () => {
+    let rulesFetchCalled = false;
+
+    const repository = createRepositoryMock({
+      findById: async () => null,
+      findRulesByGuidelineId: async () => {
+        rulesFetchCalled = true;
+        return [];
+      },
+    });
+
+    const service = new GuidelinesService(repository);
+
+    await assert.rejects(
+      service.detectAndSaveConflicts('missing-guideline'),
+      {
+        message: 'Guideline not found: missing-guideline',
+      },
+    );
+
+    assert.equal(rulesFetchCalled, false);
+  });
+
+  it('returns empty array when no conflicts are detected', async () => {
+    let createCalled = false;
+
+    const repository = createRepositoryMock({
+      findRulesByGuidelineId: async () => [mockRule],
+      createConflicts: async () => {
+        createCalled = true;
+        return [];
+      },
+    });
+
+    const service = new GuidelinesService(repository);
+
+    const result = await service.detectAndSaveConflicts(
+      'guideline-123',
+    );
+
+    assert.deepEqual(result, []);
+    assert.equal(createCalled, false);
   });
 });

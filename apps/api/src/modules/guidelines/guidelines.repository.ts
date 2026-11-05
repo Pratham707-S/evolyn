@@ -1,13 +1,27 @@
-import { and, desc, eq, type SQL } from 'drizzle-orm';
+import {
+    and,
+    desc,
+    eq,
+    inArray,
+    or,
+    type SQL,
+} from 'drizzle-orm';
 
 import { db } from '../../db/index.js';
-import { guidelines, guidelineRules } from '../../db/schema.js';
+import {
+    guidelines,
+    guidelineRules,
+    guidelineConflicts,
+} from '../../db/schema.js';
 
 import type { CreateGuidelineInput } from '@evolyn/shared';
 import type { GuidelineQueryFilter } from './guidelines.types.js';
+import type { DetectedConflict } from './conflict-detector.js';
 
 export type GuidelineRecord = typeof guidelines.$inferSelect;
 export type GuidelineRuleRecord = typeof guidelineRules.$inferSelect;
+export type GuidelineConflictRecord =
+    typeof guidelineConflicts.$inferSelect;
 
 export class GuidelinesRepository {
     async create(input: CreateGuidelineInput): Promise<GuidelineRecord> {
@@ -71,6 +85,46 @@ export class GuidelinesRepository {
             .from(guidelineRules)
             .where(eq(guidelineRules.guidelineId, guidelineId))
             .orderBy(desc(guidelineRules.createdAt));
+    }
+
+    async findConflictsByRuleIds(
+        ruleIds: string[],
+    ): Promise<GuidelineConflictRecord[]> {
+        if (ruleIds.length === 0) {
+            return [];
+        }
+
+        return db
+            .select()
+            .from(guidelineConflicts)
+            .where(
+                or(
+                    inArray(guidelineConflicts.ruleAId, ruleIds),
+                    inArray(guidelineConflicts.ruleBId, ruleIds),
+                ),
+            );
+    }
+
+    async createConflicts(
+        conflicts: DetectedConflict[],
+    ): Promise<GuidelineConflictRecord[]> {
+        if (conflicts.length === 0) {
+            return [];
+        }
+
+        return db
+            .insert(guidelineConflicts)
+            .values(
+                conflicts.map((conflict) => ({
+                    ruleAId: conflict.ruleAId,
+                    ruleBId: conflict.ruleBId,
+                    conflictType: conflict.conflictType,
+                    explanation: conflict.explanation,
+                    severity: conflict.severity,
+                    status: 'OPEN',
+                })),
+            )
+            .returning();
     }
 }
 
