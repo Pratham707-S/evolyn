@@ -14,6 +14,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().default(5001),
   DATABASE_URL: z.string().default('postgresql://evolyn:evolyn_secret@localhost:5432/evolyn_db'),
+  DIRECT_URL: z.string().optional(),
 
   // Gemini AI Model Configuration (strictly environment-driven)
   GEMINI_API_KEY: z.string().optional().default(''),

@@ -74,4 +74,42 @@ describe('Database Migrations Integrity & Hardening', () => {
         const breakpoints = sqlContent.split('--> statement-breakpoint');
         assert.equal(breakpoints.length, 5, 'Must have 5 breakpoint-separated statements for Drizzle migrator');
     });
+
+    it('drizzle.config.ts prefers DIRECT_URL over DATABASE_URL for migrations', () => {
+        const configPath = path.resolve(__dirname, '../../drizzle.config.ts');
+        assert.ok(fs.existsSync(configPath), 'drizzle.config.ts must exist');
+
+        const configContent = fs.readFileSync(configPath, 'utf8');
+        assert.ok(
+            configContent.includes('process.env.DIRECT_URL ||\n      process.env.DATABASE_URL') ||
+            configContent.includes('process.env.DIRECT_URL || process.env.DATABASE_URL'),
+            'drizzle.config.ts must prefer DIRECT_URL over DATABASE_URL'
+        );
+    });
+
+    it('migrate.ts selects DIRECT_URL when provided and falls back to DATABASE_URL', async () => {
+        const { getMigrationConnectionString } = await import('../db/migrate.js');
+        const { env } = await import('../config/env.js');
+
+        // Without DIRECT_URL
+        const originalDirect = env.DIRECT_URL;
+        try {
+            delete (env as any).DIRECT_URL;
+            const fallbackResult = getMigrationConnectionString();
+            assert.equal(fallbackResult.connectionString, env.DATABASE_URL);
+            assert.equal(fallbackResult.isDirect, false);
+
+            // With DIRECT_URL
+            (env as any).DIRECT_URL = 'postgresql://direct_user:direct_pass@ep-test.neon.tech/neondb';
+            const directResult = getMigrationConnectionString();
+            assert.equal(directResult.connectionString, 'postgresql://direct_user:direct_pass@ep-test.neon.tech/neondb');
+            assert.equal(directResult.isDirect, true);
+        } finally {
+            if (originalDirect !== undefined) {
+                (env as any).DIRECT_URL = originalDirect;
+            } else {
+                delete (env as any).DIRECT_URL;
+            }
+        }
+    });
 });
