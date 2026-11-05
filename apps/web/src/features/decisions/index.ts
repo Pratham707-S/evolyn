@@ -33,3 +33,4 @@ export type { Decision, SubmitDecisionInput };
 
 export * from './components';
 export type { DecisionItem } from './components/approval-inspector';
+export type { TimelineDecision } from './components/decision-history-timeline';
