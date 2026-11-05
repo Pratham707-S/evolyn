@@ -9,7 +9,7 @@
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "pretest": "npm run --workspace=@evolyn/shared build",
-    "test": "cross-env NODE_ENV=test node --import tsx --test \"src/__tests__/**/*.test.ts\"",
+    "test": "cross-env NODE_ENV=test node --import tsx --test \"src/__tests__/**/*.test.ts\" \"src/modules/**/__tests__/**/*.test.ts\"",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts"
