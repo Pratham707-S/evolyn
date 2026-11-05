@@ -28,7 +28,7 @@ import type {
   CreateGuidelineInput,
 } from '@evolyn/shared';
 
-import type { GuidelineQueryFilter } from './guidelines.types.js';
+import type { GuidelineQueryFilter, RuleMatchResult } from './guidelines.types.js';
 import type { GuidelineConflictRecord } from './guidelines.repository.js';
 
 export interface GuidelineWithRules extends Guideline {
@@ -45,6 +45,10 @@ export interface IGuidelineService {
   detectAndSaveConflicts(
     guidelineId: string,
   ): Promise<GuidelineConflictRecord[]>;
+  findRelevantRules?(
+    queryVector: number[],
+    limit?: number,
+  ): Promise<RuleMatchResult[]>;
 }
 
 export { GuidelinesService, guidelinesService } from './guidelines.service.js';

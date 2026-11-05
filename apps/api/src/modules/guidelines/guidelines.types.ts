@@ -1,5 +1,6 @@
 import type {
   GuidelineCategory,
+  GuidelineRule,
   GuidelineStatus,
   RuleType,
   Severity,
@@ -8,6 +9,10 @@ import type {
 export interface GuidelineQueryFilter {
   category?: GuidelineCategory;
   status?: GuidelineStatus;
+}
+
+export interface RuleMatchResult extends GuidelineRule {
+  similarity: number;
 }
 
 /**

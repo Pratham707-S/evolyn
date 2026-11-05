@@ -1,10 +1,15 @@
 import {
     and,
+    asc,
+    cosineDistance,
     desc,
     eq,
+    getTableColumns,
     inArray,
+    isNotNull,
     isNull,
     or,
+    sql,
     type SQL,
 } from 'drizzle-orm';
 
@@ -26,6 +31,10 @@ export type GuidelineRecord = typeof guidelines.$inferSelect;
 export type GuidelineRuleRecord = typeof guidelineRules.$inferSelect;
 export type GuidelineConflictRecord =
     typeof guidelineConflicts.$inferSelect;
+
+export interface RelevantRuleRecord extends GuidelineRuleRecord {
+    similarity: number;
+}
 
 export class GuidelinesRepository {
     constructor(
@@ -195,6 +204,41 @@ export class GuidelinesRepository {
         }
 
         return updatedRule;
+    }
+
+    /**
+     * Retrieve semantically relevant guideline rules using vector cosine similarity.
+     * Excludes inactive guidelines and rules without embeddings.
+     */
+    async findRelevantRules(
+        queryVector: number[],
+        limit = 10,
+    ): Promise<RelevantRuleRecord[]> {
+        const distance = cosineDistance(
+            guidelineRules.embedding,
+            queryVector,
+        );
+
+        const results = await this.database
+            .select({
+                ...getTableColumns(guidelineRules),
+                distance: sql<number>`${distance}`,
+            })
+            .from(guidelineRules)
+            .innerJoin(guidelines, eq(guidelineRules.guidelineId, guidelines.id))
+            .where(
+                and(
+                    isNotNull(guidelineRules.embedding),
+                    eq(guidelines.status, 'ACTIVE'),
+                ),
+            )
+            .orderBy(asc(distance))
+            .limit(limit);
+
+        return results.map(({ distance, ...rule }) => ({
+            ...rule,
+            similarity: 1 - distance,
+        }));
     }
 
     async findConflictsByRuleIds(
