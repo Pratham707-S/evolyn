@@ -1,10 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Plus } from 'lucide-react';
 import { AppShell, useAppShell } from '@/components/layout/app-shell';
 import { PageHeader } from '@/components/shared/page-header';
-import { Button } from '@/components/ui/button';
 import {
   ReviewMetrics,
   ReviewQueue,
@@ -151,7 +149,7 @@ const initialQueueItems: QueueItem[] = [
 ];
 
 function ReviewWorkspaceContent() {
-  const { openNewSubmission, showToast } = useAppShell();
+  const { showToast } = useAppShell();
   const [items, setItems] = useState<QueueItem[]>(initialQueueItems);
   const [selectedId, setSelectedId] = useState<string>('sub-1');
   const [queueFilter, setQueueFilter] = useState<string | null>(null);
@@ -179,17 +177,6 @@ function ReviewWorkspaceContent() {
         description="Review submissions with AI findings, brand guidelines, and final decisions."
         showNotificationBell={true}
         unreadNotificationsCount={2}
-        actions={
-          <Button
-            variant="primary"
-            size="md"
-            onClick={openNewSubmission}
-            className="gap-1.5"
-          >
-            <Plus className="w-3.5 h-3.5 text-white" />
-            <span>New Review</span>
-          </Button>
-        }
       />
 
       {/* 2. Top Metric KPI Cards */}

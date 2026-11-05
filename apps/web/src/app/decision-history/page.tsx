@@ -6,9 +6,8 @@ import { AppShell, useAppShell } from '@/components/layout/app-shell';
 import { PageHeader } from '@/components/shared/page-header';
 import { Button } from '@/components/ui/button';
 import {
-  DecisionHistoryMetrics,
   DecisionHistoryTimeline,
-  DecisionHistoryDetail,
+  DecisionDetailModal,
   TimelineDecision,
 } from '@/features/decisions';
 
@@ -19,7 +18,11 @@ const initialTimelineData: TimelineDecision[] = [
     channel: 'LinkedIn',
     decision: 'Approved',
     reviewerName: 'Mann K.',
+    reviewerInitials: 'MK',
     timeAgo: '2h ago',
+    dayIndex: 3, // Thu 05 (Today)
+    spanDays: 2,
+    trackIndex: 0, // Social & Growth
     submissionId: 'Submission #SUB-1043',
     content:
       'Introducing our new AI-powered brand governance platform that helps marketing teams stay compliant, consistent, and on-brand across every channel.',
@@ -52,7 +55,11 @@ const initialTimelineData: TimelineDecision[] = [
     channel: 'Website',
     decision: 'Changes Requested',
     reviewerName: 'Ayan K.',
+    reviewerInitials: 'AK',
     timeAgo: '4h ago',
+    dayIndex: 3, // Thu 05 (Today)
+    spanDays: 2,
+    trackIndex: 1, // Web & Core Messaging
     submissionId: 'Submission #SUB-1042',
     content:
       'Evolyn helps enterprise teams keep every piece of content aligned with verified brand truth. Built with grounded AI and zero-hallucination guardrails.',
@@ -85,7 +92,11 @@ const initialTimelineData: TimelineDecision[] = [
     channel: 'Email',
     decision: 'Approved',
     reviewerName: 'Pratham K.',
+    reviewerInitials: 'PK',
     timeAgo: '6h ago',
+    dayIndex: 3, // Thu 05 (Today)
+    spanDays: 2,
+    trackIndex: 2, // Email & Lifecycle
     submissionId: 'Submission #SUB-1041',
     content:
       'Be the first to explore Evolyn — a smarter way to verify claims, enforce tone of voice, and streamline creative approvals in real time.',
@@ -112,7 +123,11 @@ const initialTimelineData: TimelineDecision[] = [
     channel: 'Blog',
     decision: 'Approved',
     reviewerName: 'Mann K.',
+    reviewerInitials: 'MK',
     timeAgo: 'Yesterday',
+    dayIndex: 2, // Wed 04
+    spanDays: 2,
+    trackIndex: 3, // Editorial & Case Studies
     submissionId: 'Submission #SUB-1040',
     content:
       'How a global enterprise achieved a 99.4% reduction in brand claim violations and shortened review turnaround from 3 days to under 15 minutes with Evolyn.',
@@ -139,7 +154,11 @@ const initialTimelineData: TimelineDecision[] = [
     channel: 'Instagram',
     decision: 'Rejected',
     reviewerName: 'Ayan K.',
+    reviewerInitials: 'AK',
     timeAgo: 'Yesterday',
+    dayIndex: 2, // Wed 04
+    spanDays: 2,
+    trackIndex: 0, // Social & Growth
     submissionId: 'Submission #SUB-1039',
     content:
       'A faster, safer way to keep your brand on track. Stay ahead of compliance risks with automated citation checks and evidence scoring.',
@@ -160,16 +179,84 @@ const initialTimelineData: TimelineDecision[] = [
       },
     ],
   },
+  {
+    id: 'hist-6',
+    title: 'Enterprise Trust Whitepaper',
+    channel: 'Blog',
+    decision: 'Approved',
+    reviewerName: 'Mann K.',
+    reviewerInitials: 'MK',
+    timeAgo: '2 days ago',
+    dayIndex: 1, // Tue 03
+    spanDays: 2,
+    trackIndex: 3, // Editorial & Case Studies
+    submissionId: 'Submission #SUB-1038',
+    content:
+      'Architecture breakdown of zero-hallucination verification engines in enterprise brand governance.',
+    decisionNote: 'Legal and security team sign-off complete.',
+    findingsCount: 0,
+    timelineSteps: [
+      {
+        title: 'Approved by Mann K.',
+        description: 'Technical whitepaper approved for gated download.',
+        timeAgo: '2 days ago',
+        completed: true,
+      },
+      {
+        title: 'Submitted by DevRel',
+        description: 'Uploaded via doc connector.',
+        timeAgo: '3 days ago',
+        completed: false,
+      },
+    ],
+  },
+  {
+    id: 'hist-7',
+    title: 'Global Product Positioning Deck',
+    channel: 'Website',
+    decision: 'Approved',
+    reviewerName: 'Pratham K.',
+    reviewerInitials: 'PK',
+    timeAgo: '3 days ago',
+    dayIndex: 0, // Mon 02
+    spanDays: 2,
+    trackIndex: 1, // Web & Core Messaging
+    submissionId: 'Submission #SUB-1037',
+    content:
+      'Core positioning slides and boilerplate messaging for European brand expansion.',
+    decisionNote: 'Passed brand voice guidelines.',
+    findingsCount: 0,
+    timelineSteps: [
+      {
+        title: 'Approved by Pratham K.',
+        description: 'Positioning copy conforms to international style guides.',
+        timeAgo: '3 days ago',
+        completed: true,
+      },
+      {
+        title: 'Submitted',
+        description: 'Marketing draft ingested.',
+        timeAgo: '4 days ago',
+        completed: false,
+      },
+    ],
+  },
 ];
 
 function DecisionHistoryContent() {
   const { showToast } = useAppShell();
   const [items] = useState<TimelineDecision[]>(initialTimelineData);
-  const [selectedId, setSelectedId] = useState<string>('hist-1');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState('Last 30 Days');
 
-  const selectedItem = items.find((it) => it.id === selectedId) || items[0];
+  // Popup Modal State (Opens on small card click with blurred background & GSAP bottom animation)
+  const [modalItem, setModalItem] = useState<TimelineDecision | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleCardClick = (item: TimelineDecision) => {
+    setModalItem(item);
+    setIsModalOpen(true);
+  };
 
   const handleExport = () => {
     const csvContent =
@@ -239,42 +326,24 @@ function DecisionHistoryContent() {
         }
       />
 
-      {/* 2. Top 4 Metric KPI Cards with Mini Bar Charts */}
-      <section aria-label="Decision History Metrics">
-        <DecisionHistoryMetrics
-          total={499}
-          approved={448}
-          changesRequested={28}
-          rejected={7}
-          activeFilter={statusFilter}
-          onSelectFilter={(flt) => setStatusFilter(flt)}
+      {/* 2. Gantt Schedule Timeline Hero with Wide Filters & Interactive Date Picker */}
+      <section aria-label="Decision Timeline Workstation">
+        <DecisionHistoryTimeline
+          items={items}
+          selectedId={modalItem?.id || ''}
+          onSelect={handleCardClick}
+          statusFilter={statusFilter}
+          onFilterChange={(flt) => setStatusFilter(flt)}
         />
       </section>
 
-      {/* 3. Split-Screen Workstation Layout */}
-      <section
-        aria-label="Decision History Workstation"
-        className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start"
-      >
-        {/* Left Column: Decision Timeline (col-span-5) */}
-        <div className="lg:col-span-5">
-          <DecisionHistoryTimeline
-            items={items}
-            selectedId={selectedItem.id}
-            onSelect={(item) => setSelectedId(item.id)}
-            statusFilter={statusFilter}
-            onFilterChange={(flt) => setStatusFilter(flt)}
-          />
-        </div>
-
-        {/* Right Column: Detailed Decision Inspector & Event Trace (col-span-7) */}
-        <div className="lg:col-span-7">
-          <DecisionHistoryDetail
-            item={selectedItem}
-            showToast={showToast}
-          />
-        </div>
-      </section>
+      {/* 3. Pop-up Card with blurred background and smooth GSAP entrance from bottom */}
+      <DecisionDetailModal
+        item={modalItem}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        showToast={showToast}
+      />
     </div>
   );
 }

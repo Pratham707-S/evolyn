@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Download, Plus } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { AppShell, useAppShell } from '@/components/layout/app-shell';
 import { PageHeader } from '@/components/shared/page-header';
 import { Button } from '@/components/ui/button';
@@ -92,7 +92,7 @@ const initialDecisionsData: DecisionItem[] = [
 ];
 
 function ApprovalsContent() {
-  const { openNewSubmission, showToast } = useAppShell();
+  const { showToast } = useAppShell();
   const [decisions, setDecisions] = useState<DecisionItem[]>(initialDecisionsData);
   const [selectedId, setSelectedId] = useState<string>('dec-1');
   const [statusTab, setStatusTab] = useState<string>('ALL');
@@ -131,27 +131,15 @@ function ApprovalsContent() {
         showNotificationBell={true}
         unreadNotificationsCount={1}
         actions={
-          <>
-            <Button
-              variant="secondary"
-              size="md"
-              onClick={handleExport}
-              className="gap-1.5"
-            >
-              <Download className="w-3.5 h-3.5 text-[#25251F]" />
-              <span>Export</span>
-            </Button>
-
-            <Button
-              variant="primary"
-              size="md"
-              onClick={openNewSubmission}
-              className="gap-1.5"
-            >
-              <Plus className="w-3.5 h-3.5 text-white" />
-              <span>New Approval</span>
-            </Button>
-          </>
+          <Button
+            variant="secondary"
+            size="md"
+            onClick={handleExport}
+            className="gap-1.5"
+          >
+            <Download className="w-3.5 h-3.5 text-[#25251F]" />
+            <span>Export</span>
+          </Button>
         }
       />
 
