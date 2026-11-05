@@ -20,11 +20,15 @@
  * ============================================================================
  */
 
-import type { ReviewExecutionResult } from './reviews.types.js';
+import type { ReviewExecutionOptions, ReviewExecutionResult } from './reviews.types.js';
 
 export interface IReviewService {
-  executeReview(submissionId: string): Promise<ReviewExecutionResult>;
+  executeReview(
+    submissionId: string,
+    options?: ReviewExecutionOptions
+  ): Promise<ReviewExecutionResult>;
   getReviewBySubmissionId(submissionId: string): Promise<ReviewExecutionResult | null>;
+  getReviewHistory?(submissionId: string): Promise<ReviewExecutionResult[]>;
 }
 
 export { ReviewService } from './reviews.service.js';

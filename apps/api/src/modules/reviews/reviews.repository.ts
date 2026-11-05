@@ -37,6 +37,14 @@ export class ReviewsRepository {
     return reviewRun ?? null;
   }
 
+  async listBySubmissionId(submissionId: string): Promise<ReviewRunRecord[]> {
+    return db
+      .select()
+      .from(reviewRuns)
+      .where(eq(reviewRuns.submissionId, submissionId))
+      .orderBy(desc(reviewRuns.createdAt), desc(reviewRuns.id));
+  }
+
   async deleteById(id: string): Promise<void> {
     await db.delete(reviewRuns).where(eq(reviewRuns.id, id));
   }

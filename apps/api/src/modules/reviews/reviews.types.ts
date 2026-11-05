@@ -13,10 +13,15 @@ export interface ReviewExecutionResult {
   issues: DetectedIssue[];
 }
 
+export interface ReviewExecutionOptions {
+  content?: string;
+}
+
 export interface ReviewDependencies {
   submissions: Pick<ISubmissionService, 'getSubmissionById' | 'updateSubmissionStatus'>;
   guidelines: {
-    findSimilarRules(queryVector: number[], limit?: number): Promise<GuidelineRule[]>;
+    findSimilarRules?(queryVector: number[], limit?: number): Promise<GuidelineRule[]>;
+    findRelevantRules?(queryVector: number[], limit?: number): Promise<GuidelineRule[]>;
   };
   knowledge: Pick<IKnowledgeService, 'findRelevantFacts'>;
   findings: Pick<IFindingsService, 'recordFindings' | 'getFindingsByReviewRunId'>;

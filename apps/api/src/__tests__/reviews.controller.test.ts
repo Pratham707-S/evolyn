@@ -79,6 +79,7 @@ describe('ReviewsController', () => {
     assert.deepEqual(routes, [
       { path: '/submissions/:id/analyze', methods: ['post'] },
       { path: '/submissions/:id/review', methods: ['get'] },
+      { path: '/submissions/:id/reviews', methods: ['get'] },
     ]);
   });
 

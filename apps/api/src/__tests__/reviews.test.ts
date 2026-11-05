@@ -124,12 +124,19 @@ function createDependencies(
 
 function createRepository(
   overrides: Partial<
-    Pick<ReviewsRepository, 'create' | 'findLatestBySubmissionId' | 'deleteById'>
+    Pick<
+      ReviewsRepository,
+      'create' | 'findLatestBySubmissionId' | 'listBySubmissionId' | 'deleteById'
+    >
   > = {}
-): Pick<ReviewsRepository, 'create' | 'findLatestBySubmissionId' | 'deleteById'> {
+): Pick<
+  ReviewsRepository,
+  'create' | 'findLatestBySubmissionId' | 'listBySubmissionId' | 'deleteById'
+> {
   return {
     create: async () => createReviewRunRecord(),
     findLatestBySubmissionId: async () => null,
+    listBySubmissionId: async () => [],
     deleteById: async () => {},
     ...overrides,
   };
@@ -235,7 +242,7 @@ describe('ReviewService', () => {
         },
       },
     });
-    const existing = createReviewRunRecord();
+    const existing = createReviewRunRecord({ id: '11111111-1111-4111-a111-111111111111' });
     const service = new ReviewService(
       dependencies,
       createRepository({ findLatestBySubmissionId: async () => existing })
@@ -245,6 +252,48 @@ describe('ReviewService', () => {
 
     assert.equal(result.reviewRun.id, existing.id);
     assert.equal(auditCalled, false);
+  });
+
+  it('triggers a new review run when revised content is supplied, preserving original submission', async () => {
+    let auditCalledWithContent = '';
+    const dependencies = createDependencies({
+      ai: {
+        generateEmbedding: async () => Array(768).fill(0.25),
+        auditContent: async (params) => {
+          auditCalledWithContent = params.content;
+          return { issues: [] };
+        },
+      },
+    });
+    const existing = createReviewRunRecord({ id: '11111111-1111-4111-a111-111111111111' });
+    const service = new ReviewService(
+      dependencies,
+      createRepository({ findLatestBySubmissionId: async () => existing })
+    );
+
+    const revisedCopy = 'Our fully compliant and verified launch is ready.';
+    const result = await service.executeReview(submissionId, { content: revisedCopy });
+
+    assert.equal(auditCalledWithContent, revisedCopy);
+    assert.notEqual(result.reviewRun.id, existing.id);
+  });
+
+  it('retrieves chronological review history for a submission', async () => {
+    const run1 = createReviewRunRecord({ id: '11111111-1111-4111-a111-111111111111' });
+    const run2 = createReviewRunRecord({ id: '22222222-2222-4222-a222-222222222222' });
+    const dependencies = createDependencies();
+    const service = new ReviewService(
+      dependencies,
+      createRepository({
+        listBySubmissionId: async () => [run2, run1],
+      })
+    );
+
+    const history = await service.getReviewHistory(submissionId);
+
+    assert.equal(history.length, 2);
+    assert.equal(history[0]?.reviewRun.id, run2.id);
+    assert.equal(history[1]?.reviewRun.id, run1.id);
   });
 
   it('coalesces concurrent review requests for the same submission', async () => {
