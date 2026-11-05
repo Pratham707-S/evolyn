@@ -184,7 +184,8 @@ export class GuidelinesRepository {
 
     /**
      * Persist detected guideline rule conflicts with concurrency safety.
-     * Enforces canonical rule ID ordering (ruleAId <= ruleBId) to prevent mirror duplicates (A:B vs B:A).
+     * Enforces canonical rule ID ordering (ruleAId < ruleBId) consistent with the strict database CHECK constraint.
+     * Skips invalid self-conflict pairs (ruleAId === ruleBId) before database insertion.
      * Uses onConflictDoNothing to guarantee concurrent insertion safety against database unique index.
      */
     async createConflicts(
@@ -194,10 +195,19 @@ export class GuidelinesRepository {
             return [];
         }
 
-        // Canonical ordering: ensure ruleAId is always <= ruleBId
-        const normalized = conflicts.map((conflict) => {
+        // Filter out invalid self-conflicts (ruleAId === ruleBId) to respect strict database constraint CHECK (rule_a_id < rule_b_id)
+        const nonSelfConflicts = conflicts.filter(
+            (conflict) => conflict.ruleAId !== conflict.ruleBId,
+        );
+
+        if (nonSelfConflicts.length === 0) {
+            return [];
+        }
+
+        // Canonical ordering: ensure ruleAId is strictly < ruleBId
+        const normalized = nonSelfConflicts.map((conflict) => {
             const [ruleAId, ruleBId] =
-                conflict.ruleAId <= conflict.ruleBId
+                conflict.ruleAId < conflict.ruleBId
                     ? [conflict.ruleAId, conflict.ruleBId]
                     : [conflict.ruleBId, conflict.ruleAId];
 

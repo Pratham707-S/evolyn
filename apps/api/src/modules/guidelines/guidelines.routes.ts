@@ -22,3 +22,8 @@ guidelinesRouter.post(
     '/:id/extract-rules',
     guidelinesController.extractRules,
 );
+
+guidelinesRouter.post(
+    '/:id/detect-conflicts',
+    guidelinesController.detectConflicts,
+);

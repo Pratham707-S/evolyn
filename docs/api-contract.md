@@ -105,6 +105,51 @@ Empty extraction results are rejected to protect existing rules.
 }
 ```
 
+### `POST /api/guidelines/:id/detect-conflicts`
+Runs deterministic conflict detection across all rules associated with a brand guideline and persists newly detected conflicts.
+Detects contradictions between opposite rule types (e.g. MANDATORY vs PROHIBITED) and opposite lexical polarities on identical core requirements.
+Enforces canonical rule ID ordering (`ruleAId <= ruleBId`) and database unique constraints to prevent concurrent duplicate entries.
+
+**Response `200 OK`:**
+```json
+{
+  "guidelineId": "7f8b3c21-...",
+  "conflicts": [
+    {
+      "id": "99aa88bb-...",
+      "ruleAId": "11ab22cd-...",
+      "ruleBId": "33ef44gh-...",
+      "conflictType": "CONTRADICTION",
+      "explanation": "Both rules describe the same requirement but express opposite instructions.",
+      "severity": "CRITICAL",
+      "status": "OPEN",
+      "createdAt": "2026-11-04T12:00:00.000Z"
+    }
+  ],
+  "total": 1
+}
+```
+
+**Response `404 Not Found`:**
+```json
+{
+  "error": "Guideline not found"
+}
+```
+
+**Response `400 Bad Request`:**
+```json
+{
+  "error": "Validation failed",
+  "details": [
+    {
+      "field": "id",
+      "message": "Invalid uuid"
+    }
+  ]
+}
+```
+
 ---
 
 ## 3. Approved Knowledge & Facts (Mann)

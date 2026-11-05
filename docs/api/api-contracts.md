@@ -21,6 +21,10 @@
   - Response: `{ guidelineId: string, rules: GuidelineRule[], total: number }`
   - Returns `404` when the guideline does not exist
   - Returns `400` when `id` is not a valid UUID or content is empty
+- `POST /api/guidelines/:id/detect-conflicts` — Detect and persist contradictory rules
+  - Response: `{ guidelineId: string, conflicts: GuidelineConflictRecord[], total: number }`
+  - Returns `404` when the guideline does not exist
+  - Returns `400` when `id` is not a valid UUID
 
 ## 3. Knowledge Module (`modules/knowledge`)
 - `POST /api/facts` — Store approved factual claim with verified citation

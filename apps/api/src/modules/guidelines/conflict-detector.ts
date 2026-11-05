@@ -1,5 +1,14 @@
 import type { RuleType, Severity } from '@evolyn/shared';
 
+/**
+ * Conflict Type Enumeration
+ *
+ * SCOPE & PHASE NOTICE:
+ * - CONTRADICTION: Supported deterministically in Phase 1 via pairwise opposite rule types
+ *   and lexical polarity matching.
+ * - AMBIGUITY: Reserved for Phase 2 semantic/LLM evaluation. Not detected deterministically.
+ * - OVERLAP: Reserved for Phase 2 semantic similarity scoring. Not detected deterministically.
+ */
 export type ConflictType =
     | 'CONTRADICTION'
     | 'AMBIGUITY'
@@ -121,9 +130,14 @@ function detectExplicitContradiction(
         return null;
     }
 
+    const [ruleAId, ruleBId] =
+        first.id <= second.id
+            ? [first.id, second.id]
+            : [second.id, first.id];
+
     return {
-        ruleAId: first.id,
-        ruleBId: second.id,
+        ruleAId,
+        ruleBId,
         conflictType: 'CONTRADICTION',
         explanation:
             'Both rules describe the same requirement but express opposite instructions.',
