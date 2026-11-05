@@ -21,8 +21,8 @@ export interface AIProvider {
     facts: Array<{ id: string; claim: string; source: string }>;
   }): Promise<{
     issues: Array<{
-      ruleId?: string | null;
-      factId?: string | null;
+      ruleId?: string;
+      factId?: string;
       issueType: string;
       flaggedExcerpt: string;
       explanation: string;
