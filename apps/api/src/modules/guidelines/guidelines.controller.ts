@@ -18,6 +18,14 @@ export const extractRulesBodySchema = z
   .object({})
   .strict({ message: 'Request body must not contain fields. Rule extraction strictly uses stored canonical guideline content.' });
 
+export const detectConflictsParamsSchema = z.object({
+  id: uuidSchema,
+});
+
+export const detectConflictsBodySchema = z
+  .object({})
+  .strict({ message: 'Request body must not contain fields for conflict detection.' });
+
 type GuidelinesControllerService = IGuidelineService;
 
 export function createGuidelinesController(
@@ -118,11 +126,47 @@ export function createGuidelinesController(
     }
   };
 
+  // POST: Detect and persist contradictions between rules of a guideline
+  const detectConflicts = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const { id } = detectConflictsParamsSchema.parse(req.params);
+
+      if (req.body && Object.keys(req.body).length > 0) {
+        detectConflictsBodySchema.parse(req.body);
+      }
+
+      const conflicts = await service.detectAndSaveConflicts(id);
+
+      return res.status(200).json({
+        guidelineId: id,
+        conflicts,
+        total: conflicts.length,
+      });
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.message === 'Guideline not found' ||
+          error.message.startsWith('Guideline not found'))
+      ) {
+        return res.status(404).json({
+          error: 'Guideline not found',
+        });
+      }
+
+      return next(error);
+    }
+  };
+
   return {
     createGuideline,
     getGuidelines,
     getGuidelineById,
     extractRules,
+    detectConflicts,
   };
 }
 

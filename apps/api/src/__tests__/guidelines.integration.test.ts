@@ -117,6 +117,8 @@ describe('Guidelines Integration Tests (Express App E2E)', () => {
   const originalFindById = guidelinesRepository.findById;
   const originalFindRules = guidelinesRepository.findRulesByGuidelineId;
   const originalReplaceRules = guidelinesRepository.replaceRules;
+  const originalFindConflicts = guidelinesRepository.findConflictsByRuleIds;
+  const originalCreateConflicts = guidelinesRepository.createConflicts;
 
   function restoreRepositoryMocks() {
     guidelinesRepository.create = originalCreate;
@@ -124,6 +126,8 @@ describe('Guidelines Integration Tests (Express App E2E)', () => {
     guidelinesRepository.findById = originalFindById;
     guidelinesRepository.findRulesByGuidelineId = originalFindRules;
     guidelinesRepository.replaceRules = originalReplaceRules;
+    guidelinesRepository.findConflictsByRuleIds = originalFindConflicts;
+    guidelinesRepository.createConflicts = originalCreateConflicts;
     guidelinesService.setRuleExtractor(undefined);
   }
 
@@ -458,6 +462,143 @@ describe('Guidelines Integration Tests (Express App E2E)', () => {
 
       assert.equal(res.statusCode, 500);
       assert.equal(res.body.error, 'Database transaction support is required for atomic rule replacement');
+    });
+  });
+
+  describe('POST /api/guidelines/:id/detect-conflicts', () => {
+    const validGuidelineId = 'c0a80123-4567-4890-a123-456789abcdef';
+
+    it('detects and persists rule conflicts via real Express route', async () => {
+      guidelinesRepository.findById = async (id) =>
+        id === validGuidelineId
+          ? { ...sampleRecord, id: validGuidelineId }
+          : null;
+
+      const ruleA: GuidelineRuleRecord = {
+        id: 'r-11111111-1111-4111-8111-111111111111',
+        guidelineId: validGuidelineId,
+        ruleType: 'MANDATORY',
+        ruleStatement: 'Always write brand name as Evolyn.',
+        explanation: 'Identity.',
+        severity: 'CRITICAL',
+        embedding: null,
+        metadata: {},
+        createdAt: mockDate,
+      };
+
+      const ruleB: GuidelineRuleRecord = {
+        id: 'r-22222222-2222-4222-8222-222222222222',
+        guidelineId: validGuidelineId,
+        ruleType: 'PROHIBITED',
+        ruleStatement: 'Never write brand name as Evolyn.',
+        explanation: 'Contradiction.',
+        severity: 'WARNING',
+        embedding: null,
+        metadata: {},
+        createdAt: mockDate,
+      };
+
+      guidelinesRepository.findRulesByGuidelineId = async (id) =>
+        id === validGuidelineId ? [ruleA, ruleB] : [];
+
+      guidelinesRepository.findConflictsByRuleIds = async () => [];
+
+      let persistedInput: any[] = [];
+      guidelinesRepository.createConflicts = async (conflicts) => {
+        persistedInput = conflicts;
+        return [
+          {
+            id: 'c-test-1',
+            ruleAId: conflicts[0]!.ruleAId,
+            ruleBId: conflicts[0]!.ruleBId,
+            conflictType: conflicts[0]!.conflictType,
+            explanation: conflicts[0]!.explanation,
+            severity: conflicts[0]!.severity,
+            status: 'OPEN',
+            createdAt: mockDate,
+          },
+        ];
+      };
+
+      const res = await dispatch({
+        method: 'POST',
+        url: `/api/guidelines/${validGuidelineId}/detect-conflicts`,
+      });
+
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.body.guidelineId, validGuidelineId);
+      assert.equal(res.body.total, 1);
+      assert.equal(res.body.conflicts.length, 1);
+      assert.equal(res.body.conflicts[0].conflictType, 'CONTRADICTION');
+      assert.equal(res.body.conflicts[0].severity, 'CRITICAL');
+      assert.equal(persistedInput.length, 1);
+    });
+
+    it('returns 200 with 0 conflicts when guideline has fewer than 2 rules', async () => {
+      guidelinesRepository.findById = async (id) =>
+        id === validGuidelineId ? { ...sampleRecord, id: validGuidelineId } : null;
+
+      guidelinesRepository.findRulesByGuidelineId = async () => [sampleRule];
+
+      const res = await dispatch({
+        method: 'POST',
+        url: `/api/guidelines/${validGuidelineId}/detect-conflicts`,
+      });
+
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.body.total, 0);
+      assert.deepEqual(res.body.conflicts, []);
+    });
+
+    it('returns 404 when guideline does not exist', async () => {
+      guidelinesRepository.findById = async () => null;
+
+      const res = await dispatch({
+        method: 'POST',
+        url: `/api/guidelines/${validGuidelineId}/detect-conflicts`,
+      });
+
+      assert.equal(res.statusCode, 404);
+      assert.deepEqual(res.body, { error: 'Guideline not found' });
+    });
+
+    it('returns 400 when guideline ID is not a valid UUID', async () => {
+      const res = await dispatch({
+        method: 'POST',
+        url: '/api/guidelines/not-a-valid-uuid/detect-conflicts',
+      });
+
+      assert.equal(res.statusCode, 400);
+      assert.equal(res.body.error, 'Validation failed');
+      assert.ok(Array.isArray(res.body.details));
+      assert.equal(res.body.details[0].field, 'id');
+    });
+
+    it('returns 400 when request body contains unexpected properties', async () => {
+      const res = await dispatch({
+        method: 'POST',
+        url: `/api/guidelines/${validGuidelineId}/detect-conflicts`,
+        body: { unsupportedField: 'forbidden' },
+      });
+
+      assert.equal(res.statusCode, 400);
+      assert.equal(res.body.error, 'Validation failed');
+      assert.ok(Array.isArray(res.body.details));
+    });
+
+    it('returns 500 without leaking stack traces on unexpected repository error', async () => {
+      guidelinesRepository.findById = async () => {
+        throw new Error('Database connection failed during conflict detection');
+      };
+
+      const res = await dispatch({
+        method: 'POST',
+        url: `/api/guidelines/${validGuidelineId}/detect-conflicts`,
+      });
+
+      assert.equal(res.statusCode, 500);
+      assert.equal(res.body.error, 'Database connection failed during conflict detection');
+      assert.equal(res.body.stack, undefined);
     });
   });
 });

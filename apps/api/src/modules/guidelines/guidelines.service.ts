@@ -4,6 +4,8 @@ import {
     SEVERITY_LEVELS,
 } from '@evolyn/shared';
 
+import { detectRuleConflicts } from './conflict-detector.js';
+
 import type {
     Guideline,
     GuidelineRule,
@@ -14,6 +16,7 @@ import {
     GuidelinesRepository,
     type GuidelineRecord,
     type GuidelineRuleRecord,
+    type GuidelineConflictRecord,
 } from './guidelines.repository.js';
 
 import type {
@@ -34,6 +37,8 @@ type GuidelinesRepositoryPort = Pick<
     | 'findById'
     | 'findRulesByGuidelineId'
     | 'createRules'
+    | 'findConflictsByRuleIds'
+    | 'createConflicts'
 > & {
     replaceRules?: (
         guidelineId: string,
@@ -258,6 +263,72 @@ export class GuidelinesService implements IGuidelineService {
             ...mapGuideline(guideline),
             rules: rules.map(mapRule),
         };
+    }
+
+    async detectAndSaveConflicts(
+        guidelineId: string,
+    ): Promise<GuidelineConflictRecord[]> {
+        if (!guidelineId || !guidelineId.trim()) {
+            throw new Error('Guideline ID cannot be empty');
+        }
+
+        const guideline = await this.repository.findById(guidelineId);
+
+        if (!guideline) {
+            throw new Error('Guideline not found');
+        }
+
+        const ruleRecords =
+            await this.repository.findRulesByGuidelineId(guidelineId);
+
+        if (ruleRecords.length < 2) {
+            return [];
+        }
+
+        // Convert database rules into validated shared rule types.
+        const rules = ruleRecords.map(mapRule);
+
+        // Detect explicit contradictions between unique rule pairs.
+        const detectedConflicts = detectRuleConflicts(rules);
+
+        if (detectedConflicts.length === 0) {
+            return [];
+        }
+
+        // Check existing conflicts to prevent sequential duplicates.
+        const existingConflicts =
+            await this.repository.findConflictsByRuleIds(
+                rules.map((rule) => rule.id),
+            );
+
+        const existingKeys = new Set(
+            existingConflicts.map((conflict) => {
+                const ids = [
+                    conflict.ruleAId,
+                    conflict.ruleBId,
+                ].sort();
+
+                return `${ids[0]}:${ids[1]}:${conflict.conflictType}`;
+            }),
+        );
+
+        const newConflicts = detectedConflicts.filter((conflict) => {
+            const ids = [
+                conflict.ruleAId,
+                conflict.ruleBId,
+            ].sort();
+
+            const key =
+                `${ids[0]}:${ids[1]}:${conflict.conflictType}`;
+
+            return !existingKeys.has(key);
+        });
+
+        if (newConflicts.length === 0) {
+            return [];
+        }
+
+        return this.repository.createConflicts(newConflicts);
     }
 }
 
