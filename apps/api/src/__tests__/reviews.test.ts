@@ -4,7 +4,6 @@ import type {
   ContentSubmission,
   Guideline,
   GuidelineRule,
-  ReviewRun,
 } from '@evolyn/shared';
 import type { ReviewRunRecord } from '../modules/reviews/reviews.repository.js';
 import { ReviewService } from '../modules/reviews/reviews.service.js';
@@ -75,8 +74,7 @@ function createDependencies(
       },
     },
     guidelines: {
-      getGuidelines: async () => [guideline],
-      getGuidelineById: async () => ({ ...guideline, rules: [rule] }),
+      findSimilarRules: async () => [rule],
     },
     knowledge: {
       findRelevantFacts: async () => [],
