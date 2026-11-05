@@ -2,11 +2,12 @@ import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'http';
 import { Socket } from 'net';
-import type { ReviewRun, SubmissionDetails } from '@evolyn/shared';
+import type { ReviewRun } from '@evolyn/shared';
 
 import { app } from '../app.js';
 import { reviewService } from '../modules/reviews/reviews.routes.js';
 import { submissionService } from '../modules/submissions/index.js';
+import type { SubmissionWithReview } from '../modules/submissions/index.js';
 
 interface DispatchOptions {
   method: string;
@@ -100,7 +101,7 @@ const sampleReviewRun: ReviewRun = {
   createdAt: '2026-11-05T12:00:00.000Z',
 };
 
-const sampleSubmission: SubmissionDetails = {
+const sampleSubmission: SubmissionWithReview = {
   id: validSubmissionId,
   title: 'Q4 Product Launch Announcement',
   channel: 'BLOG',

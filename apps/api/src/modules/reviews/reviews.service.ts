@@ -214,7 +214,7 @@ export class ReviewService implements IReviewService {
     if (existing) {
       return {
         reviewRun: mapReviewRun(existing),
-        issues: await this.dependencies.findings.getFindingsByReviewRunId(existing.id),
+        issues: (await this.dependencies.findings.getFindingsByReviewRunId(existing.id)) ?? [],
       };
     }
 
@@ -326,7 +326,7 @@ export class ReviewService implements IReviewService {
 
     return {
       reviewRun: mapReviewRun(reviewRun),
-      issues: await this.dependencies.findings.getFindingsByReviewRunId(reviewRun.id),
+      issues: (await this.dependencies.findings.getFindingsByReviewRunId(reviewRun.id)) ?? [],
     };
   }
 }
