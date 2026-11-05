@@ -30,3 +30,6 @@ export interface DecisionFormValues {
 }
 
 export type { Decision, SubmitDecisionInput };
+
+export * from './components';
+export type { DecisionItem } from './components/approval-inspector';
