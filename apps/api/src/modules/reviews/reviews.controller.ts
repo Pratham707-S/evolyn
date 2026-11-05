@@ -16,7 +16,11 @@ export class ReviewsController {
   ): Promise<void> => {
     try {
       const submissionId = uuidSchema.parse(req.params.id);
-      const result = await this.reviews.executeReview(submissionId);
+      const content =
+        typeof req.body?.content === 'string' && req.body.content.trim().length > 0
+          ? req.body.content.trim()
+          : undefined;
+      const result = await this.reviews.executeReview(submissionId, { content });
       res.status(200).json({
         reviewRunId: result.reviewRun.id,
         submissionId: result.reviewRun.submissionId,
@@ -63,6 +67,33 @@ export class ReviewsController {
         reviewRun: result.reviewRun,
         issues: result.issues,
         decision: submission.decision ?? null,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getHistoryBySubmissionId = async (
+    req: Request<{ id: string }>,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const submissionId = uuidSchema.parse(req.params.id);
+      const submission = await this.submissions.getSubmissionById(submissionId);
+      if (!submission) {
+        res.status(404).json({ error: 'Submission not found' });
+        return;
+      }
+
+      const reviews = this.reviews.getReviewHistory
+        ? await this.reviews.getReviewHistory(submissionId)
+        : [];
+
+      res.status(200).json({
+        submissionId,
+        reviews,
+        total: reviews.length,
       });
     } catch (error) {
       next(error);

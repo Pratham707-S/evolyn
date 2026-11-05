@@ -14,6 +14,7 @@ import { ReviewsRepository } from './reviews.repository.js';
 import type { IReviewService } from './index.js';
 import type {
   ReviewDependencies,
+  ReviewExecutionOptions,
   ReviewExecutionResult,
 } from './reviews.types.js';
 import type { RawFindingInput } from '../findings/findings.types.js';
@@ -185,40 +186,54 @@ export class ReviewService implements IReviewService {
     private readonly repository: Pick<
       ReviewsRepository,
       'create' | 'findLatestBySubmissionId' | 'deleteById'
-    > = new ReviewsRepository()
+    > & {
+      listBySubmissionId?: (submissionId: string) => Promise<ReviewRunRecord[]>;
+    } = new ReviewsRepository()
   ) {}
 
-  executeReview(submissionId: string): Promise<ReviewExecutionResult> {
+  executeReview(
+    submissionId: string,
+    options?: ReviewExecutionOptions
+  ): Promise<ReviewExecutionResult> {
     const id = uuidSchema.parse(submissionId);
-    const inFlight = this.inFlightReviews.get(id);
+    const key = options?.content ? `${id}:${options.content}` : id;
+    const inFlight = this.inFlightReviews.get(key);
     if (inFlight) {
       return inFlight;
     }
 
-    const review = this.executeReviewOnce(id);
-    this.inFlightReviews.set(id, review);
+    const review = this.executeReviewOnce(id, options);
+    this.inFlightReviews.set(key, review);
     void review.then(
-      () => this.inFlightReviews.delete(id),
-      () => this.inFlightReviews.delete(id)
+      () => this.inFlightReviews.delete(key),
+      () => this.inFlightReviews.delete(key)
     );
     return review;
   }
 
-  private async executeReviewOnce(id: string): Promise<ReviewExecutionResult> {
+  private async executeReviewOnce(
+    id: string,
+    options?: ReviewExecutionOptions
+  ): Promise<ReviewExecutionResult> {
     const submission = await this.dependencies.submissions.getSubmissionById(id);
     if (!submission) {
       throw new Error(`Submission not found: ${id}`);
     }
 
+    const contentToAudit = options?.content?.trim() || submission.rawText;
+    const isRevision = Boolean(
+      options?.content && options.content.trim() !== submission.rawText
+    );
+
     const existing = await this.repository.findLatestBySubmissionId(id);
-    if (existing) {
+    if (existing && !isRevision) {
       return {
         reviewRun: mapReviewRun(existing),
         issues: (await this.dependencies.findings.getFindingsByReviewRunId(existing.id)) ?? [],
       };
     }
 
-    if (submission.status !== 'PENDING') {
+    if (submission.status !== 'PENDING' && !isRevision) {
       throw new Error(`Cannot review submission in ${submission.status} status`);
     }
 
@@ -227,7 +242,7 @@ export class ReviewService implements IReviewService {
 
     try {
       const embedding = await this.dependencies.ai.generateEmbedding(
-        submission.rawText,
+        contentToAudit,
         { dimensions: EMBEDDING_DIMENSIONS }
       );
       if (
@@ -237,12 +252,18 @@ export class ReviewService implements IReviewService {
         throw new Error(`Review embedding must contain ${EMBEDDING_DIMENSIONS} finite values`);
       }
 
+      const ruleSearch = this.dependencies.guidelines.findRelevantRules
+        ? (vector: number[], limit?: number) =>
+            this.dependencies.guidelines.findRelevantRules!(vector, limit)
+        : (vector: number[], limit?: number) =>
+            this.dependencies.guidelines.findSimilarRules!(vector, limit);
+
       const [rules, facts] = await Promise.all([
-        this.dependencies.guidelines.findSimilarRules(embedding, RULE_SEARCH_LIMIT),
+        ruleSearch(embedding, RULE_SEARCH_LIMIT),
         this.dependencies.knowledge.findRelevantFacts(embedding, FACT_SEARCH_LIMIT),
       ]);
       const audit = await this.dependencies.ai.auditContent({
-        content: submission.rawText,
+        content: contentToAudit,
         rules: rules.map((rule) => ({
           id: rule.id,
           statement: rule.ruleStatement,
@@ -258,9 +279,9 @@ export class ReviewService implements IReviewService {
         audit.issues,
         rules,
         facts,
-        submission.rawText
+        contentToAudit
       );
-      const deterministic = findQuotedProhibitedPhrases(rules, submission.rawText);
+      const deterministic = findQuotedProhibitedPhrases(rules, contentToAudit);
       const deduplicatedAI = grounded.findings.filter(
         (finding) =>
           !deterministic.some(
@@ -278,11 +299,20 @@ export class ReviewService implements IReviewService {
         grounded.discardedCount
       );
 
+      if (isRevision) {
+        reviewRunInput.summary = {
+          ...reviewRunInput.summary,
+          notes: reviewRunInput.summary.notes
+            ? `${reviewRunInput.summary.notes} (Revised content review)`
+            : 'Revised content review',
+        };
+      }
+
       createdReviewRun = await this.repository.create(reviewRunInput);
       const persistedFindings = await this.dependencies.findings.recordFindings(
         createdReviewRun.id,
         findings,
-        submission.rawText
+        contentToAudit
       );
       await this.dependencies.submissions.updateSubmissionStatus(id, 'REVIEWED');
 
@@ -328,5 +358,21 @@ export class ReviewService implements IReviewService {
       reviewRun: mapReviewRun(reviewRun),
       issues: (await this.dependencies.findings.getFindingsByReviewRunId(reviewRun.id)) ?? [],
     };
+  }
+
+  async getReviewHistory(
+    submissionId: string
+  ): Promise<ReviewExecutionResult[]> {
+    const id = uuidSchema.parse(submissionId);
+    const runs = this.repository.listBySubmissionId
+      ? await this.repository.listBySubmissionId(id)
+      : [];
+
+    return Promise.all(
+      runs.map(async (run) => ({
+        reviewRun: mapReviewRun(run),
+        issues: (await this.dependencies.findings.getFindingsByReviewRunId(run.id)) ?? [],
+      }))
+    );
   }
 }
