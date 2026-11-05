@@ -35,5 +35,7 @@ export interface ISubmissionService {
   updateSubmissionStatus(id: string, status: SubmissionStatus): Promise<void>;
 }
 
-export { SubmissionService } from './submissions.service.js';
+export { SubmissionService, submissionService } from './submissions.service.js';
+export { submissionRepository } from './submissions.repository.js';
+export { SubmissionController, submissionController } from './submissions.controller.js';
 export * from './submissions.types.js';

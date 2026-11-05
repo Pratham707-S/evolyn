@@ -31,8 +31,9 @@ import {
   vector,
   index,
   uniqueIndex,
+  check,
 } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 
 // -------------------------------------------------------------
 // 1. Guidelines Table
@@ -104,6 +105,8 @@ export const guidelineConflicts = pgTable(
     index('idx_conflicts_rule_a').on(table.ruleAId),
     index('idx_conflicts_rule_b').on(table.ruleBId),
     index('idx_conflicts_status').on(table.status),
+    uniqueIndex('idx_conflicts_unique_pair').on(table.ruleAId, table.ruleBId, table.conflictType),
+    check('check_conflicts_canonical_order', sql`${table.ruleAId} < ${table.ruleBId}`),
   ]
 );
 

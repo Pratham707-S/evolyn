@@ -60,6 +60,96 @@ Creates or uploads a brand guideline document.
 ### `GET /api/guidelines`
 Lists all active brand guidelines.
 
+### `POST /api/guidelines/:id/extract-rules`
+Extracts and persists atomic, verifiable brand rules strictly from the guideline's canonical stored content.
+Caller-supplied request body overrides are disallowed.
+Re-extraction replaces existing rules atomically inside a transaction to prevent duplicate accumulation.
+Empty extraction results are rejected to protect existing rules.
+
+**Response `200 OK`:**
+```json
+{
+  "guidelineId": "7f8b3c21-...",
+  "rules": [
+    {
+      "id": "11ab22cd-...",
+      "guidelineId": "7f8b3c21-...",
+      "ruleType": "MANDATORY",
+      "ruleStatement": "Always write brand name as Evolyn.",
+      "explanation": "Maintains brand consistency.",
+      "severity": "CRITICAL",
+      "createdAt": "2026-11-04T11:20:00.000Z"
+    }
+  ],
+  "total": 1
+}
+```
+
+**Response `404 Not Found`:**
+```json
+{
+  "error": "Guideline not found"
+}
+```
+
+**Response `400 Bad Request`:**
+```json
+{
+  "error": "Validation failed",
+  "details": [
+    {
+      "field": "id",
+      "message": "Invalid uuid"
+    }
+  ]
+}
+```
+
+### `POST /api/guidelines/:id/detect-conflicts`
+Runs deterministic conflict detection across all rules associated with a brand guideline and persists newly detected conflicts.
+Detects contradictions between opposite rule types (e.g. MANDATORY vs PROHIBITED) and opposite lexical polarities on identical core requirements.
+Enforces canonical rule ID ordering (`ruleAId <= ruleBId`) and database unique constraints to prevent concurrent duplicate entries.
+
+**Response `200 OK`:**
+```json
+{
+  "guidelineId": "7f8b3c21-...",
+  "conflicts": [
+    {
+      "id": "99aa88bb-...",
+      "ruleAId": "11ab22cd-...",
+      "ruleBId": "33ef44gh-...",
+      "conflictType": "CONTRADICTION",
+      "explanation": "Both rules describe the same requirement but express opposite instructions.",
+      "severity": "CRITICAL",
+      "status": "OPEN",
+      "createdAt": "2026-11-04T12:00:00.000Z"
+    }
+  ],
+  "total": 1
+}
+```
+
+**Response `404 Not Found`:**
+```json
+{
+  "error": "Guideline not found"
+}
+```
+
+**Response `400 Bad Request`:**
+```json
+{
+  "error": "Validation failed",
+  "details": [
+    {
+      "field": "id",
+      "message": "Invalid uuid"
+    }
+  ]
+}
+```
+
 ---
 
 ## 3. Approved Knowledge & Facts (Mann)
@@ -149,7 +239,34 @@ Triggers the multi-layer semantic audit against brand rules and approved facts.
 ### `GET /api/review-runs/:reviewRunId/findings`
 Returns the verified findings stored for a review run.
 
-**Response `200 OK`:** `{ "reviewRunId": "...", "findings": [], "total": 0 }`
+**Response `200 OK`:**
+```json
+{
+  "reviewRunId": "9b12c34a-...",
+  "findings": [],
+  "total": 0
+}
+```
+
+**Response `404 Not Found`:**
+```json
+{
+  "error": "Review run not found"
+}
+```
+
+**Response `400 Bad Request`:**
+```json
+{
+  "error": "Validation failed",
+  "details": [
+    {
+      "field": "reviewRunId",
+      "message": "Invalid uuid"
+    }
+  ]
+}
+```
 
 ---
 

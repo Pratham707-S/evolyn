@@ -28,6 +28,8 @@ export interface IKnowledgeService {
   createFact(input: CreateApprovedFactInput): Promise<ApprovedFact>;
   listFacts(topic?: string): Promise<ApprovedFact[]>;
   findRelevantFacts(queryVector: number[], limit?: number): Promise<FactMatchResult[]>;
+  generateAndSaveEmbeddings(): Promise<number>;
 }
 
 export * from './knowledge.types.js';
+export * from './knowledge.service.js';

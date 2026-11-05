@@ -1,6 +1,4 @@
 import type {
-  Guideline,
-  GuidelineRule,
   GuidelineCategory,
   GuidelineStatus,
   RuleType,
@@ -12,9 +10,35 @@ export interface GuidelineQueryFilter {
   status?: GuidelineStatus;
 }
 
+/**
+ * Represents one atomic, verifiable rule extracted
+ * from a brand guideline.
+ */
 export interface RuleExtractionResult {
   ruleStatement: string;
   ruleType: RuleType;
   explanation: string;
   severity: Severity;
+}
+
+/**
+ * Abstraction for extracting rules from guideline content.
+ * Actual AI implementation will be injected later.
+ */
+export interface GuidelineRuleExtractor {
+  extractRules(
+    rawContent: string,
+  ): Promise<RuleExtractionResult[]>;
+}
+
+export interface GuidelineEmbeddingGenerator {
+  generateEmbedding(
+    text: string,
+    options?: { dimensions?: number },
+  ): Promise<number[]>;
+}
+
+export interface EmbeddingGenerationResult {
+  guidelineId: string;
+  generatedCount: number;
 }

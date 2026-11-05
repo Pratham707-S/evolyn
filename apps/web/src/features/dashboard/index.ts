@@ -37,3 +37,15 @@ export interface WorkflowStep {
   description: string;
   status: 'upcoming' | 'active' | 'completed';
 }
+
+export {
+  DashboardSidebar,
+  DashboardHeader,
+  WorkflowStepper,
+  ComplianceOverview,
+  ContentStatusChart,
+  DashboardMetrics,
+  RecentSubmissions,
+  NewSubmissionModal,
+} from '../../components/dashboard';
+export type { SubmissionItem } from '../../components/dashboard';

@@ -22,8 +22,14 @@
  * ============================================================================
  */
 
-import type { Guideline, GuidelineRule, CreateGuidelineInput } from '@evolyn/shared';
+import type {
+  Guideline,
+  GuidelineRule,
+  CreateGuidelineInput,
+} from '@evolyn/shared';
+
 import type { GuidelineQueryFilter } from './guidelines.types.js';
+import type { GuidelineConflictRecord } from './guidelines.repository.js';
 
 export interface GuidelineWithRules extends Guideline {
   rules: GuidelineRule[];
@@ -33,7 +39,18 @@ export interface IGuidelineService {
   createGuideline(input: CreateGuidelineInput): Promise<Guideline>;
   getGuidelines(filter?: GuidelineQueryFilter): Promise<Guideline[]>;
   getGuidelineById(id: string): Promise<GuidelineWithRules | null>;
+  extractAndSaveRules(
+    guidelineId: string,
+  ): Promise<GuidelineRule[]>;
+  detectAndSaveConflicts(
+    guidelineId: string,
+  ): Promise<GuidelineConflictRecord[]>;
 }
+
+export { GuidelinesService, guidelinesService } from './guidelines.service.js';
+export { GuidelinesRepository, guidelinesRepository } from './guidelines.repository.js';
+export { createGuidelinesController, guidelinesController } from './guidelines.controller.js';
 
 // Module boundary re-exports
 export * from './guidelines.types.js';
+export * from './conflict-detector.js';

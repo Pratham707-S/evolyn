@@ -26,6 +26,17 @@ export class ReviewsController {
         issues: result.issues,
       });
     } catch (error) {
+      if (error instanceof Error && error.message === 'Submission not found') {
+        res.status(404).json({ error: error.message });
+        return;
+      }
+      if (
+        error instanceof Error &&
+        error.message.includes('cannot be analyzed in status')
+      ) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
       next(error);
     }
   };

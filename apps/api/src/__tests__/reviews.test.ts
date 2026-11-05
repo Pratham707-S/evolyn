@@ -332,4 +332,157 @@ describe('ReviewService', () => {
     assert.equal(await service.getReviewBySubmissionId(submissionId), null);
     await assert.rejects(service.getReviewBySubmissionId('invalid-id'));
   });
+
+  it('rejects when submission does not exist', async () => {
+    const dependencies = createDependencies({
+      submissions: {
+        getSubmissionById: async () => null,
+        updateSubmissionStatus: async () => {},
+      },
+    });
+    const service = new ReviewService(dependencies, createRepository());
+
+    await assert.rejects(
+      service.executeReview(submissionId),
+      /Submission not found/
+    );
+  });
+
+  it('proceeds safely when no guideline rules are found (missing guideline context)', async () => {
+    let createdInput: Parameters<ReviewsRepository['create']>[0] | undefined;
+    const dependencies = createDependencies({
+      guidelines: {
+        findSimilarRules: async () => [],
+      },
+      ai: {
+        generateEmbedding: async () => Array(768).fill(0.25),
+        auditContent: async () => ({ issues: [] }),
+      },
+    });
+    const repository = createRepository({
+      create: async (input) => {
+        createdInput = input;
+        return createReviewRunRecord({
+          overallComplianceScore: input.overallComplianceScore,
+          totalIssuesCount: 0,
+        });
+      },
+    });
+    const service = new ReviewService(dependencies, repository);
+
+    const result = await service.executeReview(submissionId);
+    assert.equal(createdInput?.totalIssuesCount, 0);
+    assert.equal(result.issues.length, 0);
+  });
+
+  it('restores submission status and fails when knowledge retrieval fails', async () => {
+    const statuses: string[] = [];
+    const dependencies = createDependencies(
+      {
+        knowledge: {
+          findRelevantFacts: async () => {
+            throw new Error('Knowledge base connection timeout');
+          },
+        },
+      },
+      statuses
+    );
+    const service = new ReviewService(dependencies, createRepository());
+
+    await assert.rejects(
+      service.executeReview(submissionId),
+      /Knowledge base connection timeout/
+    );
+    assert.deepEqual(statuses, ['ANALYZING', 'PENDING']);
+  });
+
+  it('rejects when embedding output has invalid dimensions', async () => {
+    const statuses: string[] = [];
+    const dependencies = createDependencies(
+      {
+        ai: {
+          generateEmbedding: async () => Array(512).fill(0.25),
+          auditContent: async () => ({ issues: [] }),
+        },
+      },
+      statuses
+    );
+    const service = new ReviewService(dependencies, createRepository());
+
+    await assert.rejects(
+      service.executeReview(submissionId),
+      /Review embedding must contain 768 finite values/
+    );
+    assert.deepEqual(statuses, ['ANALYZING', 'PENDING']);
+  });
+
+  it('rejects when embedding output contains NaN', async () => {
+    const nanVector = Array(768).fill(0.25);
+    nanVector[5] = Number.NaN;
+    const statuses: string[] = [];
+    const dependencies = createDependencies(
+      {
+        ai: {
+          generateEmbedding: async () => nanVector,
+          auditContent: async () => ({ issues: [] }),
+        },
+      },
+      statuses
+    );
+    const service = new ReviewService(dependencies, createRepository());
+
+    await assert.rejects(
+      service.executeReview(submissionId),
+      /Review embedding must contain 768 finite values/
+    );
+    assert.deepEqual(statuses, ['ANALYZING', 'PENDING']);
+  });
+
+  it('deletes review run and restores submission status when finding persistence fails', async () => {
+    const statuses: string[] = [];
+    let deletedReviewRunId: string | undefined;
+
+    const dependencies = createDependencies(
+      {
+        findings: {
+          recordFindings: async () => {
+            throw new Error('Findings database insert failed');
+          },
+          getFindingsByReviewRunId: async () => [],
+        },
+      },
+      statuses
+    );
+    const repository = createRepository({
+      create: async () => createReviewRunRecord(),
+      deleteById: async (id) => {
+        deletedReviewRunId = id;
+      },
+    });
+    const service = new ReviewService(dependencies, repository);
+
+    await assert.rejects(
+      service.executeReview(submissionId),
+      /Findings database insert failed/
+    );
+    assert.equal(deletedReviewRunId, reviewRunId);
+    assert.deepEqual(statuses, ['ANALYZING', 'PENDING']);
+  });
+
+  it('restores submission status when review persistence fails', async () => {
+    const statuses: string[] = [];
+    const dependencies = createDependencies({}, statuses);
+    const repository = createRepository({
+      create: async () => {
+        throw new Error('Review run persistence failed');
+      },
+    });
+    const service = new ReviewService(dependencies, repository);
+
+    await assert.rejects(
+      service.executeReview(submissionId),
+      /Review run persistence failed/
+    );
+    assert.deepEqual(statuses, ['ANALYZING', 'PENDING']);
+  });
 });

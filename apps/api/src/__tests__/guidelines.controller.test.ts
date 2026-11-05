@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { ZodError } from 'zod';
 import type { Request, Response, NextFunction } from 'express';
 import type { Guideline } from '@evolyn/shared';
-
 import { createGuidelinesController } from '../modules/guidelines/guidelines.controller.js';
 
 const mockGuideline: Guideline = {
@@ -53,6 +52,8 @@ describe('GuidelinesController', () => {
             createGuideline: async () => expected,
             getGuidelines: async () => [],
             getGuidelineById: async () => null,
+            extractAndSaveRules: async () => [],
+            detectAndSaveConflicts: async () => [],
         };
 
         const controller = createGuidelinesController(service);
@@ -76,6 +77,8 @@ describe('GuidelinesController', () => {
             createGuideline: async () => expected[0],
             getGuidelines: async () => expected,
             getGuidelineById: async () => null,
+            extractAndSaveRules: async () => [],
+            detectAndSaveConflicts: async () => [],
         };
 
         const controller = createGuidelinesController(service);
@@ -97,6 +100,8 @@ describe('GuidelinesController', () => {
             createGuideline: async () => mockGuideline,
             getGuidelines: async () => [],
             getGuidelineById: async () => null,
+            extractAndSaveRules: async () => [],
+            detectAndSaveConflicts: async () => [],
         };
 
         const controller = createGuidelinesController(service);
@@ -124,6 +129,8 @@ describe('GuidelinesController', () => {
             createGuideline: async () => mockGuideline,
             getGuidelines: async () => [],
             getGuidelineById: async () => null,
+            extractAndSaveRules: async () => [],
+            detectAndSaveConflicts: async () => [],
         };
 
         const controller = createGuidelinesController(service);
@@ -151,6 +158,8 @@ describe('GuidelinesController', () => {
             createGuideline: async () => mockGuideline,
             getGuidelines: async () => [],
             getGuidelineById: async () => null,
+            extractAndSaveRules: async () => [],
+            detectAndSaveConflicts: async () => [],
         };
 
         const controller = createGuidelinesController(service);
@@ -177,6 +186,8 @@ describe('GuidelinesController', () => {
             },
             getGuidelines: async () => [],
             getGuidelineById: async () => null,
+            extractAndSaveRules: async () => [],
+            detectAndSaveConflicts: async () => [],
         };
 
         const controller = createGuidelinesController(service);
@@ -203,6 +214,8 @@ describe('GuidelinesController', () => {
                 return [];
             },
             getGuidelineById: async () => null,
+            extractAndSaveRules: async () => [],
+            detectAndSaveConflicts: async () => [],
         };
 
         const controller = createGuidelinesController(service);
@@ -233,6 +246,8 @@ describe('GuidelinesController', () => {
             createGuideline: async () => mockGuideline,
             getGuidelines: async () => [],
             getGuidelineById: async () => expected,
+            extractAndSaveRules: async () => [],
+            detectAndSaveConflicts: async () => [],
         };
 
         const controller = createGuidelinesController(service);
@@ -247,5 +262,280 @@ describe('GuidelinesController', () => {
 
         assert.equal(res.statusCode, 200);
         assert.deepEqual(res.body, expected);
+    });
+
+    it('extracts rules and returns 200 with rules and total count', async () => {
+        const validUuid = 'c0a80123-4567-4890-a123-456789abcdef';
+        const expectedRules = [
+            {
+                id: 'r1',
+                guidelineId: validUuid,
+                ruleType: 'MANDATORY' as const,
+                ruleStatement: 'Always include logo.',
+                explanation: 'Brand rule.',
+                severity: 'CRITICAL' as const,
+                createdAt: '2026-11-04T10:00:00.000Z',
+            },
+        ];
+
+        const service = {
+            createGuideline: async () => mockGuideline,
+            getGuidelines: async () => [],
+            getGuidelineById: async () => null,
+            extractAndSaveRules: async () => expectedRules,
+            detectAndSaveConflicts: async () => [],
+        };
+
+        const controller = createGuidelinesController(service);
+        const req = createRequest({
+            params: { id: validUuid },
+            body: {},
+        });
+        const res = createResponse();
+
+        await controller.extractRules(
+            req,
+            res as unknown as Response,
+            (() => { }) as NextFunction,
+        );
+
+        assert.equal(res.statusCode, 200);
+        assert.deepEqual(res.body, {
+            guidelineId: validUuid,
+            rules: expectedRules,
+            total: 1,
+        });
+    });
+
+    it('returns 404 when extracting rules for nonexistent guideline', async () => {
+        const validUuid = 'c0a80123-4567-4890-a123-456789abcdef';
+
+        const service = {
+            createGuideline: async () => mockGuideline,
+            getGuidelines: async () => [],
+            getGuidelineById: async () => null,
+            extractAndSaveRules: async () => {
+                throw new Error('Guideline not found');
+            },
+            detectAndSaveConflicts: async () => [],
+        };
+
+        const controller = createGuidelinesController(service);
+        const req = createRequest({ params: { id: validUuid } });
+        const res = createResponse();
+
+        await controller.extractRules(
+            req,
+            res as unknown as Response,
+            (() => { }) as NextFunction,
+        );
+
+        assert.equal(res.statusCode, 404);
+        assert.deepEqual(res.body, { error: 'Guideline not found' });
+    });
+
+    it('returns 400 when guideline content is empty for extraction', async () => {
+        const validUuid = 'c0a80123-4567-4890-a123-456789abcdef';
+
+        const service = {
+            createGuideline: async () => mockGuideline,
+            getGuidelines: async () => [],
+            getGuidelineById: async () => null,
+            extractAndSaveRules: async () => {
+                throw new Error('Guideline content cannot be empty');
+            },
+            detectAndSaveConflicts: async () => [],
+        };
+
+        const controller = createGuidelinesController(service);
+        const req = createRequest({ params: { id: validUuid } });
+        const res = createResponse();
+
+        await controller.extractRules(
+            req,
+            res as unknown as Response,
+            (() => { }) as NextFunction,
+        );
+
+        assert.equal(res.statusCode, 400);
+        assert.deepEqual(res.body, { error: 'Guideline content cannot be empty' });
+    });
+
+    it('forwards ZodError to next function when extractRules param is not a valid UUID', async () => {
+        let capturedError: unknown;
+
+        const service = {
+            createGuideline: async () => mockGuideline,
+            getGuidelines: async () => [],
+            getGuidelineById: async () => null,
+            extractAndSaveRules: async () => [],
+            detectAndSaveConflicts: async () => [],
+        };
+
+        const controller = createGuidelinesController(service);
+        const req = createRequest({ params: { id: 'invalid-uuid' } });
+        const res = createResponse();
+
+        await controller.extractRules(
+            req,
+            res as unknown as Response,
+            ((err: unknown) => {
+                capturedError = err;
+            }) as NextFunction,
+        );
+
+        assert.ok(capturedError instanceof ZodError);
+    });
+
+    it('forwards ZodError to next function when request body contains rawContent or unexpected fields', async () => {
+        let capturedError: unknown;
+
+        const service = {
+            createGuideline: async () => mockGuideline,
+            getGuidelines: async () => [],
+            getGuidelineById: async () => null,
+            extractAndSaveRules: async () => [],
+            detectAndSaveConflicts: async () => [],
+        };
+
+        const controller = createGuidelinesController(service);
+        const req = createRequest({
+            params: { id: 'c0a80123-4567-4890-a123-456789abcdef' },
+            body: { rawContent: 'Disallowed caller-provided text' },
+        });
+        const res = createResponse();
+
+        await controller.extractRules(
+            req,
+            res as unknown as Response,
+            ((err: unknown) => {
+                capturedError = err;
+            }) as NextFunction,
+        );
+
+        assert.ok(capturedError instanceof ZodError);
+    });
+
+    describe('detectConflicts controller tests', () => {
+        const validUuid = 'c0a80123-4567-4890-a123-456789abcdef';
+        const expectedConflicts = [
+            {
+                id: 'conflict-1',
+                ruleAId: 'r1',
+                ruleBId: 'r2',
+                conflictType: 'CONTRADICTION' as const,
+                explanation: 'Contradictory rules',
+                severity: 'CRITICAL' as const,
+                status: 'OPEN' as const,
+                createdAt: new Date('2026-11-04T10:00:00.000Z'),
+            },
+        ];
+
+        it('detects conflicts and returns 200 with conflicts and total count', async () => {
+            const service = {
+                createGuideline: async () => mockGuideline,
+                getGuidelines: async () => [],
+                getGuidelineById: async () => null,
+                extractAndSaveRules: async () => [],
+                detectAndSaveConflicts: async () => expectedConflicts,
+            };
+
+            const controller = createGuidelinesController(service);
+            const req = createRequest({ params: { id: validUuid } });
+            const res = createResponse();
+
+            await controller.detectConflicts(
+                req,
+                res as unknown as Response,
+                (() => {}) as NextFunction,
+            );
+
+            assert.equal(res.statusCode, 200);
+            assert.deepEqual(res.body, {
+                guidelineId: validUuid,
+                conflicts: expectedConflicts,
+                total: 1,
+            });
+        });
+
+        it('returns 404 when guideline does not exist for conflict detection', async () => {
+            const service = {
+                createGuideline: async () => mockGuideline,
+                getGuidelines: async () => [],
+                getGuidelineById: async () => null,
+                extractAndSaveRules: async () => [],
+                detectAndSaveConflicts: async () => {
+                    throw new Error('Guideline not found');
+                },
+            };
+
+            const controller = createGuidelinesController(service);
+            const req = createRequest({ params: { id: validUuid } });
+            const res = createResponse();
+
+            await controller.detectConflicts(
+                req,
+                res as unknown as Response,
+                (() => {}) as NextFunction,
+            );
+
+            assert.equal(res.statusCode, 404);
+            assert.deepEqual(res.body, { error: 'Guideline not found' });
+        });
+
+        it('forwards ZodError when detectConflicts param is not a valid UUID', async () => {
+            let capturedError: unknown;
+
+            const service = {
+                createGuideline: async () => mockGuideline,
+                getGuidelines: async () => [],
+                getGuidelineById: async () => null,
+                extractAndSaveRules: async () => [],
+                detectAndSaveConflicts: async () => [],
+            };
+
+            const controller = createGuidelinesController(service);
+            const req = createRequest({ params: { id: 'invalid-uuid-123' } });
+            const res = createResponse();
+
+            await controller.detectConflicts(
+                req,
+                res as unknown as Response,
+                ((err: unknown) => {
+                    capturedError = err;
+                }) as NextFunction,
+            );
+
+            assert.ok(capturedError instanceof ZodError);
+        });
+
+        it('forwards ZodError when detectConflicts receives unexpected request body fields', async () => {
+            let capturedError: unknown;
+
+            const service = {
+                createGuideline: async () => mockGuideline,
+                getGuidelines: async () => [],
+                getGuidelineById: async () => null,
+                extractAndSaveRules: async () => [],
+                detectAndSaveConflicts: async () => [],
+            };
+
+            const controller = createGuidelinesController(service);
+            const req = createRequest({
+                params: { id: validUuid },
+                body: { unexpected: 'field' },
+            });
+            const res = createResponse();
+
+            await controller.detectConflicts(
+                req,
+                res as unknown as Response,
+                ((err: unknown) => {
+                    capturedError = err;
+                }) as NextFunction,
+            );
+
+            assert.ok(capturedError instanceof ZodError);
+        });
     });
 });
