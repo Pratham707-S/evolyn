@@ -1,18 +1,24 @@
 import {
   submissionChannelSchema,
   submissionStatusSchema,
+  uuidSchema,
 } from '@evolyn/shared';
 import type { NextFunction, Request, Response } from 'express';
 import { z } from 'zod';
-import { SubmissionService } from './submissions.service.js';
+import type { ISubmissionService } from './index.js';
+import { SubmissionService, submissionService } from './submissions.service.js';
 
 const listSubmissionsQuerySchema = z.object({
   status: submissionStatusSchema.optional(),
   channel: submissionChannelSchema.optional(),
 });
 
+const submissionParamsSchema = z.object({
+  id: uuidSchema,
+});
+
 export class SubmissionController {
-  constructor(private readonly service = new SubmissionService()) {}
+  constructor(private readonly service: ISubmissionService = submissionService) {}
 
   create = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -35,7 +41,8 @@ export class SubmissionController {
 
   getById = async (req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const submission = await this.service.getSubmissionById(req.params.id);
+      const { id } = submissionParamsSchema.parse(req.params);
+      const submission = await this.service.getSubmissionById(id);
       if (!submission) {
         res.status(404).json({ error: 'Submission not found' });
         return;
@@ -47,3 +54,5 @@ export class SubmissionController {
     }
   };
 }
+
+export const submissionController = new SubmissionController(submissionService);

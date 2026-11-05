@@ -97,3 +97,5 @@ export class SubmissionRepository {
     }
   }
 }
+
+export const submissionRepository = new SubmissionRepository();
