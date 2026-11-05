@@ -73,12 +73,12 @@ describe('ReviewsController', () => {
       .filter((layer) => layer.route)
       .map((layer) => ({
         path: layer.route?.path,
-        methods: layer.route?.methods,
+        methods: layer.route?.stack.map((routeLayer) => routeLayer.method),
       }));
 
     assert.deepEqual(routes, [
-      { path: '/submissions/:id/analyze', methods: { post: true } },
-      { path: '/submissions/:id/review', methods: { get: true } },
+      { path: '/submissions/:id/analyze', methods: ['post'] },
+      { path: '/submissions/:id/review', methods: ['get'] },
     ]);
   });
 
