@@ -19,6 +19,7 @@ import type {
 import type { RawFindingInput } from '../findings/findings.types.js';
 
 const EMBEDDING_DIMENSIONS = 768;
+const RULE_SEARCH_LIMIT = 20;
 const FACT_SEARCH_LIMIT = 10;
 
 const reviewSummarySchema = z.object({
@@ -204,19 +205,6 @@ export class ReviewService implements IReviewService {
     let createdReviewRun: ReviewRunRecord | undefined;
 
     try {
-      const activeGuidelines = await this.dependencies.guidelines.getGuidelines({
-        status: 'ACTIVE',
-      });
-      const guidelineDetails = await Promise.all(
-        activeGuidelines.map((guideline) =>
-          this.dependencies.guidelines.getGuidelineById(guideline.id)
-        )
-      );
-      if (guidelineDetails.some((guideline) => guideline === null)) {
-        throw new Error('An active guideline disappeared while preparing the review');
-      }
-
-      const rules = guidelineDetails.flatMap((guideline) => guideline?.rules ?? []);
       const embedding = await this.dependencies.ai.generateEmbedding(
         submission.rawText,
         { dimensions: EMBEDDING_DIMENSIONS }
@@ -228,10 +216,10 @@ export class ReviewService implements IReviewService {
         throw new Error(`Review embedding must contain ${EMBEDDING_DIMENSIONS} finite values`);
       }
 
-      const facts = await this.dependencies.knowledge.findRelevantFacts(
-        embedding,
-        FACT_SEARCH_LIMIT
-      );
+      const [rules, facts] = await Promise.all([
+        this.dependencies.guidelines.findSimilarRules(embedding, RULE_SEARCH_LIMIT),
+        this.dependencies.knowledge.findRelevantFacts(embedding, FACT_SEARCH_LIMIT),
+      ]);
       const audit = await this.dependencies.ai.auditContent({
         content: submission.rawText,
         rules: rules.map((rule) => ({
