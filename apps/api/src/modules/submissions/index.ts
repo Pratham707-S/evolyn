@@ -20,14 +20,22 @@
  * ============================================================================
  */
 
-import type { ContentSubmission, CreateSubmissionInput, SubmissionStatus } from '@evolyn/shared';
+import type {
+  ContentSubmission,
+  CreateSubmissionInput,
+  SubmissionChannel,
+  SubmissionStatus,
+} from '@evolyn/shared';
 import type { SubmissionWithReview } from './submissions.types.js';
 
 export interface ISubmissionService {
   createSubmission(input: CreateSubmissionInput): Promise<ContentSubmission>;
   getSubmissionById(id: string): Promise<SubmissionWithReview | null>;
-  listSubmissions(filter?: { status?: string; channel?: string }): Promise<ContentSubmission[]>;
+  listSubmissions(filter?: { status?: SubmissionStatus; channel?: SubmissionChannel }): Promise<ContentSubmission[]>;
   updateSubmissionStatus(id: string, status: SubmissionStatus): Promise<void>;
 }
 
+export { SubmissionService, submissionService } from './submissions.service.js';
+export { submissionRepository } from './submissions.repository.js';
+export { SubmissionController, submissionController } from './submissions.controller.js';
 export * from './submissions.types.js';

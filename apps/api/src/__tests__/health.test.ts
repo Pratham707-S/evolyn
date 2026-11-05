@@ -113,17 +113,29 @@ describe('API Foundation & Health Routing (In-Memory)', () => {
       { name: 'ZodError', errors: [{ path: ['field'], message: 123 }] },
       { name: 'ZodError' },
     ];
+    const originalConsoleError = console.error;
+    const loggedErrors: unknown[][] = [];
 
-    for (const malformed of malformedErrors) {
-      const req = {} as Request;
-      const res = createMockResponse();
-      const next: NextFunction = () => {};
+    console.error = (...args: unknown[]) => {
+      loggedErrors.push(args);
+    };
+    try {
+      for (const malformed of malformedErrors) {
+        const req = {} as Request;
+        const res = createMockResponse();
+        const next: NextFunction = () => {};
 
-      errorHandler(malformed, req, res, next);
+        errorHandler(malformed, req, res, next);
 
-      assert.equal(res.statusCode, 500);
-      assert.equal(res.jsonData.error, 'Internal server error');
+        assert.equal(res.statusCode, 500);
+        assert.equal(res.jsonData.error, 'Internal server error');
+      }
+    } finally {
+      console.error = originalConsoleError;
     }
+
+    assert.equal(loggedErrors.length, malformedErrors.length);
+    assert.ok(loggedErrors.every(([message]) => message === '[API Error] Unknown exception:'));
   });
 
   it('errorHandler catches generic Error and returns 500 without leaking stack traces', () => {
@@ -131,21 +143,41 @@ describe('API Foundation & Health Routing (In-Memory)', () => {
     const req = {} as Request;
     const res = createMockResponse();
     const next: NextFunction = () => {};
+    const originalConsoleError = console.error;
+    let loggedMessage: string | undefined;
 
-    errorHandler(error, req, res, next);
+    console.error = (message?: unknown) => {
+      loggedMessage = String(message);
+    };
+    try {
+      errorHandler(error, req, res, next);
+    } finally {
+      console.error = originalConsoleError;
+    }
 
     assert.equal(res.statusCode, 500);
     assert.equal(res.jsonData.error, 'Database connection timed out');
+    assert.equal(loggedMessage, '[API Error] Database connection timed out');
   });
 
   it('errorHandler safely handles primitive thrown values (string, number)', () => {
     const req = {} as Request;
     const res = createMockResponse();
     const next: NextFunction = () => {};
+    const originalConsoleError = console.error;
+    let loggedMessage: unknown;
 
-    errorHandler('Fatal string crash', req, res, next);
+    console.error = (message?: unknown) => {
+      loggedMessage = message;
+    };
+    try {
+      errorHandler('Fatal string crash', req, res, next);
+    } finally {
+      console.error = originalConsoleError;
+    }
 
     assert.equal(res.statusCode, 500);
     assert.equal(res.jsonData.error, 'Internal server error');
+    assert.equal(loggedMessage, '[API Error] Unknown exception:');
   });
 });
