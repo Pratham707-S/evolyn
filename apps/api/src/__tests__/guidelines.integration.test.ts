@@ -119,6 +119,7 @@ describe('Guidelines Integration Tests (Express App E2E)', () => {
   const originalReplaceRules = guidelinesRepository.replaceRules;
   const originalFindConflicts = guidelinesRepository.findConflictsByRuleIds;
   const originalCreateConflicts = guidelinesRepository.createConflicts;
+  const originalFindRelevantRules = guidelinesRepository.findRelevantRules;
 
   function restoreRepositoryMocks() {
     guidelinesRepository.create = originalCreate;
@@ -128,6 +129,7 @@ describe('Guidelines Integration Tests (Express App E2E)', () => {
     guidelinesRepository.replaceRules = originalReplaceRules;
     guidelinesRepository.findConflictsByRuleIds = originalFindConflicts;
     guidelinesRepository.createConflicts = originalCreateConflicts;
+    guidelinesRepository.findRelevantRules = originalFindRelevantRules;
     guidelinesService.setRuleExtractor(undefined);
   }
 
@@ -599,6 +601,43 @@ describe('Guidelines Integration Tests (Express App E2E)', () => {
       assert.equal(res.statusCode, 500);
       assert.equal(res.body.error, 'Database connection failed during conflict detection');
       assert.equal(res.body.stack, undefined);
+    });
+  });
+
+  describe('Semantic Rule Retrieval (Orchestrator Contract)', () => {
+    it('retrieves semantically relevant rules for the review orchestrator', async () => {
+      const vector = Array(768).fill(0.05);
+      const expectedSimilarity = 0.92;
+
+      guidelinesRepository.findRelevantRules = async () => [
+        {
+          ...sampleRule,
+          similarity: expectedSimilarity,
+        },
+      ];
+
+      const matches = await guidelinesService.findRelevantRules(vector, 10);
+
+      assert.equal(matches.length, 1);
+      assert.equal(matches[0]?.id, sampleRule.id);
+      assert.equal(matches[0]?.ruleStatement, sampleRule.ruleStatement);
+      assert.equal(matches[0]?.similarity, expectedSimilarity);
+      assert.equal(typeof matches[0]?.createdAt, 'string');
+    });
+
+    it('rejects invalid query vector before reaching repository', async () => {
+      let repoCalled = false;
+      guidelinesRepository.findRelevantRules = async () => {
+        repoCalled = true;
+        return [];
+      };
+
+      await assert.rejects(
+        guidelinesService.findRelevantRules([0.1, 0.2]),
+        /Query embedding must contain exactly 768 finite numbers/,
+      );
+
+      assert.equal(repoCalled, false);
     });
   });
 });

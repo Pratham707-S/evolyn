@@ -526,4 +526,52 @@ describe('GuidelinesRepository', () => {
         assert.deepEqual(capturedValues, { embedding });
         assert.deepEqual(result, updatedRule);
     });
+
+    it('retrieves semantically relevant rules with similarity score', async () => {
+        const distance = 0.12;
+        const mockRuleRecord = {
+            id: 'rule-1',
+            guidelineId: 'guideline-123',
+            ruleType: 'MANDATORY',
+            ruleStatement: 'Use the official logo.',
+            explanation: 'Brand consistency.',
+            severity: 'CRITICAL',
+            embedding: Array(768).fill(0.1),
+            metadata: {},
+            createdAt: new Date(),
+            distance,
+        };
+
+        let whereCalled = false;
+        let limitCalledWith: number | undefined;
+
+        const fakeDatabase = {
+            select: () => ({
+                from: () => ({
+                    innerJoin: () => ({
+                        where: () => {
+                            whereCalled = true;
+                            return {
+                                orderBy: () => ({
+                                    limit: async (limit: number) => {
+                                        limitCalledWith = limit;
+                                        return [mockRuleRecord];
+                                    },
+                                }),
+                            };
+                        },
+                    }),
+                }),
+            }),
+        } as unknown as typeof db;
+
+        const repository = new GuidelinesRepository(fakeDatabase);
+        const results = await repository.findRelevantRules(Array(768).fill(0.1), 5);
+
+        assert.equal(results.length, 1);
+        assert.equal(results[0]?.id, 'rule-1');
+        assert.ok(Math.abs((results[0]?.similarity ?? 0) - 0.88) < 0.000001);
+        assert.equal(whereCalled, true);
+        assert.equal(limitCalledWith, 5);
+    });
 });

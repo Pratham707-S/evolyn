@@ -825,4 +825,83 @@ describe('GuidelinesService', () => {
 
     assert.equal(saveCalled, false);
   });
+
+  describe('findRelevantRules', () => {
+    it('retrieves semantically relevant rules with similarity scores', async () => {
+      const vector = Array(768).fill(0.1);
+      const similarity = 0.88;
+
+      const repository = createRepositoryMock({
+        findRelevantRules: async (queryVector, limit) => [
+          {
+            ...mockRule,
+            similarity,
+          },
+        ],
+      });
+
+      const service = new GuidelinesService(repository);
+      const result = await service.findRelevantRules(vector, 5);
+
+      assert.equal(result.length, 1);
+      assert.equal(result[0]?.id, mockRule.id);
+      assert.equal(result[0]?.ruleStatement, mockRule.ruleStatement);
+      assert.equal(result[0]?.similarity, similarity);
+    });
+
+    it('rejects query vectors with invalid dimensions', async () => {
+      const service = new GuidelinesService(createRepositoryMock());
+
+      await assert.rejects(
+        service.findRelevantRules([0.1, 0.2]),
+        /Query embedding must contain exactly 768 finite numbers/,
+      );
+    });
+
+    it('rejects query vectors containing NaN or non-finite numbers', async () => {
+      const vector = Array(768).fill(0.1);
+      vector[10] = NaN;
+
+      const service = new GuidelinesService(createRepositoryMock());
+
+      await assert.rejects(
+        service.findRelevantRules(vector),
+        /Query embedding must contain exactly 768 finite numbers/,
+      );
+    });
+
+    it('rejects invalid retrieval limits', async () => {
+      const vector = Array(768).fill(0.1);
+      const service = new GuidelinesService(createRepositoryMock());
+
+      await assert.rejects(
+        service.findRelevantRules(vector, 0),
+        /Limit must be a positive integer/,
+      );
+
+      await assert.rejects(
+        service.findRelevantRules(vector, -5),
+        /Limit must be a positive integer/,
+      );
+
+      await assert.rejects(
+        service.findRelevantRules(vector, 2.5),
+        /Limit must be a positive integer/,
+      );
+    });
+
+    it('throws when repository does not support semantic rule search', async () => {
+      const vector = Array(768).fill(0.1);
+      const repository = createRepositoryMock({
+        findRelevantRules: undefined,
+      });
+
+      const service = new GuidelinesService(repository);
+
+      await assert.rejects(
+        service.findRelevantRules(vector),
+        /Repository does not support semantic rule search/,
+      );
+    });
+  });
 });

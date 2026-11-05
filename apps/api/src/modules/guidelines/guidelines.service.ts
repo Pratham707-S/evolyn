@@ -17,6 +17,7 @@ import {
     type GuidelineRecord,
     type GuidelineRuleRecord,
     type GuidelineConflictRecord,
+    type RelevantRuleRecord,
 } from './guidelines.repository.js';
 
 import type {
@@ -30,6 +31,7 @@ import type {
     RuleExtractionResult,
     GuidelineEmbeddingGenerator,
     EmbeddingGenerationResult,
+    RuleMatchResult,
 } from './guidelines.types.js';
 
 type GuidelinesRepositoryPort = Pick<
@@ -48,6 +50,10 @@ type GuidelinesRepositoryPort = Pick<
         guidelineId: string,
         rules: RuleExtractionResult[],
     ) => Promise<GuidelineRuleRecord[]>;
+    findRelevantRules?: (
+        queryVector: number[],
+        limit?: number,
+    ) => Promise<RelevantRuleRecord[]>;
 };
 
 function validateEnum<T extends readonly string[]>(
@@ -384,6 +390,43 @@ export class GuidelinesService implements IGuidelineService {
         }
 
         return this.repository.createConflicts(newConflicts);
+    }
+
+    /**
+     * Retrieve semantically relevant rules using vector cosine similarity.
+     * Validates that query vector has exactly 768 finite dimensions and a positive limit.
+     */
+    async findRelevantRules(
+        queryVector: number[],
+        limit = 10,
+    ): Promise<RuleMatchResult[]> {
+        if (
+            !Array.isArray(queryVector) ||
+            queryVector.length !== 768 ||
+            !queryVector.every(Number.isFinite)
+        ) {
+            throw new Error(
+                'Query embedding must contain exactly 768 finite numbers',
+            );
+        }
+
+        if (!Number.isInteger(limit) || limit <= 0) {
+            throw new Error('Limit must be a positive integer');
+        }
+
+        if (!this.repository.findRelevantRules) {
+            throw new Error('Repository does not support semantic rule search');
+        }
+
+        const rules = await this.repository.findRelevantRules(
+            queryVector,
+            limit,
+        );
+
+        return rules.map((rule) => ({
+            ...mapRule(rule),
+            similarity: rule.similarity,
+        }));
     }
 }
 
