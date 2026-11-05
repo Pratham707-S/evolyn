@@ -29,3 +29,6 @@ export interface ReviewViewState {
 }
 
 export type { DetectedIssue, ReviewRun };
+
+export * from './components';
+export type { QueueItem } from './components/review-queue';
