@@ -185,24 +185,24 @@ export function DecisionDetailModal({
     >
       <div
         ref={cardRef}
-        className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden"
+        className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-2xl w-full max-w-3xl max-h-[92vh] sm:max-h-[85vh] flex flex-col shadow-2xl overflow-hidden"
       >
         {/* Header */}
-        <div className="p-5 sm:p-6 border-b border-[#E5E1D8] flex items-start justify-between gap-4 shrink-0 bg-[#FFFEFA]">
+        <div className="p-4 sm:p-6 border-b border-[#E5E1D8] flex items-start justify-between gap-3 shrink-0 bg-[#FFFEFA]">
           <div className="flex items-start gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-[#F1EFE8] border border-[#E5E1D8] flex items-center justify-center text-[#25251F] shrink-0 mt-0.5 shadow-2xs">
-              <FileText className="w-5 h-5" />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#F1EFE8] border border-[#E5E1D8] flex items-center justify-center text-[#25251F] shrink-0 mt-0.5 shadow-2xs">
+              <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
 
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="font-serif text-xl sm:text-2xl font-normal text-[#25251F] tracking-tight truncate">
+                <h3 className="font-serif text-lg sm:text-2xl font-normal text-[#25251F] tracking-tight truncate">
                   {item.title}
                 </h3>
                 {renderBadge(item.decision)}
               </div>
 
-              <div className="flex items-center gap-3 text-xs text-[#77766E] mt-1 flex-wrap">
+              <div className="flex items-center gap-2 sm:gap-3 text-xs text-[#77766E] mt-1 flex-wrap">
                 <span className="flex items-center gap-1 font-medium text-[#25251F]">
                   {getChannelIcon(item.channel)}
                   {item.channel}
@@ -231,11 +231,11 @@ export function DecisionDetailModal({
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center border-b border-[#E5E1D8] px-5 sm:px-6 gap-6 shrink-0 bg-[#FAF9F5]">
+        <div className="flex items-center border-b border-[#E5E1D8] px-4 sm:px-6 gap-4 sm:gap-6 shrink-0 bg-[#FAF9F5] overflow-x-auto no-scrollbar">
           <button
             type="button"
             onClick={() => setActiveTab('decision')}
-            className={`py-3 text-xs font-medium border-b-2 transition-colors ${
+            className={`py-3 text-xs font-medium border-b-2 transition-colors shrink-0 whitespace-nowrap cursor-pointer ${
               activeTab === 'decision'
                 ? 'border-[#25251F] text-[#25251F]'
                 : 'border-transparent text-[#77766E] hover:text-[#25251F]'
@@ -247,7 +247,7 @@ export function DecisionDetailModal({
           <button
             type="button"
             onClick={() => setActiveTab('findings')}
-            className={`py-3 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
+            className={`py-3 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-pointer ${
               activeTab === 'findings'
                 ? 'border-[#25251F] text-[#25251F]'
                 : 'border-transparent text-[#77766E] hover:text-[#25251F]'
@@ -268,7 +268,7 @@ export function DecisionDetailModal({
           <button
             type="button"
             onClick={() => setActiveTab('guidelines')}
-            className={`py-3 text-xs font-medium border-b-2 transition-colors ${
+            className={`py-3 text-xs font-medium border-b-2 transition-colors shrink-0 whitespace-nowrap cursor-pointer ${
               activeTab === 'guidelines'
                 ? 'border-[#25251F] text-[#25251F]'
                 : 'border-transparent text-[#77766E] hover:text-[#25251F]'
@@ -280,7 +280,7 @@ export function DecisionDetailModal({
           <button
             type="button"
             onClick={() => setActiveTab('activity')}
-            className={`py-3 text-xs font-medium border-b-2 transition-colors ${
+            className={`py-3 text-xs font-medium border-b-2 transition-colors shrink-0 whitespace-nowrap cursor-pointer ${
               activeTab === 'activity'
                 ? 'border-[#25251F] text-[#25251F]'
                 : 'border-transparent text-[#77766E] hover:text-[#25251F]'

@@ -295,15 +295,15 @@ export function DecisionHistoryTimeline({
                   setLocalStatus(tab.id);
                   if (onFilterChange) onFilterChange(nextVal);
                 }}
-                className={`w-full py-2.5 px-3.5 rounded-xl border text-xs font-medium transition-all flex items-center justify-between cursor-pointer ${
+                className={`w-full py-2 px-2.5 sm:px-3.5 rounded-xl border text-xs font-medium transition-all flex items-center justify-between cursor-pointer ${
                   isSelected
                     ? `${tab.activeClasses} shadow-sm`
                     : 'bg-[#FAF9F5] border-[#E5E1D8] text-[#77766E] hover:text-[#25251F] hover:bg-[#F1EFE8] hover:border-[#68745D]/40'
                 }`}
               >
-                <span>{tab.label}</span>
+                <span className="truncate">{tab.label}</span>
                 <span
-                  className={`text-[11px] font-mono px-2 py-0.5 rounded-full ${
+                  className={`text-[10px] sm:text-[11px] font-mono px-1.5 sm:px-2 py-0.5 rounded-full shrink-0 ml-1.5 ${
                     isSelected ? tab.badgeActive : 'bg-[#E5E1D8]/60 text-[#25251F]'
                   }`}
                 >
@@ -315,9 +315,9 @@ export function DecisionHistoryTimeline({
         </div>
 
         {/* 3. Interactive Date Strip (Click a date to see that particular day's work) */}
-        <div className="bg-[#FAF9F5] border border-[#E5E1D8] rounded-xl p-3 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[#77766E] font-medium flex items-center gap-1.5 text-xs mr-1">
+        <div className="bg-[#FAF9F5] border border-[#E5E1D8] rounded-xl p-2.5 sm:p-3 flex flex-col md:flex-row md:items-center justify-between gap-2.5 text-xs">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 max-w-full">
+            <span className="text-[#77766E] font-medium flex items-center gap-1.5 text-xs mr-1 shrink-0">
               <Calendar className="w-3.5 h-3.5 text-[#68745D]" />
               Filter by Day:
             </span>
@@ -326,7 +326,7 @@ export function DecisionHistoryTimeline({
             <button
               type="button"
               onClick={() => setSelectedDay(null)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${
                 selectedDay === null
                   ? 'bg-[#25251F] text-white shadow-2xs font-semibold'
                   : 'bg-[#FFFEFA] border border-[#E5E1D8] text-[#77766E] hover:text-[#25251F] hover:bg-[#F1EFE8]'
@@ -347,7 +347,7 @@ export function DecisionHistoryTimeline({
                   key={day.index}
                   type="button"
                   onClick={() => setSelectedDay(isDaySelected ? null : day.index)}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs transition-all flex items-center gap-1.5 ${
+                  className={`px-2.5 py-1.5 rounded-lg text-xs transition-all flex items-center gap-1.5 shrink-0 ${
                     isDaySelected
                       ? 'bg-[#68745D] text-white shadow-xs font-semibold'
                       : day.isToday
@@ -394,7 +394,22 @@ export function DecisionHistoryTimeline({
 
       {/* 4. Schedule Timeline Gantt View */}
       {viewMode === 'gantt' && (
-        <div className="overflow-x-auto pb-2">
+        <div className="space-y-2">
+          {/* Mobile Swipe Hint Notice */}
+          <div className="md:hidden flex items-center justify-between text-[11px] text-[#77766E] bg-[#FAF9F5] border border-[#E5E1D8] px-3 py-1.5 rounded-xl">
+            <span className="flex items-center gap-1">
+              👉 Swipe horizontally to view full schedule
+            </span>
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              className="text-[#68745D] font-semibold underline"
+            >
+              List View
+            </button>
+          </div>
+
+          <div className="overflow-x-auto pb-2 scroll-smooth">
           <div className="min-w-[880px] border border-[#E5E1D8] rounded-xl bg-[#FAF9F5] p-5 relative">
             {/* Days Column Header Grid (Non-overlapping, clean layout) */}
             <div className="grid grid-cols-7 gap-3 pb-3 border-b border-[#E5E1D8] text-center text-xs relative z-20">
@@ -524,6 +539,7 @@ export function DecisionHistoryTimeline({
               })}
             </div>
           </div>
+        </div>
         </div>
       )}
 

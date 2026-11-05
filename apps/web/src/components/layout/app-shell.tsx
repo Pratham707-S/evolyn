@@ -9,6 +9,7 @@ import { SubmissionItem } from '../dashboard/recent-submissions';
 interface AppShellProps {
   children: React.ReactNode;
   activeItem: string;
+  noScroll?: boolean;
 }
 
 export interface AppShellContextValue {
@@ -43,7 +44,7 @@ const navRoutes: Record<string, string> = {
   Settings: '/settings',
 };
 
-export function AppShell({ children, activeItem }: AppShellProps) {
+export function AppShell({ children, activeItem, noScroll = false }: AppShellProps) {
   const router = useRouter();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -62,7 +63,8 @@ export function AppShell({ children, activeItem }: AppShellProps) {
   };
 
   const handleNewSubmission = (newSub: SubmissionItem) => {
-    showToast(`New audit created for "${newSub.title}"`);
+    showToast(`Opening Review Workspace for "${newSub.title}"...`);
+    router.push('/reviews');
   };
 
   const contextValue: AppShellContextValue = {
@@ -74,7 +76,11 @@ export function AppShell({ children, activeItem }: AppShellProps) {
 
   return (
     <AppShellContext.Provider value={contextValue}>
-      <div className="min-h-screen bg-[#F7F5F0] text-[#25251F] font-sans antialiased selection:bg-[#68745D] selection:text-white flex">
+      <div
+        className={`${
+          noScroll ? 'min-h-screen lg:h-screen lg:overflow-hidden' : 'min-h-screen'
+        } bg-[#F7F5F0] text-[#25251F] font-sans antialiased selection:bg-[#68745D] selection:text-white flex`}
+      >
         {/* Toast Notification */}
         {toastMessage && (
           <div className="fixed top-4 right-4 z-50 bg-[#25251F] text-white text-xs px-4 py-2.5 rounded-lg shadow-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
@@ -92,8 +98,18 @@ export function AppShell({ children, activeItem }: AppShellProps) {
         />
 
         {/* Main Content Area */}
-        <main className="flex-1 min-w-0">
-          <div className="max-w-[1400px] mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-6">
+        <main
+          className={`flex-1 min-w-0 ${
+            noScroll ? 'lg:h-screen lg:overflow-hidden flex flex-col' : ''
+          }`}
+        >
+          <div
+            className={
+              noScroll
+                ? 'w-full max-w-[1720px] mx-auto px-3 sm:px-6 py-3.5 flex flex-col lg:h-full lg:overflow-hidden min-h-0'
+                : 'max-w-[1400px] mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-6'
+            }
+          >
             {children}
           </div>
         </main>

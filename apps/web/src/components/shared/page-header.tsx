@@ -10,6 +10,7 @@ export interface PageHeaderProps {
   actions?: React.ReactNode;
   showNotificationBell?: boolean;
   unreadNotificationsCount?: number;
+  compact?: boolean;
 }
 
 export function PageHeader({
@@ -18,11 +19,16 @@ export function PageHeader({
   actions,
   showNotificationBell = true,
   unreadNotificationsCount = 0,
+  compact = false,
 }: PageHeaderProps) {
   const { openMobileSidebar, showToast } = useAppShell();
 
   return (
-    <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-[#E5E1D8]/70">
+    <header
+      className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+        compact ? 'pb-3 mb-1 shrink-0' : 'pb-6'
+      } border-b border-[#E5E1D8]/70`}
+    >
       <div className="flex items-start gap-3">
         {/* Mobile menu trigger */}
         <button
@@ -35,11 +41,19 @@ export function PageHeader({
         </button>
 
         <div>
-          <h1 className="font-serif text-3xl sm:text-[34px] font-normal tracking-tight text-[#25251F] leading-tight">
+          <h1
+            className={`font-serif ${
+              compact ? 'text-2xl sm:text-[26px]' : 'text-3xl sm:text-[34px]'
+            } font-normal tracking-tight text-[#25251F] leading-tight`}
+          >
             {title}
           </h1>
           {description && (
-            <p className="text-xs sm:text-sm text-[#77766E] mt-1 font-sans">
+            <p
+              className={`${
+                compact ? 'text-xs' : 'text-xs sm:text-sm'
+              } text-[#77766E] mt-0.5 font-sans`}
+            >
               {description}
             </p>
           )}
