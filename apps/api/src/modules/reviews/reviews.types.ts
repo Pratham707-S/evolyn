@@ -1,6 +1,5 @@
 import type {
   DetectedIssue,
-  GuidelineRule,
   ReviewRun,
 } from '@evolyn/shared';
 import type { AIProvider } from '../../infrastructure/ai/index.js';
@@ -20,12 +19,4 @@ export interface ReviewDependencies {
   knowledge: Pick<IKnowledgeService, 'findRelevantFacts'>;
   findings: Pick<IFindingsService, 'recordFindings' | 'getFindingsByReviewRunId'>;
   ai: Pick<AIProvider, 'generateEmbedding' | 'auditContent'>;
-  rules?: {
-    findQuotedProhibitedPhrases(rules: GuidelineRule[], content: string): Array<{
-      rule: GuidelineRule;
-      phrase: string;
-      charStart: number;
-      charEnd: number;
-    }>;
-  };
 }
