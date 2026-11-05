@@ -32,7 +32,7 @@ describe('Database Migrations Integrity & Hardening', () => {
 
     it('0001 migration contains self-conflict purge, deduplication, normalization, strict check constraint, and unique index', () => {
         const migration1Path = path.join(migrationsDir, '0001_add_conflicts_unique_index.sql');
-        const sqlContent = fs.readFileSync(migration1Path, 'utf8');
+        const sqlContent = fs.readFileSync(migration1Path, 'utf8').replace(/\r\n/g, '\n');
 
         // Step 1: Purge self-conflicts
         assert.ok(
@@ -79,7 +79,7 @@ describe('Database Migrations Integrity & Hardening', () => {
         const configPath = path.resolve(__dirname, '../../drizzle.config.ts');
         assert.ok(fs.existsSync(configPath), 'drizzle.config.ts must exist');
 
-        const configContent = fs.readFileSync(configPath, 'utf8');
+        const configContent = fs.readFileSync(configPath, 'utf8').replace(/\r\n/g, '\n');
         assert.ok(
             configContent.includes('process.env.DIRECT_URL ||\n      process.env.DATABASE_URL') ||
             configContent.includes('process.env.DIRECT_URL || process.env.DATABASE_URL'),

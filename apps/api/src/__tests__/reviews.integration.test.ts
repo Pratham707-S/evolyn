@@ -2,7 +2,7 @@ import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'http';
 import { Socket } from 'net';
-import type { ReviewRun } from '@evolyn/shared';
+import { REWRITE_ACTIONS, type ReviewRun } from '@evolyn/shared';
 
 import { app } from '../app.js';
 import { reviewService } from '../modules/reviews/reviews.routes.js';
@@ -338,6 +338,246 @@ describe('Reviews Integration Tests (Express App E2E)', () => {
 
       assert.equal(res.statusCode, 404);
       assert.equal(res.body.error, 'Submission not found');
+    });
+  });
+
+  describe('POST /api/submissions/:id/rewrite', () => {
+    it('returns 200 with proposal for all eight supported actions', async () => {
+      for (const action of REWRITE_ACTIONS) {
+        reviewService.rewrite = async (id, input) => ({
+          originalText: input.content,
+          rewrittenText: `Rewritten: ${input.content}`,
+          action: input.action,
+          rationale: `Applied action ${input.action}.`,
+        });
+
+        const res = await dispatch({
+          method: 'POST',
+          url: `/api/submissions/${validSubmissionId}/rewrite`,
+          body: {
+            action,
+            content: 'Brand copy that needs refinement.',
+          },
+        });
+
+        assert.equal(res.statusCode, 200);
+        assert.equal(res.body.action, action);
+        assert.equal(res.body.originalText, 'Brand copy that needs refinement.');
+        assert.equal(res.body.rewrittenText, 'Rewritten: Brand copy that needs refinement.');
+        assert.equal(res.body.rationale, `Applied action ${action}.`);
+      }
+    });
+
+    it('returns 400 when action is invalid', async () => {
+      const res = await dispatch({
+        method: 'POST',
+        url: `/api/submissions/${validSubmissionId}/rewrite`,
+        body: {
+          action: 'MAKE_FUNNY',
+          content: 'Brand copy to rewrite.',
+        },
+      });
+
+      assert.equal(res.statusCode, 400);
+      assert.equal(res.body.error, 'Validation failed');
+      assert.ok(res.body.details.some((d: any) => d.field === 'action'));
+    });
+
+    it('returns 400 when content is missing', async () => {
+      const res = await dispatch({
+        method: 'POST',
+        url: `/api/submissions/${validSubmissionId}/rewrite`,
+        body: {
+          action: 'MAKE_SHORTER',
+        },
+      });
+
+      assert.equal(res.statusCode, 400);
+      assert.equal(res.body.error, 'Validation failed');
+      assert.ok(res.body.details.some((d: any) => d.field === 'content'));
+    });
+
+    it('returns 400 when content is empty or whitespace only', async () => {
+      const emptyRes = await dispatch({
+        method: 'POST',
+        url: `/api/submissions/${validSubmissionId}/rewrite`,
+        body: {
+          action: 'SIMPLIFY',
+          content: '',
+        },
+      });
+      assert.equal(emptyRes.statusCode, 400);
+      assert.equal(emptyRes.body.error, 'Validation failed');
+
+      const whitespaceRes = await dispatch({
+        method: 'POST',
+        url: `/api/submissions/${validSubmissionId}/rewrite`,
+        body: {
+          action: 'SIMPLIFY',
+          content: '   \n  \t ',
+        },
+      });
+      assert.equal(whitespaceRes.statusCode, 400);
+      assert.equal(whitespaceRes.body.error, 'Validation failed');
+    });
+
+    it('returns 400 when content exceeds length limits', async () => {
+      const res = await dispatch({
+        method: 'POST',
+        url: `/api/submissions/${validSubmissionId}/rewrite`,
+        body: {
+          action: 'HUMANIZE',
+          content: 'x'.repeat(50001),
+        },
+      });
+
+      assert.equal(res.statusCode, 400);
+      assert.equal(res.body.error, 'Validation failed');
+      assert.ok(res.body.details.some((d: any) => d.field === 'content'));
+    });
+
+    it('returns 404 when submission is not found', async () => {
+      reviewService.rewrite = async () => {
+        throw new Error(`Submission not found: ${validSubmissionId}`);
+      };
+
+      const res = await dispatch({
+        method: 'POST',
+        url: `/api/submissions/${validSubmissionId}/rewrite`,
+        body: {
+          action: 'IMPROVE_WRITING',
+          content: 'Some valid content.',
+        },
+      });
+
+      assert.equal(res.statusCode, 404);
+      assert.equal(res.body.error, 'Submission not found');
+    });
+
+    it('returns 400 when submission id is not a valid UUID', async () => {
+      const res = await dispatch({
+        method: 'POST',
+        url: '/api/submissions/not-a-uuid/rewrite',
+        body: {
+          action: 'IMPROVE_WRITING',
+          content: 'Valid content.',
+        },
+      });
+
+      assert.equal(res.statusCode, 400);
+      assert.equal(res.body.error, 'Validation failed');
+    });
+
+    it('returns 500 without leaking stack traces or keys on provider failure', async () => {
+      reviewService.rewrite = async () => {
+        throw new Error('Gemini request failed with HTTP 500');
+      };
+
+      const res = await dispatch({
+        method: 'POST',
+        url: `/api/submissions/${validSubmissionId}/rewrite`,
+        body: {
+          action: 'GRAMMAR_SPELLING',
+          content: 'Valid content for testing provider failure.',
+        },
+      });
+
+      assert.equal(res.statusCode, 500);
+      assert.equal(res.body.error, 'Gemini request failed with HTTP 500');
+      assert.equal(res.body.stack, undefined);
+    });
+
+    it('returns 500 when Gemini returns malformed output', async () => {
+      reviewService.rewrite = async () => {
+        throw new Error('Gemini returned invalid JSON for the rewrite');
+      };
+
+      const res = await dispatch({
+        method: 'POST',
+        url: `/api/submissions/${validSubmissionId}/rewrite`,
+        body: {
+          action: 'MAKE_LONGER',
+          content: 'Valid content to expand.',
+        },
+      });
+
+      assert.equal(res.statusCode, 500);
+      assert.equal(res.body.error, 'Gemini returned invalid JSON for the rewrite');
+    });
+
+    it('returns 500 when Gemini returns empty rewritten output', async () => {
+      reviewService.rewrite = async () => {
+        throw new Error('Gemini returned empty rewritten text');
+      };
+
+      const res = await dispatch({
+        method: 'POST',
+        url: `/api/submissions/${validSubmissionId}/rewrite`,
+        body: {
+          action: 'SUMMARIZE',
+          content: 'Valid content to summarize.',
+        },
+      });
+
+      assert.equal(res.statusCode, 500);
+      assert.equal(res.body.error, 'Gemini returned empty rewritten text');
+    });
+
+    it('passes user instructions in rewrite request', async () => {
+      let capturedInstructions: string | undefined;
+      reviewService.rewrite = async (_id, input) => {
+        capturedInstructions = input.instructions;
+        return {
+          originalText: input.content,
+          rewrittenText: 'Tailored text',
+          action: input.action,
+          rationale: 'Followed user instruction',
+        };
+      };
+
+      const res = await dispatch({
+        method: 'POST',
+        url: `/api/submissions/${validSubmissionId}/rewrite`,
+        body: {
+          action: 'CHANGE_TONE',
+          content: 'We offer great software.',
+          instructions: 'Sound more visionary and inspiring.',
+        },
+      });
+
+      assert.equal(res.statusCode, 200);
+      assert.equal(capturedInstructions, 'Sound more visionary and inspiring.');
+    });
+
+    it('guarantees original submission immutability and no auto-approval', async () => {
+      let submissionUpdated = false;
+      const initialRawText = sampleSubmission.rawText;
+      const initialStatus = sampleSubmission.status;
+
+      submissionService.updateSubmissionStatus = async () => {
+        submissionUpdated = true;
+      };
+
+      reviewService.rewrite = async (_id, input) => ({
+        originalText: input.content,
+        rewrittenText: 'Polished text',
+        action: input.action,
+        rationale: 'Proposal only',
+      });
+
+      const res = await dispatch({
+        method: 'POST',
+        url: `/api/submissions/${validSubmissionId}/rewrite`,
+        body: {
+          action: 'IMPROVE_WRITING',
+          content: sampleSubmission.rawText,
+        },
+      });
+
+      assert.equal(res.statusCode, 200);
+      assert.equal(submissionUpdated, false);
+      assert.equal(sampleSubmission.rawText, initialRawText);
+      assert.equal(sampleSubmission.status, initialStatus);
     });
   });
 });

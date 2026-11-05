@@ -119,4 +119,285 @@ describe('GeminiAIProvider', () => {
       /GEMINI_API_KEY is missing/
     );
   });
+
+  it('requests structured rewrite output, enforces token budget, and incorporates guidelines, facts, and instructions', async () => {
+    let requestUrl = '';
+    let capturedBody: any;
+
+    const provider = new GeminiAIProvider(
+      'test-key',
+      'test-model',
+      'test-embedding-model',
+      async (input, init) => {
+        requestUrl = String(input);
+        capturedBody = JSON.parse(String(init?.body));
+        return createResponse({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({
+                      rewrittenText: 'Concise launch copy.',
+                      rationale: 'Trimmed fluff and preserved key facts.',
+                    }),
+                  },
+                ],
+              },
+            },
+          ],
+        });
+      }
+    );
+
+    const result = await provider.rewriteContent({
+      action: 'MAKE_SHORTER',
+      content: 'Here is very long and unnecessary marketing copy for our brand.',
+      instructions: 'Keep voice authoritative and clean.',
+      rules: [{ id: ruleId, statement: 'Be concise.', severity: 'WARNING' }],
+      facts: [{ id: 'fact-1', claim: 'SOC2 certified', source: 'SOC2 Report' }],
+      options: { maxOutputTokens: 1024 },
+    });
+
+    assert.equal(
+      requestUrl,
+      'https://generativelanguage.googleapis.com/v1beta/models/test-model:generateContent'
+    );
+    assert.equal(capturedBody.generationConfig.maxOutputTokens, 1024);
+    assert.equal(capturedBody.generationConfig.responseMimeType, 'application/json');
+
+    const promptText = capturedBody.contents[0].parts[0].text;
+    assert.ok(promptText.includes('MAKE_SHORTER'));
+    assert.ok(promptText.includes('Be concise.'));
+    assert.ok(promptText.includes('SOC2 certified'));
+    assert.ok(promptText.includes('Keep voice authoritative and clean.'));
+    assert.ok(promptText.includes('Here is very long and unnecessary marketing copy'));
+
+    assert.deepEqual(result, {
+      rewrittenText: 'Concise launch copy.',
+      rationale: 'Trimmed fluff and preserved key facts.',
+    });
+  });
+
+  it('rejects empty rewritten output from Gemini', async () => {
+    const provider = new GeminiAIProvider(
+      'test-key',
+      'test-model',
+      'test-embedding-model',
+      async () =>
+        createResponse({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({
+                      rewrittenText: '   ',
+                      rationale: 'Emptied content.',
+                    }),
+                  },
+                ],
+              },
+            },
+          ],
+        })
+    );
+
+    await assert.rejects(
+      provider.rewriteContent({
+        action: 'SIMPLIFY',
+        content: 'Original copy.',
+      }),
+      /Gemini returned empty rewritten text/
+    );
+  });
+
+  it('rejects malformed JSON from Gemini', async () => {
+    const provider = new GeminiAIProvider(
+      'test-key',
+      'test-model',
+      'test-embedding-model',
+      async () =>
+        createResponse({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: 'Not a JSON document',
+                  },
+                ],
+              },
+            },
+          ],
+        })
+    );
+
+    await assert.rejects(
+      provider.rewriteContent({
+        action: 'HUMANIZE',
+        content: 'Original copy.',
+      }),
+      /Gemini returned invalid JSON for the rewrite/
+    );
+  });
+
+  it('retries on transient errors and succeeds when retry resolves', async () => {
+    let callCount = 0;
+    const provider = new GeminiAIProvider(
+      'test-secret-key-123',
+      'test-model',
+      'test-embedding-model',
+      async () => {
+        callCount++;
+        if (callCount === 1) {
+          return createResponse({}, false, 503);
+        }
+        return createResponse({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({
+                      rewrittenText: 'Rewritten on retry.',
+                      rationale: 'Success after retry.',
+                    }),
+                  },
+                ],
+              },
+            },
+          ],
+        });
+      }
+    );
+
+    const result = await provider.rewriteContent({
+      action: 'IMPROVE_WRITING',
+      content: 'Some draft copy.',
+    });
+
+    assert.equal(callCount, 2);
+    assert.equal(result.rewrittenText, 'Rewritten on retry.');
+  });
+
+  it('fails safely without exposing API keys when persistent provider errors occur', async () => {
+    const secretKey = 'super-secret-key-abc';
+    const failingProvider = new GeminiAIProvider(
+      secretKey,
+      'test-model',
+      'test-embedding-model',
+      async () => createResponse({}, false, 500)
+    );
+
+    try {
+      await failingProvider.rewriteContent({
+        action: 'GRAMMAR_SPELLING',
+        content: 'Copy with grammar mistake.',
+      });
+      assert.fail('Expected provider to throw');
+    } catch (error) {
+      assert.ok(error instanceof Error);
+      assert.ok(error.message.includes('Gemini request failed with HTTP 500'));
+      assert.ok(!error.message.includes(secretKey));
+    }
+  });
+
+  it('uses hardened defaults (gemini-3.1-flash-lite and gemini-embedding-001) from environment configuration', async () => {
+    let capturedUrl = '';
+    const defaultProvider = new GeminiAIProvider(
+      'mock-api-key',
+      undefined,
+      undefined,
+      async (input) => {
+        capturedUrl = String(input);
+        return createResponse({
+          embedding: { values: Array(768).fill(0.1) },
+        });
+      }
+    );
+
+    const vec = await defaultProvider.generateEmbedding('Brand rules');
+    assert.ok(capturedUrl.includes('/models/gemini-embedding-001:embedContent'));
+    assert.equal(vec.length, 768);
+  });
+
+  it('uses default generation model (gemini-3.1-flash-lite) for content rewriting and auditing', async () => {
+    let capturedUrl = '';
+    const defaultProvider = new GeminiAIProvider(
+      'mock-api-key',
+      undefined,
+      undefined,
+      async (input) => {
+        capturedUrl = String(input);
+        return createResponse({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({
+                      rewrittenText: 'Polished copy.',
+                      rationale: 'Cleaned grammar.',
+                    }),
+                  },
+                ],
+              },
+            },
+          ],
+        });
+      }
+    );
+
+    await defaultProvider.rewriteContent({
+      action: 'IMPROVE_WRITING',
+      content: 'Raw copy.',
+    });
+    assert.ok(capturedUrl.includes('/models/gemini-3.1-flash-lite:generateContent'));
+  });
+
+  it('allows explicit model and embedding model overrides via constructor or environment', async () => {
+    let capturedRewriteUrl = '';
+    let capturedEmbeddingUrl = '';
+    const customProvider = new GeminiAIProvider(
+      'mock-api-key',
+      'custom-generation-model',
+      'custom-embedding-model',
+      async (input) => {
+        const urlStr = String(input);
+        if (urlStr.includes(':embedContent')) {
+          capturedEmbeddingUrl = urlStr;
+          return createResponse({
+            embedding: { values: Array(768).fill(0.2) },
+          });
+        }
+        capturedRewriteUrl = urlStr;
+        return createResponse({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({
+                      rewrittenText: 'Custom rewritten copy.',
+                      rationale: 'Custom rationale.',
+                    }),
+                  },
+                ],
+              },
+            },
+          ],
+        });
+      }
+    );
+
+    await customProvider.generateEmbedding('Custom embedding text');
+    assert.ok(capturedEmbeddingUrl.includes('/models/custom-embedding-model:embedContent'));
+
+    await customProvider.rewriteContent({
+      action: 'SIMPLIFY',
+      content: 'Complex text to simplify.',
+    });
+    assert.ok(capturedRewriteUrl.includes('/models/custom-generation-model:generateContent'));
+  });
 });

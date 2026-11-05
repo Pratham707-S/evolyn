@@ -19,7 +19,7 @@ import {
   type DecisionDependencies,
 } from './decisions.types.js';
 
-function mapDecision(record: DecisionRecord): Decision {
+export function mapDecision(record: DecisionRecord): Decision {
   if (
     !Array.isArray(record.overriddenIssueIds) ||
     !record.overriddenIssueIds.every((id) => typeof id === 'string')
@@ -39,11 +39,34 @@ function mapDecision(record: DecisionRecord): Decision {
 }
 
 export class DecisionService implements IDecisionService {
+  private readonly inFlightDecisions = new Map<string, Promise<Decision>>();
+
   constructor(private readonly dependencies: DecisionDependencies) {}
 
   async recordDecision(input: SubmitDecisionInput): Promise<Decision> {
     const validated = submitDecisionSchema.parse(input);
+    const submissionId = uuidSchema.parse(validated.submissionId);
 
+    if (this.inFlightDecisions.has(submissionId)) {
+      throw new DecisionError(
+        'DECISION_EXISTS',
+        'A decision is currently being recorded for this submission'
+      );
+    }
+
+    const execution = this.executeRecordDecision(validated);
+    this.inFlightDecisions.set(submissionId, execution);
+
+    try {
+      return await execution;
+    } finally {
+      this.inFlightDecisions.delete(submissionId);
+    }
+  }
+
+  private async executeRecordDecision(
+    validated: SubmitDecisionInput
+  ): Promise<Decision> {
     const submission = await this.dependencies.submissions.getSubmissionById(
       validated.submissionId
     );
@@ -54,6 +77,15 @@ export class DecisionService implements IDecisionService {
       );
     }
 
+    // Check if submission already finalized
+    if (submission.status === 'APPROVED' || submission.status === 'REJECTED') {
+      throw new DecisionError(
+        'DECISION_EXISTS',
+        `A final decision has already been recorded for this submission (${submission.status})`
+      );
+    }
+
+    // Submission must be reviewed before receiving a decision
     if (submission.status !== 'REVIEWED') {
       throw new DecisionError(
         'SUBMISSION_NOT_REVIEWED',
@@ -61,10 +93,14 @@ export class DecisionService implements IDecisionService {
       );
     }
 
+    // Prevent duplicate final decisions
     const existing = await this.dependencies.repository.findBySubmissionId(
       validated.submissionId
     );
-    if (existing) {
+    if (
+      existing &&
+      (existing.decision === 'APPROVED' || existing.decision === 'REJECTED')
+    ) {
       throw new DecisionError(
         'DECISION_EXISTS',
         'A decision has already been recorded for this submission'
@@ -75,7 +111,6 @@ export class DecisionService implements IDecisionService {
     const shouldLoadIssues =
       overriddenIssueIds.length > 0 || this.dependencies.insights !== undefined;
 
-    // Issues are only needed to validate overrides or to notify insights.
     const issues = shouldLoadIssues
       ? await this.dependencies.repository.listIssuesBySubmissionId(
           validated.submissionId
@@ -151,7 +186,7 @@ export class DecisionService implements IDecisionService {
       throw new Error('Failed to persist decision');
     }
 
-    // Insight aggregation is innovation 3 and must never fail a valid sign-off.
+    // Insight aggregation (never fail a valid sign-off on insights error)
     try {
       await this.notifyInsights(issues);
     } catch (error) {
@@ -167,6 +202,15 @@ export class DecisionService implements IDecisionService {
     const id = uuidSchema.parse(submissionId);
     const record = await this.dependencies.repository.findBySubmissionId(id);
     return record ? mapDecision(record) : null;
+  }
+
+  async getDecisionHistory(submissionId: string): Promise<Decision[]> {
+    const id = uuidSchema.parse(submissionId);
+    const records = await this.dependencies.repository.listBySubmissionId(
+      id,
+      'asc'
+    );
+    return records.map(mapDecision);
   }
 
   private async notifyInsights(issues: DecisionIssueRecord[]): Promise<void> {

@@ -11,6 +11,7 @@ import {
   DECISION_TYPES,
   CONFLICT_TYPES,
   CONFLICT_STATUSES,
+  REWRITE_ACTIONS,
 } from './constants.js';
 
 // Base ID and Timestamp helpers
@@ -115,6 +116,35 @@ export const guidelineConflictSchema = z.object({
   explanation: z.string(),
   severity: severitySchema.default('WARNING'),
   status: conflictStatusSchema.default('OPEN'),
+});
+
+// ----------------------------------------
+// Review Workspace Rewrite (Core AI Assistance)
+// ----------------------------------------
+export const rewriteActionSchema = z.enum(REWRITE_ACTIONS);
+
+export const rewriteContentSchema = z.object({
+  action: rewriteActionSchema,
+  content: z
+    .string({ required_error: 'Content is required' })
+    .min(1, 'Content is required')
+    .refine((val) => val.trim().length > 0, {
+      message: 'Content cannot be empty or whitespace only',
+    })
+    .refine((val) => val.length <= 50000, {
+      message: 'Content must not exceed 50000 characters',
+    }),
+  instructions: z
+    .string()
+    .max(1000, 'Instructions must not exceed 1000 characters')
+    .optional(),
+});
+
+export const rewriteResponseSchema = z.object({
+  originalText: z.string(),
+  rewrittenText: z.string().min(1, 'Rewritten text cannot be empty'),
+  action: rewriteActionSchema,
+  rationale: z.string().min(1, 'Rationale cannot be empty'),
 });
 
 // ----------------------------------------

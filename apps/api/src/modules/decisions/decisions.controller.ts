@@ -2,6 +2,8 @@ import { submitDecisionSchema, uuidSchema } from '@evolyn/shared';
 import type { NextFunction, Request, Response } from 'express';
 import { z } from 'zod';
 
+import type { ISubmissionService } from '../submissions/index.js';
+import { submissionService } from '../submissions/index.js';
 import type { IDecisionService } from './index.js';
 import { decisionService } from './decisions.service.js';
 import {
@@ -36,7 +38,10 @@ function sendDecisionError(
 }
 
 export class DecisionsController {
-  constructor(private readonly service: IDecisionService = decisionService) {}
+  constructor(
+    private readonly service: IDecisionService = decisionService,
+    private readonly submissions: Pick<ISubmissionService, 'getSubmissionById'> = submissionService
+  ) {}
 
   record = async (
     req: Request<{ id: string }>,
@@ -85,6 +90,37 @@ export class DecisionsController {
       next(error);
     }
   };
+
+  getHistoryBySubmissionId = async (
+    req: Request<{ id: string }>,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const { id } = submissionParamsSchema.parse(req.params);
+      const submission = await this.submissions.getSubmissionById(id);
+
+      if (!submission) {
+        res.status(404).json({ error: 'Submission not found' });
+        return;
+      }
+
+      const decisions = this.service.getDecisionHistory
+        ? await this.service.getDecisionHistory(id)
+        : [];
+
+      res.status(200).json({
+        submissionId: id,
+        decisions,
+        total: decisions.length,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
-export const decisionsController = new DecisionsController(decisionService);
+export const decisionsController = new DecisionsController(
+  decisionService,
+  submissionService
+);

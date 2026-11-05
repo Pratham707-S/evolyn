@@ -3,14 +3,11 @@ import type { IInsightsService } from '../insights/index.js';
 import type { ISubmissionService } from '../submissions/index.js';
 import type { DecisionIssueRecord, DecisionRecord } from './decisions.repository.js';
 
-/**
- * Narrow persistence port used by DecisionService.
- * Keeping it structural (instead of importing DecisionsRepository directly)
- * lets unit tests swap in an in-memory double.
- */
 export interface DecisionRepositoryPort {
   create(input: SubmitDecisionInput): Promise<DecisionRecord>;
+  findLatestBySubmissionId(submissionId: string): Promise<DecisionRecord | null>;
   findBySubmissionId(submissionId: string): Promise<DecisionRecord | null>;
+  listBySubmissionId(submissionId: string, order?: 'asc' | 'desc'): Promise<DecisionRecord[]>;
   deleteById(id: string): Promise<void>;
   listIssuesBySubmissionId(submissionId: string): Promise<DecisionIssueRecord[]>;
   updateIssueStatuses(issueIds: string[], status: 'OVERRIDDEN'): Promise<void>;
@@ -23,10 +20,6 @@ export interface DecisionDependencies {
     'getSubmissionById' | 'updateSubmissionStatus'
   >;
   repository: DecisionRepositoryPort;
-  /**
-   * Optional until modules/insights provides a concrete implementation.
-   * Notification failures must never roll back a recorded decision.
-   */
   insights?: Pick<IInsightsService, 'trackViolation'>;
 }
 
@@ -49,9 +42,9 @@ export class DecisionError extends Error {
 
 /**
  * Maps a human decision to the submission lifecycle status.
- *
- * CHANGES_REQUESTED has no matching submission status in the shared enum,
- * so the submission stays in REVIEWED while the immutable decision is stored.
+ * APPROVED -> APPROVED
+ * REJECTED -> REJECTED
+ * CHANGES_REQUESTED -> REVIEWED
  */
 export function decisionToSubmissionStatus(
   decision: Decision['decision']

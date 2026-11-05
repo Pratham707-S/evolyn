@@ -2,21 +2,16 @@
  * ============================================================================
  * FEATURE: Human Decision Workbench & Audit Trail (apps/web/src/features/decisions)
  * ----------------------------------------------------------------------------
- * ASSIGNED OWNER        : Pratham Kave (Frontend Lead)
- * BACKEND COUNTERPART   : Ayan (Backend Lead)
+ * ASSIGNED OWNER: Lead Frontend Engineer
  * ----------------------------------------------------------------------------
- * RESPONSIBILITIES & TASKS IN THIS FOLDER:
- * 1. Human Decision Modal & Sign-off UI:
- *    - Three clear action triggers: APPROVED (Green), CHANGES_REQUESTED (Amber), REJECTED (Red).
+ * RESPONSIBILITIES & CAPABILITIES:
+ * 1. Human Decision Modal & Sign-Off Workbench:
+ *    - Three clear action triggers: APPROVED, CHANGES_REQUESTED, REJECTED.
  *    - Required reviewer name and feedback comments textarea.
  * 2. Issue Override Checklist:
  *    - Allow reviewer to explicitly mark false positives / overrides with justification.
- * 3. Immutable Decision & Audit Trail Badge:
- *    - Display permanent sign-off badge with reviewer timestamp on completed reviews.
- *
- * API INTEGRATION POINTS:
- * - POST /api/decisions (Submit Human Sign-off)
- * - GET  /api/decisions/:submissionId (Audit history)
+ * 3. Immutable Decision & Audit Trail Timeline:
+ *    - Display permanent sign-off badge and chronological history with reviewer timestamp.
  * ============================================================================
  */
 
@@ -30,3 +25,13 @@ export interface DecisionFormValues {
 }
 
 export type { Decision, SubmitDecisionInput };
+
+// Components
+export { DecisionBadge } from './components/decision-badge';
+export { DecisionModal } from './components/decision-modal';
+export { ApprovalQueue } from './components/approval-queue';
+export { ApprovalDetailView } from './components/approval-detail-view';
+export { DecisionHistoryTimeline } from './components/decision-history-timeline';
+
+// API client helpers
+export * from './api/decisions-api';
