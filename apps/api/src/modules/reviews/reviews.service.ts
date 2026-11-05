@@ -125,7 +125,13 @@ function mapGroundedAIResults(
 
     const source = matchingSources[0];
     findings.push({
-      ...issue,
+      issueType: issueTypeSchema.parse(issue.issueType),
+      flaggedExcerpt: issue.flaggedExcerpt,
+      explanation: issue.explanation,
+      suggestedFix: issue.suggestedFix,
+      sourceQuote: issue.sourceQuote,
+      confidenceScore: issue.confidenceScore,
+      evidenceStrengthScore: issue.evidenceStrengthScore,
       ...( 'ruleId' in source ? { ruleId: source.ruleId } : { factId: source.factId }),
       sourceText: source.sourceText,
     });
