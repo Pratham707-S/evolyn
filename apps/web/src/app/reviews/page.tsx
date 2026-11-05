@@ -1,227 +1,171 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Plus, Edit3, Sparkles, Wand2 } from 'lucide-react';
 import { AppShell, useAppShell } from '@/components/layout/app-shell';
 import { PageHeader } from '@/components/shared/page-header';
 import {
-  ReviewMetrics,
-  ReviewQueue,
-  ReviewInspector,
-  QueueItem,
+  ReviewSidebarTools,
+  ReviewEditor,
+  ReviewAiPanel,
 } from '@/features/reviews';
 
-const initialQueueItems: QueueItem[] = [
-  {
-    id: 'sub-1',
-    title: 'Q3 Product Campaign',
-    channel: 'LinkedIn',
-    timeAgo: '2h ago',
-    status: 'Ready for Decision',
-    reviewId: 'Review #RV-1043',
-    content:
-      'Introducing our new AI-powered brand governance platform that helps marketing teams stay compliant, consistent, and on-brand across every channel.\n\nWith Evolyn, you can review content, detect guideline conflicts, and get evidence-backed recommendations in seconds.',
-    summary:
-      'The content is mostly aligned with brand guidelines, but there are 3 issues that need attention.',
-    findings: [
-      {
-        id: 'find-1',
-        severity: 'High',
-        title: 'Unsubstantiated performance claim',
-        explanation:
-          'The phrase "in seconds" constitutes a performance guarantee that lacks empirical benchmark proof.',
-        suggestedFix: 'in real time with guided review workflows',
-        verbatimQuote:
-          'Never make unqualified speed or uptime promises without citing audited platform benchmark benchmarks.',
-        confidence: 0.96,
-        evidenceStrength: 0.22,
-      },
-      {
-        id: 'find-2',
-        severity: 'Medium',
-        title: 'Missing required brand terminology',
-        explanation:
-          'Mandatory registered trademark descriptor missing from primary platform introduction.',
-        suggestedFix: 'Evolyn™ Brand Governance Platform',
-        verbatimQuote:
-          'The platform name must be introduced as Evolyn™ Brand Governance at the first mention in external posts.',
-        confidence: 0.91,
-        evidenceStrength: 0.88,
-      },
-      {
-        id: 'find-3',
-        severity: 'Medium',
-        title: 'Tone is slightly overly promotional',
-        explanation:
-          'Superlative and declarative phrasing deviates from our understated, grounded enterprise voice standard.',
-        suggestedFix: 'structured and evidence-backed governance',
-        verbatimQuote:
-          'Maintain an understated, authoritative tone. Avoid marketing hype and ungrounded absolutes.',
-        confidence: 0.84,
-        evidenceStrength: 0.75,
-      },
-    ],
-  },
-  {
-    id: 'sub-2',
-    title: 'Website Hero Update',
-    channel: 'Website',
-    timeAgo: '4h ago',
-    status: 'In Review',
-    reviewId: 'Review #RV-1042',
-    content:
-      'Enterprise teams maintain complete brand governance integrity across distributed creative pipelines. Verify factual statements with ground-truth documentation.',
-    summary:
-      'Initial automated analysis completed with 0 critical violations. Ready for human inspection.',
-    findings: [
-      {
-        id: 'find-2-1',
-        severity: 'Low',
-        title: 'Minor terminology alignment',
-        explanation: 'Recommended use of "ground truth" as two separate words.',
-        suggestedFix: 'ground-truth documentation',
-        verbatimQuote: 'Standardize brand terminology spelling per Chapter 2.',
-        confidence: 0.78,
-        evidenceStrength: 0.82,
-      },
-    ],
-  },
-  {
-    id: 'sub-3',
-    title: 'Product Launch Email',
-    channel: 'Email',
-    timeAgo: '6h ago',
-    status: 'With Findings',
-    reviewId: 'Review #RV-1041',
-    content:
-      'Be the first to explore Evolyn — guaranteed 100% zero-defect marketing copy for all global product releases.',
-    summary:
-      'Flagged 2 severe compliance risks regarding absolute guarantees and unverified defect-free claims.',
-    findings: [
-      {
-        id: 'find-3-1',
-        severity: 'High',
-        title: 'Prohibited risk-free guarantee',
-        explanation:
-          'Absolute guarantees such as "100% zero-defect" violate regulatory advertising guidelines.',
-        suggestedFix: 'comprehensive multi-layer verification',
-        verbatimQuote:
-          'Under no circumstances may marketing material state or imply zero defect or 100% risk-free operations.',
-        confidence: 0.99,
-        evidenceStrength: 0.05,
-      },
-    ],
-  },
-  {
-    id: 'sub-4',
-    title: 'Customer Case Study',
-    channel: 'Blog',
-    timeAgo: 'Yesterday',
-    status: 'In Review',
-    reviewId: 'Review #RV-1040',
-    content:
-      'How a Fortune 500 company reduced governance review cycles by 70% while improving factual compliance across 12 product lines.',
-    summary: 'Evaluating statistical citations against SOC 2 and customer release approval.',
-    findings: [],
-  },
-  {
-    id: 'sub-5',
-    title: 'Social Media Teaser',
-    channel: 'Instagram',
-    timeAgo: 'Yesterday',
-    status: 'With Findings',
-    reviewId: 'Review #RV-1039',
-    content:
-      'Say goodbye to brand inconsistency! The ultimate AI platform is here to solve all your content headaches.',
-    summary: 'Detected 2 tone violations: hyperbolic phrasing and emotional hype.',
-    findings: [
-      {
-        id: 'find-5-1',
-        severity: 'Medium',
-        title: 'Excessive hyperbole',
-        explanation: 'Phrases like "ultimate" and "all your headaches" violate tone rules.',
-        suggestedFix: 'reliable and verifiable brand governance',
-        verbatimQuote: 'Do not use words like "ultimate", "revolutionary", or "magical".',
-        confidence: 0.92,
-        evidenceStrength: 0.9,
-      },
-    ],
-  },
-];
-
 function ReviewWorkspaceContent() {
-  const { showToast } = useAppShell();
-  const [items, setItems] = useState<QueueItem[]>(initialQueueItems);
-  const [selectedId, setSelectedId] = useState<string>('sub-1');
-  const [queueFilter, setQueueFilter] = useState<string | null>(null);
+  const router = useRouter();
+  const { showToast, openNewSubmission } = useAppShell();
 
-  const activeItem = items.find((it) => it.id === selectedId) || items[0];
+  const [activeTool, setActiveTool] = useState('improve-writing');
+  const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
+  const [isGuidelineAccepted, setIsGuidelineAccepted] = useState(false);
+  const [isEvidenceAdded, setIsEvidenceAdded] = useState(false);
+  const [mobileTab, setMobileTab] = useState<'editor' | 'findings' | 'tools'>('editor');
 
-  const handleDecisionSubmitted = (type: string, note: string) => {
-    setItems((prev) =>
-      prev.map((it) =>
-        it.id === selectedId
-          ? {
-              ...it,
-              status: type === 'APPROVED' ? 'Ready for Decision' : 'With Findings',
-            }
-          : it
-      )
-    );
+  const handleSaveAndSendToApprovals = () => {
+    showToast('Revised version saved. Transferring to Approvals queue...');
+    setTimeout(() => {
+      router.push('/approvals');
+    }, 700);
+  };
+
+  const handleSelectFinding = (findingId: string) => {
+    setSelectedFindingId(findingId);
+    // On mobile/tablet, smoothly switch to findings tab so user immediately sees the finding card
+    setMobileTab('findings');
   };
 
   return (
-    <div className="space-y-6">
-      {/* 1. Page Header matching reference */}
+    <div className="h-full flex flex-col gap-3 min-h-0">
+      {/* 1. Page Header (Compact & clean) */}
       <PageHeader
         title="Review Workspace"
-        description="Review submissions with AI findings, brand guidelines, and final decisions."
+        description="Review and refine content with AI findings, brand guidelines, and evidence."
         showNotificationBell={true}
-        unreadNotificationsCount={2}
+        unreadNotificationsCount={1}
+        compact={true}
+        actions={
+          <button
+            type="button"
+            onClick={openNewSubmission}
+            className="bg-[#25251F] hover:bg-[#383832] text-white px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>New Review</span>
+          </button>
+        }
       />
 
-      {/* 2. Top Metric KPI Cards */}
-      <section aria-label="Review Workspace Metrics">
-        <ReviewMetrics
-          inReview={12}
-          withFindings={28}
-          readyForDecision={16}
-          avgTime="4.2 min"
-          activeFilter={queueFilter}
-          onSelectFilter={(flt) => setQueueFilter(flt)}
-        />
-      </section>
+      {/* 2. Responsive Mobile / Tablet Tab Switcher (Visible only below lg: 1024px) */}
+      <div className="lg:hidden flex items-center bg-[#FAF9F5] border border-[#E5E1D8] p-1 rounded-xl shrink-0 gap-1 text-xs select-none">
+        <button
+          type="button"
+          onClick={() => setMobileTab('editor')}
+          className={`flex-1 py-1.5 px-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            mobileTab === 'editor'
+              ? 'bg-[#25251F] text-white shadow-2xs font-semibold'
+              : 'text-[#77766E] hover:text-[#25251F]'
+          }`}
+        >
+          <Edit3 className="w-3.5 h-3.5" />
+          <span>Document</span>
+        </button>
 
-      {/* 3. Split-Screen Workstation Layout */}
-      <section
-        aria-label="Split Review Workstation"
-        className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start"
-      >
-        {/* Left Column: Review Queue (approx 38% width -> col-span-5) */}
-        <div className="lg:col-span-5">
-          <ReviewQueue
-            items={items}
-            selectedId={activeItem.id}
-            onSelect={(it) => setSelectedId(it.id)}
-            statusFilter={queueFilter}
-          />
-        </div>
+        <button
+          type="button"
+          onClick={() => setMobileTab('findings')}
+          className={`flex-1 py-1.5 px-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            mobileTab === 'findings'
+              ? 'bg-[#25251F] text-white shadow-2xs font-semibold'
+              : 'text-[#77766E] hover:text-[#25251F]'
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5 text-[#B78A4A]" />
+          <span>Findings (5)</span>
+        </button>
 
-        {/* Right Column: Review Inspector Workstation (approx 62% width -> col-span-7) */}
-        <div className="lg:col-span-7">
-          <ReviewInspector
-            item={activeItem}
-            onDecisionSubmitted={handleDecisionSubmitted}
+        <button
+          type="button"
+          onClick={() => setMobileTab('tools')}
+          className={`flex-1 py-1.5 px-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            mobileTab === 'tools'
+              ? 'bg-[#25251F] text-white shadow-2xs font-semibold'
+              : 'text-[#77766E] hover:text-[#25251F]'
+          }`}
+        >
+          <Wand2 className="w-3.5 h-3.5 text-[#68745D]" />
+          <span>Tools</span>
+        </button>
+      </div>
+
+      {/* 3. 3-Column AI Writing & Review Studio */}
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-4 lg:gap-5 overflow-hidden">
+        {/* Left Column: AI Review Tools & Brand Governance Tools */}
+        <div
+          className={`${
+            mobileTab === 'tools' ? 'flex flex-col' : 'hidden'
+          } lg:flex lg:flex-col w-full lg:w-48 xl:w-56 shrink-0 h-full overflow-hidden`}
+        >
+          <ReviewSidebarTools
+            activeTool={activeTool}
+            onSelectTool={(toolId) => setActiveTool(toolId)}
             showToast={showToast}
           />
         </div>
-      </section>
+
+        {/* Center Column: Interactive Document Canvas */}
+        <div
+          className={`${
+            mobileTab === 'editor' ? 'flex flex-col' : 'hidden'
+          } lg:flex lg:flex-col flex-1 min-w-0 h-full overflow-hidden`}
+        >
+          <ReviewEditor
+            initialTitle="Q3 Product Campaign"
+            channel="LinkedIn Post"
+            isGuidelineAccepted={isGuidelineAccepted}
+            isEvidenceAdded={isEvidenceAdded}
+            onSelectFinding={handleSelectFinding}
+            onSave={handleSaveAndSendToApprovals}
+            showToast={showToast}
+          />
+        </div>
+
+        {/* Right Column: AI Findings & Suggestions with Filter Pills */}
+        <div
+          className={`${
+            mobileTab === 'findings' ? 'flex flex-col' : 'hidden'
+          } lg:flex lg:flex-col w-full lg:w-72 xl:w-[350px] shrink-0 h-full overflow-hidden`}
+        >
+          <ReviewAiPanel
+            isGuidelineAccepted={isGuidelineAccepted}
+            onAcceptGuideline={() => {
+              setIsGuidelineAccepted(true);
+              showToast('Accepted suggestion: Replaced absolute claim with verified brand compliance');
+            }}
+            onRejectGuideline={() => {
+              setIsGuidelineAccepted(false);
+              showToast('Dismissed suggestion');
+            }}
+            isEvidenceAdded={isEvidenceAdded}
+            onAddEvidence={() => {
+              setIsEvidenceAdded(true);
+              showToast('Evidence attached: Linked SOC 2 benchmark report');
+            }}
+            onDismissEvidence={() => {
+              setIsEvidenceAdded(false);
+              showToast('Evidence link cleared');
+            }}
+            selectedFindingId={selectedFindingId}
+            showToast={showToast}
+          />
+        </div>
+      </div>
     </div>
   );
 }
 
 export default function ReviewWorkspacePage() {
   return (
-    <AppShell activeItem="Review Workspace">
+    <AppShell activeItem="Review Workspace" noScroll={true}>
       <ReviewWorkspaceContent />
     </AppShell>
   );
