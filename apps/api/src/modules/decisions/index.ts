@@ -27,4 +27,13 @@ export interface IDecisionService {
   getDecisionBySubmissionId(submissionId: string): Promise<Decision | null>;
 }
 
+export { DecisionService, decisionService } from './decisions.service.js';
+export {
+  DecisionsController,
+  decisionsController,
+} from './decisions.controller.js';
+export {
+  createDecisionsRouter,
+  decisionsRouter,
+} from './decisions.routes.js';
 export * from './decisions.types.js';
