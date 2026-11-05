@@ -3,6 +3,8 @@ import type { DetectedIssue } from '@evolyn/shared';
 import type { IFindingsService } from './index.js';
 import {
   FindingsRepository,
+  findingsRepository,
+  type CanonicalSourceRecord,
   type DetectedIssueRecord,
 } from './findings.repository.js';
 import type { RawFindingInput } from './findings.types.js';
@@ -48,16 +50,29 @@ function getExcerptOffsets(
   return { charStart, charEnd: charStart + finding.flaggedExcerpt.length };
 }
 
+export type FindingsRepositoryDependency = Pick<
+  FindingsRepository,
+  'recordMany' | 'listByReviewRunId'
+> & {
+  findCanonicalSource?: (source: {
+    ruleId?: string | null;
+    factId?: string | null;
+  }) => Promise<CanonicalSourceRecord | null>;
+  reviewRunExists?: (reviewRunId: string) => Promise<boolean>;
+};
+
 export class FindingsService implements IFindingsService {
   constructor(
-    private readonly repository: Pick<
-      FindingsRepository,
-      'recordMany' | 'listByReviewRunId'
-    > = new FindingsRepository()
+    private readonly repository: FindingsRepositoryDependency = findingsRepository
   ) {}
 
   verifyVerbatimQuote(quote: string, sourceText: string): boolean {
-    return quote.length > 0 && sourceText.includes(quote);
+    return (
+      typeof quote === 'string' &&
+      quote.trim().length > 0 &&
+      typeof sourceText === 'string' &&
+      sourceText.includes(quote)
+    );
   }
 
   async recordFindings(
@@ -66,26 +81,61 @@ export class FindingsService implements IFindingsService {
     submissionText: string
   ): Promise<DetectedIssue[]> {
     const validatedReviewRunId = uuidSchema.parse(reviewRunId);
-    const findings = rawFindings.map((finding) => {
-      if (!this.verifyVerbatimQuote(finding.sourceQuote, finding.sourceText)) {
-        throw new Error('Finding source quote is not present verbatim in its source');
+
+    const findings: DetectedIssue[] = [];
+
+    for (const finding of rawFindings) {
+      const sourceId = finding.ruleId ?? finding.factId;
+      if (!sourceId) {
+        throw new Error('Finding must specify a valid ruleId or factId for source verification');
+      }
+
+      if (typeof this.repository.findCanonicalSource !== 'function') {
+        throw new Error('Repository does not support canonical source verification');
+      }
+
+      const canonicalSource = await this.repository.findCanonicalSource({
+        ruleId: finding.ruleId ?? null,
+        factId: finding.factId ?? null,
+      });
+
+      if (!canonicalSource) {
+        throw new Error(`Unknown or inaccessible source: ${sourceId}`);
+      }
+
+      // Ground truth verification: verify quote strictly against canonical stored source content.
+      // AI-provided sourceText is never trusted as evidence.
+      if (!this.verifyVerbatimQuote(finding.sourceQuote, canonicalSource.content)) {
+        throw new Error('Finding source quote is not present verbatim in its trusted source');
       }
 
       const offsets = getExcerptOffsets(finding, submissionText);
-      return detectedIssueSchema.parse({
+      const parsedIssue = detectedIssueSchema.parse({
         ...finding,
         ...offsets,
         reviewRunId: validatedReviewRunId,
       });
-    });
+
+      findings.push(parsedIssue);
+    }
 
     const records = await this.repository.recordMany(findings);
     return records.map(mapRecord);
   }
 
-  async getFindingsByReviewRunId(reviewRunId: string): Promise<DetectedIssue[]> {
+  async getFindingsByReviewRunId(reviewRunId: string): Promise<DetectedIssue[] | null> {
     const validatedReviewRunId = uuidSchema.parse(reviewRunId);
+
+    if (typeof this.repository.reviewRunExists === 'function') {
+      const exists = await this.repository.reviewRunExists(validatedReviewRunId);
+      if (!exists) {
+        return null;
+      }
+    }
+
     const records = await this.repository.listByReviewRunId(validatedReviewRunId);
     return records.map(mapRecord);
   }
 }
+
+export const findingsService = new FindingsService(findingsRepository);
