@@ -178,6 +178,8 @@ function buildCreateReviewRunInput(
 }
 
 export class ReviewService implements IReviewService {
+  private readonly inFlightReviews = new Map<string, Promise<ReviewExecutionResult>>();
+
   constructor(
     private readonly dependencies: ReviewDependencies,
     private readonly repository: Pick<
@@ -186,8 +188,23 @@ export class ReviewService implements IReviewService {
     > = new ReviewsRepository()
   ) {}
 
-  async executeReview(submissionId: string): Promise<ReviewExecutionResult> {
+  executeReview(submissionId: string): Promise<ReviewExecutionResult> {
     const id = uuidSchema.parse(submissionId);
+    const inFlight = this.inFlightReviews.get(id);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const review = this.executeReviewOnce(id);
+    this.inFlightReviews.set(id, review);
+    void review.then(
+      () => this.inFlightReviews.delete(id),
+      () => this.inFlightReviews.delete(id)
+    );
+    return review;
+  }
+
+  private async executeReviewOnce(id: string): Promise<ReviewExecutionResult> {
     const submission = await this.dependencies.submissions.getSubmissionById(id);
     if (!submission) {
       throw new Error(`Submission not found: ${id}`);
@@ -199,6 +216,10 @@ export class ReviewService implements IReviewService {
         reviewRun: mapReviewRun(existing),
         issues: await this.dependencies.findings.getFindingsByReviewRunId(existing.id),
       };
+    }
+
+    if (submission.status !== 'PENDING') {
+      throw new Error(`Cannot review submission in ${submission.status} status`);
     }
 
     await this.dependencies.submissions.updateSubmissionStatus(id, 'ANALYZING');
