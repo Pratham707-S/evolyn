@@ -17,6 +17,10 @@
   - Response: `ListGuidelinesResponse`
 - `GET /api/guidelines/:id` — Guideline details with rules & conflicts
   - Response: `GuidelineDetailResponse`
+- `POST /api/guidelines/:id/extract-rules` — Extract and persist atomic brand rules
+  - Response: `{ guidelineId: string, rules: GuidelineRule[], total: number }`
+  - Returns `404` when the guideline does not exist
+  - Returns `400` when `id` is not a valid UUID or content is empty
 
 ## 3. Knowledge Module (`modules/knowledge`)
 - `POST /api/facts` — Store approved factual claim with verified citation

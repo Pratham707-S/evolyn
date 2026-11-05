@@ -63,6 +63,8 @@ function createRepositoryMock(
 
     findRulesByGuidelineId: async (_id: string) =>
       [mockRule],
+
+    createRules: async (_guidelineId, _rules) => [mockRule],
   };
 
   return {
@@ -184,5 +186,350 @@ describe('GuidelinesService', () => {
     );
 
     assert.equal(result, null);
+  });
+
+  it('extracts valid rules successfully', async () => {
+    const extractor = {
+      extractRules: async () => [
+        {
+          ruleStatement: 'Always use the official logo.',
+          ruleType: 'MANDATORY' as const,
+          explanation: 'Maintains brand consistency.',
+          severity: 'CRITICAL' as const,
+        },
+      ],
+    };
+
+    const service = new GuidelinesService(
+      createRepositoryMock(),
+      extractor,
+    );
+
+    const result = await service.extractRules(
+      'Always use the official logo.',
+    );
+
+    assert.equal(result.length, 1);
+    assert.equal(result[0]?.ruleType, 'MANDATORY');
+  });
+
+  it('rejects empty guideline content', async () => {
+    const extractor = {
+      extractRules: async () => [],
+    };
+
+    const service = new GuidelinesService(
+      createRepositoryMock(),
+      extractor,
+    );
+
+    await assert.rejects(
+      service.extractRules('   '),
+      /cannot be empty/,
+    );
+  });
+
+  it('rejects extraction when extractor is not configured', async () => {
+    const service = new GuidelinesService(
+      createRepositoryMock(),
+    );
+
+    await assert.rejects(
+      service.extractRules('Valid guideline content.'),
+      /not configured/,
+    );
+  });
+
+  it('rejects invalid extracted rule type', async () => {
+    const extractor = {
+      extractRules: async () => [
+        {
+          ruleStatement: 'Use official logo.',
+          ruleType: 'INVALID' as any,
+          explanation: 'Brand consistency.',
+          severity: 'CRITICAL' as const,
+        },
+      ],
+    };
+
+    const service = new GuidelinesService(
+      createRepositoryMock(),
+      extractor,
+    );
+
+    await assert.rejects(
+      service.extractRules('Valid guideline content.'),
+      /Invalid rule type/,
+    );
+  });
+
+  it('rejects invalid extracted severity', async () => {
+    const extractor = {
+      extractRules: async () => [
+        {
+          ruleStatement: 'Use official logo.',
+          ruleType: 'MANDATORY' as const,
+          explanation: 'Brand consistency.',
+          severity: 'INVALID' as any,
+        },
+      ],
+    };
+
+    const service = new GuidelinesService(
+      createRepositoryMock(),
+      extractor,
+    );
+
+    await assert.rejects(
+      service.extractRules('Valid guideline content.'),
+      /Invalid rule severity/,
+    );
+  });
+
+  it('rejects empty extracted rule statements', async () => {
+    const extractor = {
+      extractRules: async () => [
+        {
+          ruleStatement: '   ',
+          ruleType: 'MANDATORY' as const,
+          explanation: 'Brand consistency.',
+          severity: 'CRITICAL' as const,
+        },
+      ],
+    };
+
+    const service = new GuidelinesService(
+      createRepositoryMock(),
+      extractor,
+    );
+
+    await assert.rejects(
+      service.extractRules('Valid guideline content.'),
+      /Invalid rule statement/,
+    );
+  });
+  it('extracts and saves rules successfully', async () => {
+    let receivedGuidelineId = '';
+    let receivedRules: unknown;
+
+    const repository = createRepositoryMock({
+      createRules: async (guidelineId, rules) => {
+        receivedGuidelineId = guidelineId;
+        receivedRules = rules;
+        return [mockRule];
+      },
+    });
+
+    const extractor = {
+      extractRules: async () => [
+        {
+          ruleStatement: '  Always use the official logo.  ',
+          ruleType: 'MANDATORY' as const,
+          explanation: '  Maintains brand consistency.  ',
+          severity: 'CRITICAL' as const,
+        },
+      ],
+    };
+
+    const service = new GuidelinesService(repository, extractor);
+
+    const result = await service.extractAndSaveRules(
+      'guideline-123',
+    );
+
+    assert.equal(receivedGuidelineId, 'guideline-123');
+    assert.deepEqual(receivedRules, [
+      {
+        ruleStatement: 'Always use the official logo.',
+        ruleType: 'MANDATORY',
+        explanation: 'Maintains brand consistency.',
+        severity: 'CRITICAL',
+      },
+    ]);
+
+    assert.equal(result.length, 1);
+    assert.equal(result[0]?.id, 'rule-123');
+    assert.equal(result[0]?.ruleType, 'MANDATORY');
+    assert.equal(result[0]?.createdAt, createdAt.toISOString());
+  });
+
+  it('rejects rule extraction when guideline does not exist', async () => {
+    let extractorCalled = false;
+
+    const repository = createRepositoryMock({
+      findById: async () => null,
+    });
+
+    const extractor = {
+      extractRules: async () => {
+        extractorCalled = true;
+        return [];
+      },
+    };
+
+    const service = new GuidelinesService(repository, extractor);
+
+    await assert.rejects(
+      service.extractAndSaveRules(
+        'missing-guideline',
+      ),
+      /Guideline not found/,
+    );
+
+    assert.equal(extractorCalled, false);
+  });
+
+  it('does not save rules when extraction fails, preserving existing rules', async () => {
+    let persistenceCalled = false;
+
+    const repository = createRepositoryMock({
+      replaceRules: async () => {
+        persistenceCalled = true;
+        return [mockRule];
+      },
+      createRules: async () => {
+        persistenceCalled = true;
+        return [mockRule];
+      },
+    });
+
+    const extractor = {
+      extractRules: async () => {
+        throw new Error('AI extraction failed');
+      },
+    };
+
+    const service = new GuidelinesService(repository, extractor);
+
+    await assert.rejects(
+      service.extractAndSaveRules(
+        'guideline-123',
+      ),
+      /AI extraction failed/,
+    );
+
+    assert.equal(persistenceCalled, false);
+  });
+
+  it('rejects with error when extraction returns an empty array to protect existing rules', async () => {
+    let persistenceCalled = false;
+
+    const repository = createRepositoryMock({
+      replaceRules: async () => {
+        persistenceCalled = true;
+        return [];
+      },
+      createRules: async () => {
+        persistenceCalled = true;
+        return [];
+      },
+    });
+
+    const extractor = {
+      extractRules: async () => [],
+    };
+
+    const service = new GuidelinesService(repository, extractor);
+
+    await assert.rejects(
+      service.extractAndSaveRules('guideline-123'),
+      /No atomic rules could be extracted from the guideline content/,
+    );
+
+    assert.equal(persistenceCalled, false);
+  });
+
+  it('extracts strictly from canonical guideline.rawContent stored in database', async () => {
+    let extractedContent = '';
+
+    const repository = createRepositoryMock({
+      findById: async () => ({
+        ...mockGuideline,
+        rawContent: 'Canonical guideline text from database.',
+      }),
+      createRules: async () => [mockRule],
+    });
+
+    const extractor = {
+      extractRules: async (content: string) => {
+        extractedContent = content;
+        return [
+          {
+            ruleStatement: 'Always use official logo.',
+            ruleType: 'MANDATORY' as const,
+            explanation: 'Consistency.',
+            severity: 'CRITICAL' as const,
+          },
+        ];
+      },
+    };
+
+    const service = new GuidelinesService(repository, extractor);
+
+    const result = await service.extractAndSaveRules('guideline-123');
+
+    assert.equal(extractedContent, 'Canonical guideline text from database.');
+    assert.equal(result.length, 1);
+  });
+
+  it('uses replaceRules for safe atomic replacement when available', async () => {
+    let replaceRulesCalled = false;
+    let receivedGuidelineId = '';
+
+    const repository = createRepositoryMock({
+      findById: async () => mockGuideline,
+      replaceRules: async (id, rules) => {
+        replaceRulesCalled = true;
+        receivedGuidelineId = id;
+        return [mockRule];
+      },
+    });
+
+    const extractor = {
+      extractRules: async () => [
+        {
+          ruleStatement: 'Always use official logo.',
+          ruleType: 'MANDATORY' as const,
+          explanation: 'Consistency.',
+          severity: 'CRITICAL' as const,
+        },
+      ],
+    };
+
+    const service = new GuidelinesService(repository, extractor);
+
+    const result = await service.extractAndSaveRules('guideline-123');
+
+    assert.equal(replaceRulesCalled, true);
+    assert.equal(receivedGuidelineId, 'guideline-123');
+    assert.equal(result.length, 1);
+  });
+
+  it('rejects when guideline canonical content is empty without touching persistence', async () => {
+    let persistenceCalled = false;
+
+    const repository = createRepositoryMock({
+      findById: async () => ({
+        ...mockGuideline,
+        rawContent: '   ',
+      }),
+      replaceRules: async () => {
+        persistenceCalled = true;
+        return [];
+      },
+    });
+
+    const extractor = {
+      extractRules: async () => [],
+    };
+
+    const service = new GuidelinesService(repository, extractor);
+
+    await assert.rejects(
+      service.extractAndSaveRules('guideline-123'),
+      /Guideline content cannot be empty/,
+    );
+
+    assert.equal(persistenceCalled, false);
   });
 });

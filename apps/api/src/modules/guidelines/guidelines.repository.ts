@@ -4,14 +4,21 @@ import { db } from '../../db/index.js';
 import { guidelines, guidelineRules } from '../../db/schema.js';
 
 import type { CreateGuidelineInput } from '@evolyn/shared';
-import type { GuidelineQueryFilter } from './guidelines.types.js';
+import type {
+    GuidelineQueryFilter,
+    RuleExtractionResult,
+} from './guidelines.types.js';
 
 export type GuidelineRecord = typeof guidelines.$inferSelect;
 export type GuidelineRuleRecord = typeof guidelineRules.$inferSelect;
 
 export class GuidelinesRepository {
+    constructor(
+        private readonly database: typeof db = db,
+    ) { }
+
     async create(input: CreateGuidelineInput): Promise<GuidelineRecord> {
-        const [guideline] = await db
+        const [guideline] = await this.database
             .insert(guidelines)
             .values({
                 title: input.title,
@@ -27,6 +34,76 @@ export class GuidelinesRepository {
         }
 
         return guideline;
+    }
+
+    /**
+     * Persist multiple extracted rules for a guideline (append mode).
+     */
+    async createRules(
+        guidelineId: string,
+        rules: RuleExtractionResult[],
+    ): Promise<GuidelineRuleRecord[]> {
+        if (rules.length === 0) {
+            return [];
+        }
+
+        return this.database
+            .insert(guidelineRules)
+            .values(
+                rules.map((rule) => ({
+                    guidelineId,
+                    ruleType: rule.ruleType,
+                    ruleStatement: rule.ruleStatement,
+                    explanation: rule.explanation,
+                    severity: rule.severity,
+                })),
+            )
+            .returning();
+    }
+
+    /**
+     * Atomically replace all rules for a guideline (safe re-extraction).
+     * Prevents duplicate rules upon repeated extraction runs.
+     * Enforces database transaction support — non-transactional deletion fallback is strictly forbidden.
+     */
+    async replaceRules(
+        guidelineId: string,
+        rules: RuleExtractionResult[],
+    ): Promise<GuidelineRuleRecord[]> {
+        const executor =
+            'transaction' in this.database &&
+            typeof this.database.transaction === 'function'
+                ? this.database
+                : null;
+
+        if (!executor) {
+            throw new Error(
+                'Database transaction support is required for atomic rule replacement',
+            );
+        }
+
+        return executor.transaction(async (tx) => {
+            await tx
+                .delete(guidelineRules)
+                .where(eq(guidelineRules.guidelineId, guidelineId));
+
+            if (rules.length === 0) {
+                return [];
+            }
+
+            return tx
+                .insert(guidelineRules)
+                .values(
+                    rules.map((rule) => ({
+                        guidelineId,
+                        ruleType: rule.ruleType,
+                        ruleStatement: rule.ruleStatement,
+                        explanation: rule.explanation,
+                        severity: rule.severity,
+                    })),
+                )
+                .returning();
+        });
     }
 
     async findMany(
@@ -46,7 +123,7 @@ export class GuidelinesRepository {
             ? and(...conditions)
             : undefined;
 
-        return db
+        return this.database
             .select()
             .from(guidelines)
             .where(whereClause)
@@ -54,7 +131,7 @@ export class GuidelinesRepository {
     }
 
     async findById(id: string): Promise<GuidelineRecord | null> {
-        const [guideline] = await db
+        const [guideline] = await this.database
             .select()
             .from(guidelines)
             .where(eq(guidelines.id, id))
@@ -66,7 +143,7 @@ export class GuidelinesRepository {
     async findRulesByGuidelineId(
         guidelineId: string,
     ): Promise<GuidelineRuleRecord[]> {
-        return db
+        return this.database
             .select()
             .from(guidelineRules)
             .where(eq(guidelineRules.guidelineId, guidelineId))
