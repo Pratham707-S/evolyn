@@ -170,6 +170,40 @@ describe('DecisionsController', () => {
     );
   });
 
+  it('rejects a non-string body submissionId instead of silently overriding it', async () => {
+    let called = false;
+    const controller = new DecisionsController(
+      createService({
+        recordDecision: async () => {
+          called = true;
+          return decision;
+        },
+      })
+    );
+    const res = createResponse();
+    const { next } = createNext();
+
+    await controller.record(
+      createRequest({
+        body: {
+          submissionId: 12345,
+          decision: 'APPROVED',
+          reviewerName: 'Judge Pratham',
+          comments: 'Approved.',
+        },
+      }),
+      res as unknown as Response,
+      next
+    );
+
+    assert.equal(called, false);
+    assert.equal(res.statusCode, 400);
+    assert.match(
+      (res.body as { error: string }).error,
+      /does not match the submission in the URL/
+    );
+  });
+
   it('forwards body validation errors to the error handler', async () => {
     const controller = new DecisionsController(createService());
     const res = createResponse();

@@ -97,6 +97,7 @@ interface RecordedCalls {
   deleted: string[];
   restored: DecisionIssueRecord[][];
   insights: Array<{ ruleId: string; sampleExcerpt: string }>;
+  issueListCalls: number;
 }
 
 function createHarness(options: HarnessOptions = {}): {
@@ -110,6 +111,7 @@ function createHarness(options: HarnessOptions = {}): {
     deleted: [],
     restored: [],
     insights: [],
+    issueListCalls: 0,
   };
 
   const repository: DecisionRepositoryPort = {
@@ -128,7 +130,10 @@ function createHarness(options: HarnessOptions = {}): {
       (async (id) => {
         calls.deleted.push(id);
       }),
-    listIssuesBySubmissionId: async () => options.issues ?? [createIssue()],
+    listIssuesBySubmissionId: async () => {
+      calls.issueListCalls += 1;
+      return options.issues ?? [createIssue()];
+    },
     updateIssueStatuses:
       options.updateIssueStatuses ??
       (async (ids) => {
@@ -224,6 +229,65 @@ describe('DecisionService', () => {
 
     assert.deepEqual(decision.overriddenIssueIds, [issueId]);
     assert.deepEqual(calls.overridden, [[issueId]]);
+  });
+
+  it('deduplicates override issue IDs before persisting', async () => {
+    const { dependencies, calls } = createHarness({
+      issues: [createIssue()],
+    });
+    const service = new DecisionService(dependencies);
+
+    const decision = await service.recordDecision({
+      ...validInput,
+      overriddenIssueIds: [issueId, issueId],
+    });
+
+    assert.deepEqual(decision.overriddenIssueIds, [issueId]);
+    assert.deepEqual(calls.created[0].overriddenIssueIds, [issueId]);
+    assert.deepEqual(calls.overridden, [[issueId]]);
+  });
+
+  it('skips loading issues when there are no overrides and insights is disabled', async () => {
+    const { dependencies, calls } = createHarness({ includeInsights: false });
+    const service = new DecisionService(dependencies);
+
+    await service.recordDecision(validInput);
+
+    assert.equal(calls.issueListCalls, 0);
+  });
+
+  it('loads issues for insights notifications even without overrides', async () => {
+    const { dependencies, calls } = createHarness({
+      issues: [createIssue()],
+    });
+    const service = new DecisionService(dependencies);
+
+    await service.recordDecision(validInput);
+
+    assert.equal(calls.issueListCalls, 1);
+    assert.deepEqual(calls.insights, [
+      { ruleId, sampleExcerpt: 'guaranteed' },
+    ]);
+  });
+
+  it('does not fail when an insights notifier throws synchronously', async () => {
+    const { dependencies, calls } = createHarness({
+      trackViolation: () => {
+        throw new Error('Synchronous insights failure');
+      },
+    });
+    const service = new DecisionService(dependencies);
+
+    const originalConsoleError = console.error;
+    console.error = () => {};
+
+    try {
+      const decision = await service.recordDecision(validInput);
+      assert.equal(decision.decision, 'APPROVED');
+      assert.deepEqual(calls.statuses, ['APPROVED']);
+    } finally {
+      console.error = originalConsoleError;
+    }
   });
 
   it('rejects invalid decision input', async () => {

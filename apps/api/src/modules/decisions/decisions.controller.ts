@@ -47,7 +47,7 @@ export class DecisionsController {
       const { id } = submissionParamsSchema.parse(req.params);
       const body = (req.body ?? {}) as Record<string, unknown>;
 
-      if (typeof body.submissionId === 'string' && body.submissionId !== id) {
+      if (body.submissionId !== undefined && body.submissionId !== id) {
         throw new DecisionError(
           'SUBMISSION_ID_MISMATCH',
           'Body submissionId does not match the submission in the URL'

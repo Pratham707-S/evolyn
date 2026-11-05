@@ -71,11 +71,18 @@ export class DecisionService implements IDecisionService {
       );
     }
 
-    const issues = await this.dependencies.repository.listIssuesBySubmissionId(
-      validated.submissionId
-    );
+    const overriddenIssueIds = [...new Set(validated.overriddenIssueIds)];
+    const shouldLoadIssues =
+      overriddenIssueIds.length > 0 || this.dependencies.insights !== undefined;
+
+    // Issues are only needed to validate overrides or to notify insights.
+    const issues = shouldLoadIssues
+      ? await this.dependencies.repository.listIssuesBySubmissionId(
+          validated.submissionId
+        )
+      : [];
     const issueIds = new Set(issues.map((issue) => issue.id));
-    const unknownIssueIds = validated.overriddenIssueIds.filter(
+    const unknownIssueIds = overriddenIssueIds.filter(
       (issueId) => !issueIds.has(issueId)
     );
     if (unknownIssueIds.length > 0) {
@@ -85,14 +92,18 @@ export class DecisionService implements IDecisionService {
       );
     }
 
+    const overriddenIssueIdSet = new Set(overriddenIssueIds);
     const overriddenIssues = issues.filter((issue) =>
-      validated.overriddenIssueIds.includes(issue.id)
+      overriddenIssueIdSet.has(issue.id)
     );
 
     let created: DecisionRecord | null = null;
 
     try {
-      created = await this.dependencies.repository.create(validated);
+      created = await this.dependencies.repository.create({
+        ...validated,
+        overriddenIssueIds,
+      });
 
       if (overriddenIssues.length > 0) {
         await this.dependencies.repository.updateIssueStatuses(
@@ -140,7 +151,12 @@ export class DecisionService implements IDecisionService {
       throw new Error('Failed to persist decision');
     }
 
-    await this.notifyInsights(issues);
+    // Insight aggregation is innovation 3 and must never fail a valid sign-off.
+    try {
+      await this.notifyInsights(issues);
+    } catch (error) {
+      console.error('[Decisions] Failed to notify insights:', error);
+    }
 
     return mapDecision(created);
   }
@@ -176,7 +192,7 @@ export class DecisionService implements IDecisionService {
     }
 
     const results = await Promise.allSettled(
-      [...notifications.values()].map(({ ruleId, sampleExcerpt }) =>
+      [...notifications.values()].map(async ({ ruleId, sampleExcerpt }) =>
         insights.trackViolation(ruleId, sampleExcerpt)
       )
     );
