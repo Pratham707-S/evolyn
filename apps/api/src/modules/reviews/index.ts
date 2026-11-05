@@ -27,4 +27,5 @@ export interface IReviewService {
   getReviewBySubmissionId(submissionId: string): Promise<ReviewExecutionResult | null>;
 }
 
+export { ReviewService } from './reviews.service.js';
 export * from './reviews.types.js';
