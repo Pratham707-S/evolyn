@@ -134,9 +134,9 @@ export function ApprovalsTable({
   const paginated = filtered.slice((safePage - 1) * perPage, safePage * perPage);
 
   return (
-    <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-2xs lg:h-full flex flex-col min-h-0">
+    <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-4 sm:p-5 space-y-4 shadow-2xs">
       {/* 1. Header Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 shrink-0">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="w-full sm:w-56">
           <Input
             value={search}
@@ -212,7 +212,7 @@ export function ApprovalsTable({
 
       {/* 2. Review Submissions List / Feed (Card View) */}
       {viewMode === 'cards' ? (
-        <div className="space-y-3 flex-1 min-h-0 overflow-y-auto pr-1.5 custom-scrollbar">
+        <div className="space-y-3">
           {paginated.length === 0 ? (
             <div className="p-8 text-center text-xs text-[#77766E] bg-[#FAF9F5] border border-[#E5E1D8] rounded-xl">
               No approval records match your criteria.
@@ -309,7 +309,7 @@ export function ApprovalsTable({
         </div>
       ) : (
         /* 3. Alternative Dense Table View */
-        <div className="overflow-x-auto flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+        <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="border-b border-[#E5E1D8] text-[#77766E] font-medium pb-2 select-none">
@@ -429,7 +429,7 @@ export function ApprovalsTable({
       )}
 
       {/* 4. Footer Pagination */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-[#E5E1D8] text-xs text-[#77766E] shrink-0">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-[#E5E1D8] text-xs text-[#77766E]">
         <span className="text-[11px]">
           Showing {filtered.length === 0 ? 0 : (safePage - 1) * perPage + 1} to{' '}
           {Math.min(safePage * perPage, filtered.length)} of {filtered.length} reviewed submissions

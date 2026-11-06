@@ -37,5 +37,18 @@ export {
   type TimelineDecision,
 } from './components/decision-history-timeline';
 
+// Rich UI Components & Types from PR #14 / Brand UI
+export { ApprovalsMetrics } from './components/approvals-metrics';
+export { ApprovalsTabs } from './components/approvals-tabs';
+export { ApprovalsTable } from './components/approvals-table';
+export {
+  ApprovalInspector,
+  type DecisionItem,
+  type AuditChangeItem,
+} from './components/approval-inspector';
+export { DecisionDetailModal } from './components/decision-detail-modal';
+export { DecisionHistoryDetail } from './components/decision-history-detail';
+export { DecisionHistoryMetrics } from './components/decision-history-metrics';
+
 // API client helpers
 export * from './api/decisions-api';
