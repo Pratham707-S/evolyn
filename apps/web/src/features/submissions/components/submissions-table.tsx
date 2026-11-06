@@ -1,0 +1,527 @@
+'use client';
+
+import React, { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  Search,
+  FileText,
+  Linkedin,
+  Globe,
+  Mail,
+  BookOpen,
+  Instagram,
+  MoreHorizontal,
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+  Eye,
+  Trash2,
+  Share2,
+} from 'lucide-react';
+import { Input } from '../../../components/ui/input';
+import { Select } from '../../../components/ui/select';
+import { Button } from '../../../components/ui/button';
+import { SubmissionData, SubmissionPreviewModal } from './submission-preview-modal';
+
+export interface SubmissionsTableProps {
+  initialSubmissions: SubmissionData[];
+  statusFilter?: string | null;
+  onStatusFilterChange?: (status: string | null) => void;
+  onDeleteSubmission?: (id: string) => void;
+}
+
+export function SubmissionsTable({
+  initialSubmissions,
+  statusFilter,
+  onStatusFilterChange,
+  onDeleteSubmission,
+}: SubmissionsTableProps) {
+  const router = useRouter();
+  const [submissions, setSubmissions] = useState<SubmissionData[]>(initialSubmissions);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [channelFilter, setChannelFilter] = useState('ALL');
+  const [sortBy, setSortBy] = useState('NEWEST');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [previewItem, setPreviewItem] = useState<SubmissionData | null>(null);
+
+  const itemsPerPage = 5;
+
+  // Sync internal items if props change
+  React.useEffect(() => {
+    setSubmissions(initialSubmissions);
+  }, [initialSubmissions]);
+
+  // Channel Icon Resolver
+  const getChannelIcon = (channel: string) => {
+    switch (channel.toLowerCase()) {
+      case 'linkedin':
+        return <Linkedin className="w-3.5 h-3.5 text-[#0A66C2]" />;
+      case 'website':
+        return <Globe className="w-3.5 h-3.5 text-[#25251F]" />;
+      case 'email':
+        return <Mail className="w-3.5 h-3.5 text-[#77766E]" />;
+      case 'blog':
+        return <BookOpen className="w-3.5 h-3.5 text-[#68745D]" />;
+      case 'instagram':
+        return <Instagram className="w-3.5 h-3.5 text-[#E4405F]" />;
+      default:
+        return <Globe className="w-3.5 h-3.5 text-[#77766E]" />;
+    }
+  };
+
+  // Status Badge Component
+  const renderStatusBadge = (status: string) => {
+    switch (status) {
+      case 'Approved':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#EEF4EE] text-[#4E6B54] border border-[#D4DBC9]">
+            Approved
+          </span>
+        );
+      case 'Needs Changes':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#FDF2EC] text-[#B56E63] border border-[#F2D7CA]">
+            Needs Changes
+          </span>
+        );
+      case 'Pending Review':
+      default:
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#F4F1EA] text-[#77766E] border border-[#E5E1D8]">
+            Pending Review
+          </span>
+        );
+    }
+  };
+
+  // Filter and sort items
+  const filteredSubmissions = useMemo(() => {
+    return submissions
+      .filter((item) => {
+        // Status filter
+        if (statusFilter && statusFilter !== 'ALL' && item.status !== statusFilter) {
+          return false;
+        }
+        // Channel filter
+        if (channelFilter !== 'ALL' && item.channel.toLowerCase() !== channelFilter.toLowerCase()) {
+          return false;
+        }
+        // Search query
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          return (
+            item.title.toLowerCase().includes(q) ||
+            item.excerpt.toLowerCase().includes(q) ||
+            item.channel.toLowerCase().includes(q)
+          );
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortBy === 'NEWEST') return b.id.localeCompare(a.id);
+        if (sortBy === 'OLDEST') return a.id.localeCompare(b.id);
+        if (sortBy === 'TITLE') return a.title.localeCompare(b.title);
+        return 0;
+      });
+  }, [submissions, statusFilter, channelFilter, searchQuery, sortBy]);
+
+  // Total pages
+  const totalCount = submissions.length;
+  const displayedTotal = filteredSubmissions.length;
+  const totalPages = Math.max(1, Math.ceil(displayedTotal / itemsPerPage));
+  const paginatedItems = filteredSubmissions.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Checkbox handlers
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(new Set(paginatedItems.map((item) => item.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleToggleSelect = (id: string) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    setSelectedIds(next);
+  };
+
+  const handleDelete = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (onDeleteSubmission) {
+      onDeleteSubmission(id);
+    } else {
+      setSubmissions((prev) => prev.filter((s) => s.id !== id));
+    }
+    setActiveMenuId(null);
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Table Section Header & Filter Toolbar */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-2">
+        <h2 className="font-serif text-xl sm:text-2xl font-normal text-[#25251F] tracking-tight">
+          All Submissions
+        </h2>
+
+        {/* Toolbar: Search & Select Dropdowns */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Search Input */}
+          <div className="w-full sm:w-60">
+            <Input
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+              placeholder="Search submissions..."
+              icon={<Search className="w-3.5 h-3.5" />}
+              className="bg-[#FFFEFA] h-9 text-xs"
+            />
+          </div>
+
+          {/* Status Dropdown */}
+          <Select
+            value={statusFilter || 'ALL'}
+            onChange={(e) => {
+              const val = e.target.value === 'ALL' ? null : e.target.value;
+              if (onStatusFilterChange) onStatusFilterChange(val);
+              setCurrentPage(1);
+            }}
+            className="h-9 text-xs"
+          >
+            <option value="ALL">All Status</option>
+            <option value="Pending Review">Pending Review</option>
+            <option value="Approved">Approved</option>
+            <option value="Needs Changes">Needs Changes</option>
+          </Select>
+
+          {/* Channel Dropdown */}
+          <Select
+            value={channelFilter}
+            onChange={(e) => {
+              setChannelFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="h-9 text-xs"
+          >
+            <option value="ALL">All Channels</option>
+            <option value="linkedin">LinkedIn</option>
+            <option value="website">Website</option>
+            <option value="email">Email</option>
+            <option value="blog">Blog</option>
+            <option value="instagram">Instagram</option>
+          </Select>
+
+          {/* Sort Dropdown */}
+          <Select
+            value={sortBy}
+            onChange={(e) => {
+              setSortBy(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="h-9 text-xs"
+          >
+            <option value="NEWEST">Newest First</option>
+            <option value="OLDEST">Oldest First</option>
+            <option value="TITLE">Title A-Z</option>
+          </Select>
+        </div>
+      </div>
+
+      {/* Main Table Container */}
+      <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl overflow-hidden shadow-2xs">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-[#E5E1D8] bg-[#FAF8F5]/60 text-[#77766E] font-medium select-none">
+                <th className="py-3 px-4 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    checked={
+                      paginatedItems.length > 0 &&
+                      paginatedItems.every((item) => selectedIds.has(item.id))
+                    }
+                    onChange={handleSelectAll}
+                    className="w-3.5 h-3.5 rounded border-[#E5E1D8] text-[#68745D] accent-[#68745D] cursor-pointer"
+                  />
+                </th>
+                <th className="py-3 px-4 font-normal text-[#77766E]">Content</th>
+                <th className="py-3 px-4 font-normal text-[#77766E] w-36">Channel</th>
+                <th className="py-3 px-4 font-normal text-[#77766E] w-32">Status</th>
+                <th className="py-3 px-4 font-normal text-[#77766E] w-28">Submitted</th>
+                <th className="py-3 px-4 font-normal text-[#77766E] w-32">Latest Review</th>
+                <th className="py-3 px-4 font-normal text-[#77766E] w-14 text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#E5E1D8]/60">
+              {paginatedItems.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-[#77766E]">
+                    <FileText className="w-8 h-8 text-[#A09D92] mx-auto mb-2 opacity-60" />
+                    <p className="text-sm font-medium text-[#25251F]">No submissions found</p>
+                    <p className="text-xs text-[#A09D92] mt-1">
+                      Try resetting your search query or channel/status filters.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setChannelFilter('ALL');
+                        if (onStatusFilterChange) onStatusFilterChange(null);
+                      }}
+                      className="mt-3"
+                    >
+                      Reset Filters
+                    </Button>
+                  </td>
+                </tr>
+              ) : (
+                paginatedItems.map((item) => {
+                  const isChecked = selectedIds.has(item.id);
+                  const isMenuOpen = activeMenuId === item.id;
+
+                  return (
+                    <tr
+                      key={item.id}
+                      onClick={() => setPreviewItem(item)}
+                      className={`group hover:bg-[#F9F7F2]/60 transition-colors cursor-pointer ${
+                        isChecked ? 'bg-[#F4F1EA]/40' : ''
+                      }`}
+                    >
+                      {/* Checkbox */}
+                      <td
+                        className="py-3.5 px-4 text-center"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => handleToggleSelect(item.id)}
+                          className="w-3.5 h-3.5 rounded border-[#E5E1D8] text-[#68745D] accent-[#68745D] cursor-pointer"
+                        />
+                      </td>
+
+                      {/* Content (File icon + Title + Excerpt) */}
+                      <td className="py-3.5 px-4 max-w-md">
+                        <div className="flex items-start gap-2.5">
+                          <div className="w-7 h-7 rounded-md bg-[#F1EFE8] border border-[#E5E1D8] flex items-center justify-center text-[#25251F] shrink-0 mt-0.5">
+                            <FileText className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-xs sm:text-sm text-[#25251F] group-hover:text-[#68745D] transition-colors truncate">
+                              {item.title}
+                            </p>
+                            <p className="text-[11px] text-[#77766E] truncate mt-0.5 max-w-[280px] sm:max-w-md">
+                              {item.excerpt}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Channel */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-1.5 text-xs text-[#25251F]">
+                          {getChannelIcon(item.channel)}
+                          <span className="font-normal">{item.channel}</span>
+                        </div>
+                      </td>
+
+                      {/* Status Badge */}
+                      <td className="py-3.5 px-4">
+                        {renderStatusBadge(item.status)}
+                      </td>
+
+                      {/* Submitted Time */}
+                      <td className="py-3.5 px-4 text-[#77766E] text-xs font-normal">
+                        {item.submittedAt}
+                      </td>
+
+                      {/* Latest Review Time */}
+                      <td className="py-3.5 px-4 text-[#77766E] text-xs font-normal">
+                        {item.latestReview}
+                      </td>
+
+                      {/* Actions Menu */}
+                      <td
+                        className="py-3.5 px-4 text-center relative"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setActiveMenuId(isMenuOpen ? null : item.id)
+                          }
+                          className="w-7 h-7 rounded-md text-[#77766E] hover:text-[#25251F] hover:bg-[#E5E1D8]/60 inline-flex items-center justify-center transition-colors"
+                          aria-label="Actions"
+                        >
+                          <MoreHorizontal className="w-4 h-4" />
+                        </button>
+
+                        {/* Dropdown Menu */}
+                        {isMenuOpen && (
+                          <>
+                            <div
+                              className="fixed inset-0 z-40"
+                              onClick={() => setActiveMenuId(null)}
+                            />
+                            <div className="absolute right-3 top-10 z-50 w-44 bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl shadow-lg p-1.5 text-left animate-in fade-in zoom-in-95 duration-100">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveMenuId(null);
+                                  router.push(`/reviews?id=${item.id}`);
+                                }}
+                                className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-[#25251F] hover:bg-[#F1EFE8] rounded-lg transition-colors"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5 text-[#68745D]" />
+                                <span>Review Workspace</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveMenuId(null);
+                                  setPreviewItem(item);
+                                }}
+                                className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-[#25251F] hover:bg-[#F1EFE8] rounded-lg transition-colors"
+                              >
+                                <Eye className="w-3.5 h-3.5 text-[#77766E]" />
+                                <span>Quick Preview</span>
+                              </button>
+
+                              <div className="my-1 border-t border-[#E5E1D8]/60" />
+
+                              <button
+                                type="button"
+                                onClick={(e) => handleDelete(item.id, e)}
+                                className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-[#B56E63] hover:bg-[#F7EBEA] rounded-lg transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Remove Draft</span>
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Bottom Pagination Bar */}
+        <div className="p-3.5 px-4 bg-[#FAF8F5]/50 border-t border-[#E5E1D8] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-[#77766E]">
+          {/* Summary Label matching reference: "Showing 1-5 of 486 submissions" */}
+          <p>
+            Showing{' '}
+            <strong className="text-[#25251F] font-medium">
+              {displayedTotal === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}-
+              {Math.min(currentPage * itemsPerPage, displayedTotal)}
+            </strong>{' '}
+            of{' '}
+            <strong className="text-[#25251F] font-medium">
+              {totalCount}
+            </strong>{' '}
+            submissions
+          </p>
+
+          {/* Pagination Controls */}
+          <div className="flex items-center gap-1 self-center sm:self-auto select-none">
+            {/* Prev Button */}
+            <button
+              type="button"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              className="w-7 h-7 rounded-lg border border-[#E5E1D8] bg-[#FFFEFA] text-[#25251F] flex items-center justify-center hover:bg-[#F1EFE8] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              aria-label="Previous page"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Page 1 (Active Pill) */}
+            <button
+              type="button"
+              onClick={() => setCurrentPage(1)}
+              className={`w-7 h-7 rounded-lg text-xs font-medium flex items-center justify-center transition-colors ${
+                currentPage === 1
+                  ? 'bg-[#25251F] text-white shadow-xs'
+                  : 'bg-[#FFFEFA] border border-[#E5E1D8] text-[#25251F] hover:bg-[#F1EFE8]'
+              }`}
+            >
+              1
+            </button>
+
+            {/* Page 2 */}
+            <button
+              type="button"
+              onClick={() => setCurrentPage(2)}
+              className={`w-7 h-7 rounded-lg text-xs font-medium flex items-center justify-center transition-colors ${
+                currentPage === 2
+                  ? 'bg-[#25251F] text-white shadow-xs'
+                  : 'bg-[#FFFEFA] border border-[#E5E1D8] text-[#25251F] hover:bg-[#F1EFE8]'
+              }`}
+            >
+              2
+            </button>
+
+            {/* Page 3 */}
+            <button
+              type="button"
+              onClick={() => setCurrentPage(3)}
+              className={`w-7 h-7 rounded-lg text-xs font-medium flex items-center justify-center transition-colors ${
+                currentPage === 3
+                  ? 'bg-[#25251F] text-white shadow-xs'
+                  : 'bg-[#FFFEFA] border border-[#E5E1D8] text-[#25251F] hover:bg-[#F1EFE8]'
+              }`}
+            >
+              3
+            </button>
+
+            {/* Ellipsis */}
+            <span className="px-1 text-[#A09D92]">...</span>
+
+            {/* Last Page (98) */}
+            <button
+              type="button"
+              onClick={() => setCurrentPage(totalPages > 3 ? totalPages : 98)}
+              className="w-7 h-7 rounded-lg border border-[#E5E1D8] bg-[#FFFEFA] text-[#25251F] text-xs font-medium flex items-center justify-center hover:bg-[#F1EFE8] transition-colors"
+            >
+              98
+            </button>
+
+            {/* Next Button */}
+            <button
+              type="button"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              className="w-7 h-7 rounded-lg border border-[#E5E1D8] bg-[#FFFEFA] text-[#25251F] flex items-center justify-center hover:bg-[#F1EFE8] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              aria-label="Next page"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Preview Modal */}
+      <SubmissionPreviewModal
+        submission={previewItem}
+        isOpen={!!previewItem}
+        onClose={() => setPreviewItem(null)}
+      />
+    </div>
+  );
+}

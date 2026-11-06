@@ -9,6 +9,7 @@ import {
   ArrowUp,
   ArrowDown,
 } from 'lucide-react';
+import { AnimatedCounter } from '../ui/animated-counter';
 
 export interface MetricCardData {
   id: string;
@@ -71,7 +72,7 @@ export function DashboardMetrics({ metrics }: DashboardMetricsProps) {
         return (
           <div
             key={m.id}
-            className={`bg-[#FFFEFA] rounded-xl p-6 h-[188px] flex flex-col justify-start transition-colors ${
+            className={`bg-[#FFFEFA] rounded-xl p-6 h-[188px] flex flex-col justify-start transition-colors opacity-100 ${
               isNeedsChanges
                 ? 'border border-[#68745D]/50 hover:border-[#68745D]'
                 : 'border border-[#E5E1D8] hover:border-[#68745D]/40'
@@ -87,9 +88,9 @@ export function DashboardMetrics({ metrics }: DashboardMetricsProps) {
               </span>
             </div>
 
-            {/* 2. Metric Number (32-36px, Instrument Serif) */}
+            {/* 2. Metric Number (Animated with GSAP from 0) */}
             <span className="font-serif text-[34px] font-normal text-[#25251F] leading-tight mt-3 tracking-tight block">
-              {m.value}
+              <AnimatedCounter value={m.value} duration={1.2} />
             </span>
 
             {/* 3. Metric Label */}
@@ -97,14 +98,14 @@ export function DashboardMetrics({ metrics }: DashboardMetricsProps) {
               {m.label}
             </span>
 
-            {/* 4. Percentage Indicator (12-16px directly below label) */}
+            {/* 4. Percentage Indicator */}
             <div className="mt-3.5 flex items-center gap-1 text-xs text-[#77766E] font-sans font-medium">
               {isUp ? (
                 <ArrowUp className="w-3 h-3 stroke-[2.5]" />
               ) : (
                 <ArrowDown className="w-3 h-3 stroke-[2.5]" />
               )}
-              <span>{m.delta}</span>
+              <span>{m.delta} vs. last 30 days</span>
             </div>
           </div>
         );
