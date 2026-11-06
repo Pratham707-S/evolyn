@@ -31,3 +31,20 @@
     font-family: var(--font-serif), 'Instrument Serif', Georgia, serif;
   }
 }
+
+/* Custom slim scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #D5D1C7;
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #A09D92;
+}
+
