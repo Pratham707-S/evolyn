@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   DashboardSidebar,
   DashboardHeader,
@@ -14,6 +15,7 @@ import {
 } from '../components/dashboard';
 
 export default function Home() {
+  const router = useRouter();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [activeNav, setActiveNav] = useState('Dashboard');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -47,6 +49,30 @@ export default function Home() {
     },
   ]);
 
+  const navRoutes: Record<string, string> = {
+    Dashboard: '/',
+    Submissions: '/submissions',
+    'Review Workspace': '/reviews',
+    Approvals: '/approvals',
+    'Decision History': '/decision-history',
+    'Brand Setup': '/brand-setup',
+    Guidelines: '/guidelines',
+    'Knowledge Library': '/knowledge-library',
+    'Conflict Detector': '/conflict-detector',
+    'Claim Evidence': '/claim-evidence',
+    'Guideline Improvements': '/guideline-improvements',
+    Insights: '/insights',
+    Settings: '/settings',
+  };
+
+  const handleNavigate = (item: string) => {
+    setActiveNav(item);
+    const route = navRoutes[item];
+    if (route) {
+      router.push(route);
+    }
+  };
+
   const handleNewSubmissionSuccess = (newSub: SubmissionItem) => {
     setSubmissions([newSub, ...submissions.slice(0, 3)]);
     setNotificationToast(`Added "${newSub.title}" to local demo state (not persisted).`);
@@ -58,24 +84,29 @@ export default function Home() {
   const handleStepClick = (stepId: string) => {
     if (stepId === 'submit') {
       setIsModalOpen(true);
-    } else {
-      setNotificationToast(`Stage ${stepId.toUpperCase()} selected (demo preview).`);
-      setTimeout(() => setNotificationToast(null), 3000);
+    } else if (stepId === 'review') {
+      router.push('/reviews');
+    } else if (stepId === 'evidence') {
+      router.push('/claim-evidence');
+    } else if (stepId === 'approval') {
+      router.push('/approvals');
+    } else if (stepId === 'improve') {
+      router.push('/guideline-improvements');
     }
   };
 
   return (
     <div className="min-h-screen bg-[#F7F5F0] text-[#25251F] font-sans antialiased selection:bg-[#68745D] selection:text-white flex">
-      {/* Sidebar (Desktop fixed & Mobile drawer) */}
+      {/* Sidebar (Desktop sticky & Mobile drawer) */}
       <DashboardSidebar
         mobileOpen={mobileSidebarOpen}
         onMobileClose={() => setMobileSidebarOpen(false)}
         activeItem={activeNav}
-        onNavigate={(item) => setActiveNav(item)}
+        onNavigate={handleNavigate}
       />
 
-      {/* Main Content Area */}
-      <main className="flex-1 min-w-0 lg:pl-60">
+      {/* Main Content Area: in-flow flex child, starts right after sidebar */}
+      <main className="flex-1 min-w-0">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-4">
           {/* Toast feedback banner */}
           {notificationToast && (
@@ -114,14 +145,8 @@ export default function Home() {
             <DashboardMetrics />
             <RecentSubmissions
               submissions={submissions}
-              onViewAll={() => {
-                setNotificationToast('Submissions page is currently a demo placeholder.');
-                setTimeout(() => setNotificationToast(null), 3000);
-              }}
-              onSelectSubmission={(sub) => {
-                setNotificationToast(`Selected demo item: ${sub.title} (${sub.status})`);
-                setTimeout(() => setNotificationToast(null), 3000);
-              }}
+              onViewAll={() => router.push('/submissions')}
+              onSelectSubmission={(sub) => router.push('/reviews')}
             />
           </section>
 
