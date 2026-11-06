@@ -26,12 +26,16 @@ export interface DecisionFormValues {
 
 export type { Decision, SubmitDecisionInput };
 
-// Components
+// Components from PR #20 (Live API integration)
 export { DecisionBadge } from './components/decision-badge';
 export { DecisionModal } from './components/decision-modal';
 export { ApprovalQueue } from './components/approval-queue';
 export { ApprovalDetailView } from './components/approval-detail-view';
-export { DecisionHistoryTimeline } from './components/decision-history-timeline';
+export {
+  DecisionHistoryTimeline,
+  type DecisionHistoryTimelineProps,
+  type TimelineDecision,
+} from './components/decision-history-timeline';
 
 // API client helpers
 export * from './api/decisions-api';

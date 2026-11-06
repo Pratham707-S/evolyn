@@ -7,7 +7,6 @@ import {
   XCircle,
   RotateCcw,
   User,
-  Calendar,
   ShieldCheck,
   Clock,
   Sparkles,
@@ -15,7 +14,20 @@ import {
 import type { Decision } from '@evolyn/shared';
 import { DecisionBadge } from './decision-badge';
 
-interface DecisionHistoryTimelineProps {
+export interface TimelineDecision {
+  id: string;
+  title: string;
+  channel: string;
+  decision: string;
+  reviewerName: string;
+  timeAgo: string;
+  submissionId?: string;
+  content?: string;
+  decisionNote?: string;
+  findingsCount?: number;
+}
+
+export interface DecisionHistoryTimelineProps {
   decisions: Decision[];
   isLoading: boolean;
   submissionTitle?: string;
@@ -51,7 +63,7 @@ export function DecisionHistoryTimeline({
   }
 
   return (
-    <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-2xl p-6 space-y-6">
+    <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-2xl p-6 space-y-6 shadow-2xs">
       <div className="flex items-center justify-between pb-3 border-b border-[#E5E1D8]">
         <div className="flex items-center gap-2.5">
           <History className="w-5 h-5 text-[#68745D]" />
@@ -76,21 +88,27 @@ export function DecisionHistoryTimeline({
         {decisions.map((dec, idx) => {
           const isApproved = dec.decision === 'APPROVED';
           const isRejected = dec.decision === 'REJECTED';
-          const isChanges = dec.decision === 'CHANGES_REQUESTED';
 
           const iconNode = isApproved ? (
-            <div className="w-5 h-5 rounded-full bg-[#E8EBE1] border-2 border-[#64816A] text-[#4E6B54] flex items-center justify-center">
+            <div className="w-5 h-5 rounded-full bg-[#E8EBE1] border-2 border-[#64816A] text-[#4E6B54] flex items-center justify-center shadow-xs">
               <CheckCircle2 className="w-3 h-3" />
             </div>
           ) : isRejected ? (
-            <div className="w-5 h-5 rounded-full bg-[#F7EBEA] border-2 border-[#B56E63] text-[#9A4C42] flex items-center justify-center">
+            <div className="w-5 h-5 rounded-full bg-[#F7EBEA] border-2 border-[#B56E63] text-[#9A4C42] flex items-center justify-center shadow-xs">
               <XCircle className="w-3 h-3" />
             </div>
           ) : (
-            <div className="w-5 h-5 rounded-full bg-[#F5EFE6] border-2 border-[#B78A4A] text-[#8A6B3D] flex items-center justify-center">
+            <div className="w-5 h-5 rounded-full bg-[#F5EFE6] border-2 border-[#B78A4A] text-[#8A6B3D] flex items-center justify-center shadow-xs">
               <RotateCcw className="w-3 h-3" />
             </div>
           );
+
+          // Indicator accents from PR #14 design tokens
+          const indicatorClass = isApproved
+            ? 'border-l-4 border-l-[#64816A] hover:border-[#64816A]'
+            : isRejected
+            ? 'border-l-4 border-l-[#B56E63] hover:border-[#B56E63]'
+            : 'border-l-4 border-l-[#B78A4A] hover:border-[#B78A4A]';
 
           return (
             <div key={dec.id || idx} className="relative space-y-2">
@@ -99,8 +117,10 @@ export function DecisionHistoryTimeline({
                 {iconNode}
               </div>
 
-              {/* Card */}
-              <div className="bg-[#F7F5F0]/60 border border-[#E5E1D8] rounded-xl p-4 space-y-2.5 hover:border-[#68745D]/40 transition-colors">
+              {/* Card with PR #14 visual indicator and hover elevation */}
+              <div
+                className={`bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-4 space-y-2.5 transition-all shadow-2xs hover:shadow-xs ${indicatorClass}`}
+              >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <DecisionBadge decision={dec.decision} />
@@ -117,7 +137,7 @@ export function DecisionHistoryTimeline({
                 </div>
 
                 {/* Comments / Rationale */}
-                <div className="text-xs text-[#25251F] bg-[#FFFEFA] border border-[#E5E1D8]/80 rounded-lg p-3 leading-relaxed">
+                <div className="text-xs text-[#25251F] bg-[#FAF9F5] border border-[#E5E1D8]/80 rounded-lg p-3 leading-relaxed">
                   <p className="font-sans whitespace-pre-wrap">{dec.comments}</p>
                 </div>
 

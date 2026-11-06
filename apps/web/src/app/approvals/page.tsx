@@ -2,7 +2,9 @@
 
 import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { AppShell } from '@/components/layout/app-shell';
+import { AppShell, useAppShell } from '@/components/layout/app-shell';
+import { PageHeader } from '@/components/shared/page-header';
+import { Button } from '@/components/ui/button';
 import type { ContentSubmission, DecisionType } from '@evolyn/shared';
 import {
   ApprovalQueue,
@@ -13,11 +15,12 @@ import {
   type SubmissionReviewDetails,
   type SubmitDecisionResult,
 } from '@/features/decisions';
-import { AlertCircle, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Download } from 'lucide-react';
 
 function ApprovalsContent() {
   const searchParams = useSearchParams();
   const urlSubmissionId = searchParams.get('submissionId');
+  const { showToast: shellShowToast } = useAppShell();
 
   const [submissions, setSubmissions] = useState<ContentSubmission[]>([]);
   const [selectedSubmission, setSelectedSubmission] = useState<ContentSubmission | null>(null);
@@ -35,8 +38,9 @@ function ApprovalsContent() {
 
   const showToast = useCallback((text: string, type: 'success' | 'error' = 'success') => {
     setToastMessage({ text, type });
+    shellShowToast(text);
     setTimeout(() => setToastMessage(null), 4500);
-  }, []);
+  }, [shellShowToast]);
 
   // Fetch queue of submissions awaiting approval
   const loadQueue = useCallback(async (selectIdAfterLoad?: string) => {
@@ -143,8 +147,36 @@ function ApprovalsContent() {
     loadQueue();
   };
 
+  const handleExport = () => {
+    if (!submissions || submissions.length === 0) {
+      showToast('No submissions in approvals queue to export.');
+      return;
+    }
+
+    const csvContent =
+      'data:text/csv;charset=utf-8,' +
+      ['Submission ID,Title,Channel,Submitted By,Status,Created At']
+        .concat(
+          submissions.map(
+            (s) =>
+              `"${s.id}","${(s.title || '').replace(/"/g, '""')}","${s.channel}","${s.submittedBy}","${s.status}","${s.createdAt}"`
+          )
+        )
+        .join('\n');
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `evolyn-approvals-queue-${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    showToast('Approvals queue exported to CSV successfully');
+  };
+
   return (
-    <AppShell activeItem="Approvals">
+    <div className="space-y-6">
       {/* Toast banner */}
       {toastMessage && (
         <div
@@ -163,64 +195,71 @@ function ApprovalsContent() {
         </div>
       )}
 
-      <div className="space-y-6">
-        {/* Page Header */}
-        <div className="pb-4 border-b border-[#E5E1D8] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h1 className="font-serif text-2xl sm:text-3xl text-[#25251F] tracking-tight">
-              Human Review & Approvals
-            </h1>
-            <p className="text-xs sm:text-sm text-[#73736C] mt-1">
-              Autonomous AI review findings intake queue for explicit human governance sign-off.
-            </p>
-          </div>
+      {/* 1. Page Header matching PR #14 layout and visual hierarchy */}
+      <PageHeader
+        title="Approvals"
+        description="Track, manage, and finalize review decisions for your brand content with evidence-backed AI findings."
+        showNotificationBell={true}
+        unreadNotificationsCount={submissions.length}
+        actions={
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="flex items-center gap-2 text-xs text-[#77766E] bg-[#F1EFE8] px-3 py-2 rounded-lg border border-[#E5E1D8]">
+              <span className="w-2 h-2 rounded-full bg-[#64816A]" />
+              <span>Human-in-the-Loop Gate Active</span>
+            </div>
 
-          <div className="flex items-center gap-2 text-xs text-[#77766E] bg-[#F1EFE8] px-3 py-1.5 rounded-lg border border-[#E5E1D8]">
-            <span className="w-2 h-2 rounded-full bg-[#64816A]" />
-            <span>Human-in-the-Loop Gate Active</span>
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={handleExport}
+              className="gap-1.5"
+            >
+              <Download className="w-3.5 h-3.5 text-[#25251F]" />
+              <span>Export</span>
+            </Button>
           </div>
+        }
+      />
+
+      {/* Queue Error Alert */}
+      {queueError && (
+        <div className="bg-[#F7EBEA] border border-[#E8CFCB] text-[#9A4C42] text-xs p-4 rounded-xl flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>{queueError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => loadQueue()}
+            className="text-xs font-semibold underline hover:no-underline cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* 2. Split Approval Workbench: Left Queue & Right Change Audit Inspector */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Column 1: Approval Queue (4 cols on desktop) */}
+        <div className="lg:col-span-4 h-full">
+          <ApprovalQueue
+            submissions={submissions}
+            selectedId={selectedSubmission?.id || null}
+            onSelect={(sub) => setSelectedSubmission(sub)}
+            isLoading={isQueueLoading}
+            onRefresh={() => loadQueue(selectedSubmission?.id)}
+          />
         </div>
 
-        {/* Queue Error Alert */}
-        {queueError && (
-          <div className="bg-[#F7EBEA] border border-[#E8CFCB] text-[#9A4C42] text-xs p-4 rounded-xl flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span>{queueError}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => loadQueue()}
-              className="text-xs font-semibold underline hover:no-underline"
-            >
-              Retry
-            </button>
-          </div>
-        )}
-
-        {/* 2-Column Approval Workbench Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Column 1: Approval Queue (4 cols on desktop) */}
-          <div className="lg:col-span-4 h-full">
-            <ApprovalQueue
-              submissions={submissions}
-              selectedId={selectedSubmission?.id || null}
-              onSelect={(sub) => setSelectedSubmission(sub)}
-              isLoading={isQueueLoading}
-              onRefresh={() => loadQueue(selectedSubmission?.id)}
-            />
-          </div>
-
-          {/* Column 2: Review Findings & Sign-Off Workbench (8 cols on desktop) */}
-          <div className="lg:col-span-8">
-            <ApprovalDetailView
-              details={reviewDetails}
-              isLoading={isDetailsLoading}
-              overriddenIssueIds={overriddenIssueIds}
-              onToggleOverride={handleToggleOverride}
-              onOpenDecisionModal={handleOpenDecisionModal}
-            />
-          </div>
+        {/* Column 2: Review Findings & Sign-Off Workbench (8 cols on desktop) */}
+        <div className="lg:col-span-8">
+          <ApprovalDetailView
+            details={reviewDetails}
+            isLoading={isDetailsLoading}
+            overriddenIssueIds={overriddenIssueIds}
+            onToggleOverride={handleToggleOverride}
+            onOpenDecisionModal={handleOpenDecisionModal}
+          />
         </div>
       </div>
 
@@ -236,7 +275,7 @@ function ApprovalsContent() {
           onDecisionSuccess={handleDecisionSuccess}
         />
       )}
-    </AppShell>
+    </div>
   );
 }
 
@@ -251,7 +290,9 @@ export default function ApprovalsPage() {
         </AppShell>
       }
     >
-      <ApprovalsContent />
+      <AppShell activeItem="Approvals">
+        <ApprovalsContent />
+      </AppShell>
     </Suspense>
   );
 }
