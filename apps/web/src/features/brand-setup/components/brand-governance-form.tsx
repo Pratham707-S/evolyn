@@ -234,4 +234,3 @@ export function BrandGovernanceForm({
     </div>
   );
 }
-

@@ -13,7 +13,7 @@
     "dev:web": "npm --workspace=@evolyn/web run dev",
     "build": "npm run --workspace=@evolyn/shared build && npm run --workspaces --if-present build",
     "typecheck": "npm run --workspace=@evolyn/shared build && npm run --workspaces --if-present typecheck",
-    "test": "npm run --workspaces --if-present test",
+    "test": "npm run --workspace=@evolyn/shared build && npm run --workspaces --if-present test",
     "lint": "npm run --workspaces --if-present lint",
     "db:generate": "npm --workspace=@evolyn/api run db:generate",
     "db:migrate": "npm --workspace=@evolyn/api run db:migrate",

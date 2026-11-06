@@ -128,7 +128,7 @@ export function SubmissionsTable({
   }, [submissions, statusFilter, channelFilter, searchQuery, sortBy]);
 
   // Total pages
-  const totalCount = 486; // Reference displays 486 in total
+  const totalCount = submissions.length;
   const displayedTotal = filteredSubmissions.length;
   const totalPages = Math.max(1, Math.ceil(displayedTotal / itemsPerPage));
   const paginatedItems = filteredSubmissions.slice(
@@ -525,4 +525,3 @@ export function SubmissionsTable({
     </div>
   );
 }
-

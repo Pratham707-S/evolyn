@@ -19,6 +19,9 @@ import {
   submitDecisionSchema,
   guidelineConflictSchema,
   healthCheckResponseSchema,
+  rewriteActionSchema,
+  rewriteContentSchema,
+  rewriteResponseSchema,
 } from './schemas.js';
 
 export type GuidelineCategory = z.infer<typeof guidelineCategorySchema>;
@@ -125,3 +128,7 @@ export interface RecurringMistake {
 }
 
 export type HealthCheckResponse = z.infer<typeof healthCheckResponseSchema>;
+
+export type RewriteAction = z.infer<typeof rewriteActionSchema>;
+export type RewriteContentInput = z.infer<typeof rewriteContentSchema>;
+export type RewriteResponse = z.infer<typeof rewriteResponseSchema>;

@@ -20,11 +20,23 @@
  * ============================================================================
  */
 
-import type { ReviewExecutionResult } from './reviews.types.js';
+import type { RewriteContentInput, RewriteResponse } from '@evolyn/shared';
+import type { ReviewExecutionOptions, ReviewExecutionResult } from './reviews.types.js';
 
 export interface IReviewService {
-  executeReview(submissionId: string): Promise<ReviewExecutionResult>;
+  executeReview(
+    submissionId: string,
+    options?: ReviewExecutionOptions
+  ): Promise<ReviewExecutionResult>;
   getReviewBySubmissionId(submissionId: string): Promise<ReviewExecutionResult | null>;
+  getReviewHistory?(submissionId: string): Promise<ReviewExecutionResult[]>;
+  rewrite?(
+    submissionId: string,
+    input: RewriteContentInput
+  ): Promise<RewriteResponse>;
 }
 
+export { ReviewService } from './reviews.service.js';
+export { ReviewsController } from './reviews.controller.js';
+export { createReviewsRouter, reviewsRouter, reviewService, defaultGuidelineRuleSearch } from './reviews.routes.js';
 export * from './reviews.types.js';

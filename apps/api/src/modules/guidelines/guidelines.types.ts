@@ -1,14 +1,49 @@
-import type { Guideline, GuidelineRule } from '@evolyn/shared';
+import type {
+  GuidelineCategory,
+  GuidelineRule,
+  GuidelineStatus,
+  RuleType,
+  Severity,
+} from '@evolyn/shared';
 
 export interface GuidelineQueryFilter {
-  category?: string;
-  status?: string;
-  limit?: number;
+  category?: GuidelineCategory;
+  status?: GuidelineStatus;
 }
 
+export interface RuleMatchResult extends GuidelineRule {
+  similarity: number;
+}
+
+/**
+ * Represents one atomic, verifiable rule extracted
+ * from a brand guideline.
+ */
 export interface RuleExtractionResult {
   ruleStatement: string;
-  ruleType: 'MANDATORY' | 'PROHIBITED' | 'CONDITIONAL' | 'RECOMMENDED';
+  ruleType: RuleType;
   explanation: string;
-  severity: 'CRITICAL' | 'WARNING' | 'SUGGESTION';
+  severity: Severity;
+}
+
+/**
+ * Abstraction for extracting rules from guideline content.
+ * Actual AI implementation will be injected later.
+ */
+export interface GuidelineRuleExtractor {
+  extractRules(
+    rawContent: string,
+  ): Promise<RuleExtractionResult[]>;
+}
+
+export interface GuidelineEmbeddingGenerator {
+  generateEmbedding(
+    text: string,
+    options?: { dimensions?: number },
+  ): Promise<number[]>;
+}
+
+export interface EmbeddingGenerationResult {
+  guidelineId: string;
+  generatedCount: number;
 }

@@ -5,4 +5,3 @@ export * from './brand-voice-form';
 export * from './brand-governance-form';
 export * from './setup-progress-card';
 export * from './brand-preview-card';
-

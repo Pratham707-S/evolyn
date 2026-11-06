@@ -82,15 +82,102 @@ describe('API Foundation & Health Routing (In-Memory)', () => {
     assert.equal(res.jsonData.details[0].message, 'Content must be at least 10 chars');
   });
 
+  it('errorHandler accepts structurally valid cross-package Zod-like objects', () => {
+    const crossPackageZodError = {
+      name: 'ZodError',
+      errors: [
+        {
+          path: ['title'],
+          message: 'Title is required',
+        },
+      ],
+    };
+
+    const req = {} as Request;
+    const res = createMockResponse();
+    const next: NextFunction = () => {};
+
+    errorHandler(crossPackageZodError, req, res, next);
+
+    assert.equal(res.statusCode, 400);
+    assert.equal(res.jsonData.error, 'Validation failed');
+    assert.equal(res.jsonData.details[0].field, 'title');
+    assert.equal(res.jsonData.details[0].message, 'Title is required');
+  });
+
+  it('errorHandler safely treats malformed Zod-like error objects as 500 internal error', () => {
+    const malformedErrors = [
+      { name: 'ZodError', errors: 'not-an-array' },
+      { name: 'ZodError', errors: [null] },
+      { name: 'ZodError', errors: [{ path: 'not-an-array', message: 'test' }] },
+      { name: 'ZodError', errors: [{ path: ['field'], message: 123 }] },
+      { name: 'ZodError' },
+    ];
+    const originalConsoleError = console.error;
+    const loggedErrors: unknown[][] = [];
+
+    console.error = (...args: unknown[]) => {
+      loggedErrors.push(args);
+    };
+    try {
+      for (const malformed of malformedErrors) {
+        const req = {} as Request;
+        const res = createMockResponse();
+        const next: NextFunction = () => {};
+
+        errorHandler(malformed, req, res, next);
+
+        assert.equal(res.statusCode, 500);
+        assert.equal(res.jsonData.error, 'Internal server error');
+      }
+    } finally {
+      console.error = originalConsoleError;
+    }
+
+    assert.equal(loggedErrors.length, malformedErrors.length);
+    assert.ok(loggedErrors.every(([message]) => message === '[API Error] Unknown exception:'));
+  });
+
   it('errorHandler catches generic Error and returns 500 without leaking stack traces', () => {
     const error = new Error('Database connection timed out');
     const req = {} as Request;
     const res = createMockResponse();
     const next: NextFunction = () => {};
+    const originalConsoleError = console.error;
+    let loggedMessage: string | undefined;
 
-    errorHandler(error, req, res, next);
+    console.error = (message?: unknown) => {
+      loggedMessage = String(message);
+    };
+    try {
+      errorHandler(error, req, res, next);
+    } finally {
+      console.error = originalConsoleError;
+    }
 
     assert.equal(res.statusCode, 500);
     assert.equal(res.jsonData.error, 'Database connection timed out');
+    assert.equal(loggedMessage, '[API Error] Database connection timed out');
+  });
+
+  it('errorHandler safely handles primitive thrown values (string, number)', () => {
+    const req = {} as Request;
+    const res = createMockResponse();
+    const next: NextFunction = () => {};
+    const originalConsoleError = console.error;
+    let loggedMessage: unknown;
+
+    console.error = (message?: unknown) => {
+      loggedMessage = message;
+    };
+    try {
+      errorHandler('Fatal string crash', req, res, next);
+    } finally {
+      console.error = originalConsoleError;
+    }
+
+    assert.equal(res.statusCode, 500);
+    assert.equal(res.jsonData.error, 'Internal server error');
+    assert.equal(loggedMessage, '[API Error] Unknown exception:');
   });
 });

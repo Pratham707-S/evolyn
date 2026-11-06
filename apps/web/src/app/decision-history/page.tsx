@@ -1,271 +1,131 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Download, Calendar, ChevronDown } from 'lucide-react';
+import React, { useEffect, useState, useCallback, useMemo, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { AppShell, useAppShell } from '@/components/layout/app-shell';
 import { PageHeader } from '@/components/shared/page-header';
 import { Button } from '@/components/ui/button';
+import type { ContentSubmission, Decision } from '@evolyn/shared';
 import {
   DecisionHistoryTimeline,
-  DecisionDetailModal,
-  TimelineDecision,
+  DecisionBadge,
+  fetchAllSubmissions,
+  fetchDecisionHistory,
 } from '@/features/decisions';
-
-const initialTimelineData: TimelineDecision[] = [
-  {
-    id: 'hist-1',
-    title: 'Q3 Product Campaign',
-    channel: 'LinkedIn',
-    decision: 'Approved',
-    reviewerName: 'Mann K.',
-    reviewerInitials: 'MK',
-    timeAgo: '2h ago',
-    dayIndex: 3, // Thu 05 (Today)
-    spanDays: 2,
-    trackIndex: 0, // Social & Growth
-    submissionId: 'Submission #SUB-1043',
-    content:
-      'Introducing our new AI-powered brand governance platform that helps marketing teams stay compliant, consistent, and on-brand across every channel.',
-    decisionNote: 'Content is strictly aligned with approved Q3 messaging pillars.',
-    findingsCount: 3,
-    timelineSteps: [
-      {
-        title: 'Approved by Mann K.',
-        description: 'The content is aligned with brand guidelines.',
-        timeAgo: '2h ago',
-        completed: true,
-      },
-      {
-        title: 'In Review',
-        description: 'AI findings analyzed and reviewed by the team.',
-        timeAgo: '3h ago',
-        completed: false,
-      },
-      {
-        title: 'Submitted',
-        description: 'Content submitted for review.',
-        timeAgo: '6h ago',
-        completed: false,
-      },
-    ],
-  },
-  {
-    id: 'hist-2',
-    title: 'Website Hero Update',
-    channel: 'Website',
-    decision: 'Changes Requested',
-    reviewerName: 'Ayan K.',
-    reviewerInitials: 'AK',
-    timeAgo: '4h ago',
-    dayIndex: 3, // Thu 05 (Today)
-    spanDays: 2,
-    trackIndex: 1, // Web & Core Messaging
-    submissionId: 'Submission #SUB-1042',
-    content:
-      'Evolyn helps enterprise teams keep every piece of content aligned with verified brand truth. Built with grounded AI and zero-hallucination guardrails.',
-    decisionNote: 'Trademark symbol missing on lead title.',
-    findingsCount: 1,
-    timelineSteps: [
-      {
-        title: 'Changes requested by Ayan K.',
-        description: 'Ensure Evolyn™ trademark notice is included.',
-        timeAgo: '4h ago',
-        completed: true,
-      },
-      {
-        title: 'Automated Audit Completed',
-        description: 'Flagged 1 trademark compliance violation.',
-        timeAgo: '5h ago',
-        completed: false,
-      },
-      {
-        title: 'Submitted by Web Team',
-        description: 'Content uploaded via API.',
-        timeAgo: '6h ago',
-        completed: false,
-      },
-    ],
-  },
-  {
-    id: 'hist-3',
-    title: 'Product Launch Email',
-    channel: 'Email',
-    decision: 'Approved',
-    reviewerName: 'Pratham K.',
-    reviewerInitials: 'PK',
-    timeAgo: '6h ago',
-    dayIndex: 3, // Thu 05 (Today)
-    spanDays: 2,
-    trackIndex: 2, // Email & Lifecycle
-    submissionId: 'Submission #SUB-1041',
-    content:
-      'Be the first to explore Evolyn — a smarter way to verify claims, enforce tone of voice, and streamline creative approvals in real time.',
-    decisionNote: 'Conforms to email marketing guidelines.',
-    findingsCount: 0,
-    timelineSteps: [
-      {
-        title: 'Approved by Pratham K.',
-        description: 'No brand voice or factual violations found.',
-        timeAgo: '6h ago',
-        completed: true,
-      },
-      {
-        title: 'Submitted for Review',
-        description: 'Marketing launch email copy ingested.',
-        timeAgo: '7h ago',
-        completed: false,
-      },
-    ],
-  },
-  {
-    id: 'hist-4',
-    title: 'Customer Case Study',
-    channel: 'Blog',
-    decision: 'Approved',
-    reviewerName: 'Mann K.',
-    reviewerInitials: 'MK',
-    timeAgo: 'Yesterday',
-    dayIndex: 2, // Wed 04
-    spanDays: 2,
-    trackIndex: 3, // Editorial & Case Studies
-    submissionId: 'Submission #SUB-1040',
-    content:
-      'How a global enterprise achieved a 99.4% reduction in brand claim violations and shortened review turnaround from 3 days to under 15 minutes with Evolyn.',
-    decisionNote: 'Metrics verified with SOC 2 audit report citations.',
-    findingsCount: 0,
-    timelineSteps: [
-      {
-        title: 'Approved by Mann K.',
-        description: 'Customer consent and proof sources verified.',
-        timeAgo: 'Yesterday',
-        completed: true,
-      },
-      {
-        title: 'Submitted',
-        description: 'Draft case study submitted for sign-off.',
-        timeAgo: 'Yesterday',
-        completed: false,
-      },
-    ],
-  },
-  {
-    id: 'hist-5',
-    title: 'Social Media Teaser',
-    channel: 'Instagram',
-    decision: 'Rejected',
-    reviewerName: 'Ayan K.',
-    reviewerInitials: 'AK',
-    timeAgo: 'Yesterday',
-    dayIndex: 2, // Wed 04
-    spanDays: 2,
-    trackIndex: 0, // Social & Growth
-    submissionId: 'Submission #SUB-1039',
-    content:
-      'A faster, safer way to keep your brand on track. Stay ahead of compliance risks with automated citation checks and evidence scoring.',
-    decisionNote: 'Violated regulatory claims policy regarding risk-free assertions.',
-    findingsCount: 2,
-    timelineSteps: [
-      {
-        title: 'Rejected by Ayan K.',
-        description: 'Prohibited superlatives detected.',
-        timeAgo: 'Yesterday',
-        completed: true,
-      },
-      {
-        title: 'Submitted',
-        description: 'Social post copy submitted for review.',
-        timeAgo: 'Yesterday',
-        completed: false,
-      },
-    ],
-  },
-  {
-    id: 'hist-6',
-    title: 'Enterprise Trust Whitepaper',
-    channel: 'Blog',
-    decision: 'Approved',
-    reviewerName: 'Mann K.',
-    reviewerInitials: 'MK',
-    timeAgo: '2 days ago',
-    dayIndex: 1, // Tue 03
-    spanDays: 2,
-    trackIndex: 3, // Editorial & Case Studies
-    submissionId: 'Submission #SUB-1038',
-    content:
-      'Architecture breakdown of zero-hallucination verification engines in enterprise brand governance.',
-    decisionNote: 'Legal and security team sign-off complete.',
-    findingsCount: 0,
-    timelineSteps: [
-      {
-        title: 'Approved by Mann K.',
-        description: 'Technical whitepaper approved for gated download.',
-        timeAgo: '2 days ago',
-        completed: true,
-      },
-      {
-        title: 'Submitted by DevRel',
-        description: 'Uploaded via doc connector.',
-        timeAgo: '3 days ago',
-        completed: false,
-      },
-    ],
-  },
-  {
-    id: 'hist-7',
-    title: 'Global Product Positioning Deck',
-    channel: 'Website',
-    decision: 'Approved',
-    reviewerName: 'Pratham K.',
-    reviewerInitials: 'PK',
-    timeAgo: '3 days ago',
-    dayIndex: 0, // Mon 02
-    spanDays: 2,
-    trackIndex: 1, // Web & Core Messaging
-    submissionId: 'Submission #SUB-1037',
-    content:
-      'Core positioning slides and boilerplate messaging for European brand expansion.',
-    decisionNote: 'Passed brand voice guidelines.',
-    findingsCount: 0,
-    timelineSteps: [
-      {
-        title: 'Approved by Pratham K.',
-        description: 'Positioning copy conforms to international style guides.',
-        timeAgo: '3 days ago',
-        completed: true,
-      },
-      {
-        title: 'Submitted',
-        description: 'Marketing draft ingested.',
-        timeAgo: '4 days ago',
-        completed: false,
-      },
-    ],
-  },
-];
+import {
+  History,
+  FileText,
+  Clock,
+  User,
+  Search,
+  RefreshCw,
+  AlertCircle,
+  ExternalLink,
+  Download,
+  Calendar,
+  ChevronDown,
+} from 'lucide-react';
+import Link from 'next/link';
 
 function DecisionHistoryContent() {
+  const searchParams = useSearchParams();
+  const urlSubmissionId = searchParams.get('submissionId');
   const { showToast } = useAppShell();
-  const [items] = useState<TimelineDecision[]>(initialTimelineData);
-  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+
+  const [submissions, setSubmissions] = useState<ContentSubmission[]>([]);
+  const [selectedSubmission, setSelectedSubmission] = useState<ContentSubmission | null>(null);
+  const [historyDecisions, setHistoryDecisions] = useState<Decision[]>([]);
+
+  const [isSubmissionsLoading, setIsSubmissionsLoading] = useState(true);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
   const [dateRange, setDateRange] = useState('Last 30 Days');
 
-  // Popup Modal State (Opens on small card click with blurred background & GSAP bottom animation)
-  const [modalItem, setModalItem] = useState<TimelineDecision | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  // Load all submissions for selector
+  const loadSubmissions = useCallback(async () => {
+    setIsSubmissionsLoading(true);
+    setError(null);
+    try {
+      const res = await fetchAllSubmissions();
+      setSubmissions(res.submissions);
 
-  const handleCardClick = (item: TimelineDecision) => {
-    setModalItem(item);
-    setIsModalOpen(true);
-  };
+      // Select submission matching URL query or first submission
+      const targetId = urlSubmissionId;
+      if (targetId) {
+        const found = res.submissions.find((s) => s.id === targetId);
+        if (found) {
+          setSelectedSubmission(found);
+          return;
+        }
+      }
+
+      if (res.submissions.length > 0) {
+        setSelectedSubmission((prev) => {
+          if (prev && res.submissions.some((s) => s.id === prev.id)) {
+            return prev;
+          }
+          return res.submissions[0];
+        });
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to load submissions.';
+      setError(msg);
+    } finally {
+      setIsSubmissionsLoading(false);
+    }
+  }, [urlSubmissionId]);
+
+  useEffect(() => {
+    loadSubmissions();
+  }, [loadSubmissions]);
+
+  // Load decision history for selected submission
+  useEffect(() => {
+    if (!selectedSubmission) {
+      setHistoryDecisions([]);
+      return;
+    }
+
+    let isMounted = true;
+    setIsHistoryLoading(true);
+
+    fetchDecisionHistory(selectedSubmission.id)
+      .then((res) => {
+        if (isMounted) {
+          setHistoryDecisions(res.decisions);
+        }
+      })
+      .catch((err) => {
+        if (isMounted) {
+          setError(`Failed to fetch audit history: ${err.message}`);
+          setHistoryDecisions([]);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsHistoryLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedSubmission]);
 
   const handleExport = () => {
+    if (!filteredDecisions || filteredDecisions.length === 0) {
+      showToast('No decision records found to export for the selected time window.');
+      return;
+    }
+
     const csvContent =
       'data:text/csv;charset=utf-8,' +
-      ['Submission ID,Title,Channel,Decision,Reviewer,Timestamp']
+      ['Submission ID,Submission Title,Decision,Reviewer,Timestamp,Comments']
         .concat(
-          items.map(
+          filteredDecisions.map(
             (it) =>
-              `"${it.submissionId}","${it.title}","${it.channel}","${it.decision}","${it.reviewerName}","${it.timeAgo}"`
+              `"${selectedSubmission?.id || ''}","${(selectedSubmission?.title || '').replace(/"/g, '""')}","${it.decision}","${it.reviewerName}","${it.createdAt}","${(it.comments || '').replace(/"/g, '""')}"`
           )
         )
         .join('\n');
@@ -273,7 +133,7 @@ function DecisionHistoryContent() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `decision-history-audit-${Date.now()}.csv`);
+    link.setAttribute('download', `decision-history-audit-${selectedSubmission?.id || 'all'}-${Date.now()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -281,16 +141,53 @@ function DecisionHistoryContent() {
     showToast('Exported complete decision audit history');
   };
 
+  const handleDateRangeCycle = () => {
+    const nextRange =
+      dateRange === 'Last 30 Days'
+        ? 'Last 90 Days'
+        : dateRange === 'Last 90 Days'
+        ? 'Last 7 Days'
+        : 'Last 30 Days';
+    setDateRange(nextRange);
+    showToast(`Time window set to ${nextRange}`);
+  };
+
+  const filteredDecisions = useMemo(() => {
+    const now = Date.now();
+    const daysMap: Record<string, number> = {
+      'Last 7 Days': 7,
+      'Last 30 Days': 30,
+      'Last 90 Days': 90,
+    };
+    const days = daysMap[dateRange] ?? 30;
+    const cutoffTime = now - days * 24 * 60 * 60 * 1000;
+
+    return historyDecisions.filter((d) => {
+      if (!d.createdAt) return false;
+      const decisionTime = new Date(d.createdAt).getTime();
+      // Exclude invalid dates and future-dated decisions
+      if (Number.isNaN(decisionTime) || decisionTime > now) {
+        return false;
+      }
+      return decisionTime >= cutoffTime;
+    });
+  }, [historyDecisions, dateRange]);
+
+  const filteredSubmissions = submissions.filter((s) =>
+    s.title.toLowerCase().includes(search.toLowerCase()) ||
+    s.submittedBy.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
     <div className="space-y-6">
-      {/* 1. Page Header matching reference */}
+      {/* 1. Page Header matching PR #14 layout and visual hierarchy */}
       <PageHeader
         title="Decision History"
         description="A complete record of review decisions, changes, and approvals for audit and compliance."
         showNotificationBell={true}
-        unreadNotificationsCount={1}
+        unreadNotificationsCount={submissions.filter((s) => s.status === 'REVIEWED').length}
         actions={
-          <>
+          <div className="flex items-center gap-2.5 flex-wrap">
             <Button
               variant="secondary"
               size="md"
@@ -302,56 +199,172 @@ function DecisionHistoryContent() {
             </Button>
 
             {/* Date Range Selector */}
-            <div className="relative inline-flex items-center">
-              <button
-                type="button"
-                onClick={() => {
-                  const nextRange =
-                    dateRange === 'Last 30 Days'
-                      ? 'Last 90 Days'
-                      : dateRange === 'Last 90 Days'
-                      ? 'Last 7 Days'
-                      : 'Last 30 Days';
-                  setDateRange(nextRange);
-                  showToast(`Time window set to ${nextRange}`);
-                }}
-                className="bg-[#FFFEFA] border border-[#E5E1D8] text-[#25251F] text-xs font-medium px-3 py-2 rounded-lg flex items-center gap-2 hover:bg-[#F1EFE8] transition-colors shadow-2xs"
-              >
-                <Calendar className="w-3.5 h-3.5 text-[#77766E]" />
-                <span>{dateRange}</span>
-                <ChevronDown className="w-3 h-3 text-[#77766E]" />
-              </button>
+            <button
+              type="button"
+              onClick={handleDateRangeCycle}
+              className="bg-[#FFFEFA] border border-[#E5E1D8] text-[#25251F] text-xs font-medium px-3 py-2 rounded-lg flex items-center gap-2 hover:bg-[#F1EFE8] transition-colors shadow-2xs cursor-pointer"
+            >
+              <Calendar className="w-3.5 h-3.5 text-[#77766E]" />
+              <span>{dateRange}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-[#77766E]" />
+            </button>
+
+            {/* Governance Indicator Pill */}
+            <div className="hidden sm:flex items-center gap-2 text-xs text-[#77766E] bg-[#F1EFE8] px-3 py-2 rounded-lg border border-[#E5E1D8]">
+              <History className="w-3.5 h-3.5 text-[#68745D]" />
+              <span>Immutable Governance Log</span>
             </div>
-          </>
+          </div>
         }
       />
 
-      {/* 2. Gantt Schedule Timeline Hero with Wide Filters & Interactive Date Picker */}
-      <section aria-label="Decision Timeline Workstation">
-        <DecisionHistoryTimeline
-          items={items}
-          selectedId={modalItem?.id || ''}
-          onSelect={handleCardClick}
-          statusFilter={statusFilter}
-          onFilterChange={(flt) => setStatusFilter(flt)}
-        />
-      </section>
+      {/* Error notification */}
+      {error && (
+        <div className="bg-[#F7EBEA] border border-[#E8CFCB] text-[#9A4C42] text-xs p-4 rounded-xl flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => loadSubmissions()}
+            className="text-xs font-semibold underline hover:no-underline cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
-      {/* 3. Pop-up Card with blurred background and smooth GSAP entrance from bottom */}
-      <DecisionDetailModal
-        item={modalItem}
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        showToast={showToast}
-      />
+      {/* 2. Split Workbench: Submissions Selector & History Timeline */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Column 1: Submissions Selector (4 cols) */}
+        <div className="lg:col-span-4 bg-[#FFFEFA] border border-[#E5E1D8] rounded-2xl p-4 space-y-3 shadow-2xs">
+          <div className="flex items-center justify-between pb-2 border-b border-[#E5E1D8]">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-[#77766E]" />
+              <h2 className="font-serif text-base text-[#25251F] tracking-tight">
+                Select Submission
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={loadSubmissions}
+              disabled={isSubmissionsLoading}
+              className="p-1 rounded-md text-[#77766E] hover:text-[#25251F] transition-colors cursor-pointer"
+              title="Refresh submissions"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSubmissionsLoading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-[#A09D92] absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search submissions..."
+              className="w-full text-xs pl-8 pr-3 py-1.5 rounded-lg border border-[#E5E1D8] bg-[#F7F5F0]/60 text-[#25251F] placeholder:text-[#A09D92] focus:outline-none focus:ring-1 focus:ring-[#68745D]"
+            />
+          </div>
+
+          <div className="space-y-2 overflow-y-auto max-h-[500px] pr-1">
+            {isSubmissionsLoading ? (
+              <div className="py-8 text-center text-xs text-[#77766E] space-y-1">
+                <RefreshCw className="w-4 h-4 animate-spin mx-auto text-[#68745D]" />
+                <p>Loading submissions...</p>
+              </div>
+            ) : filteredSubmissions.length === 0 ? (
+              <div className="py-8 text-center text-xs text-[#77766E]">
+                No submissions found.
+              </div>
+            ) : (
+              filteredSubmissions.map((sub) => {
+                const isSelected = selectedSubmission?.id === sub.id;
+                return (
+                  <div
+                    key={sub.id}
+                    onClick={() => setSelectedSubmission(sub)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setSelectedSubmission(sub);
+                      }
+                    }}
+                    className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer space-y-1.5 ${
+                      isSelected
+                        ? 'border-[#68745D] bg-[#FFFEFA] ring-1 ring-[#68745D] shadow-xs'
+                        : 'border-[#E5E1D8] bg-[#FFFEFA] hover:bg-[#F7F5F0]'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-xs font-semibold text-[#25251F] line-clamp-1">
+                        {sub.title}
+                      </span>
+                      <span className="text-[10px] font-mono uppercase bg-[#F1EFE8] text-[#77766E] px-1.5 py-0.5 rounded flex-shrink-0">
+                        {sub.channel}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] text-[#A09D92] pt-0.5">
+                      <span className="truncate">{sub.submittedBy}</span>
+                      <DecisionBadge decision={sub.status} />
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* Column 2: Audit Trail Timeline (8 cols) */}
+        <div className="lg:col-span-8 space-y-4">
+          <DecisionHistoryTimeline
+            decisions={filteredDecisions}
+            isLoading={isHistoryLoading}
+            submissionTitle={selectedSubmission?.title}
+          />
+
+          {selectedSubmission && (
+            <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-4 flex items-center justify-between text-xs text-[#77766E] shadow-2xs">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-[#25251F]">Submission Status:</span>
+                <DecisionBadge decision={selectedSubmission.status} />
+              </div>
+
+              {selectedSubmission.status === 'REVIEWED' && (
+                <Link
+                  href={`/approvals?submissionId=${selectedSubmission.id}`}
+                  className="text-[#68745D] hover:text-[#515B48] font-semibold flex items-center gap-1 hover:underline"
+                >
+                  <span>Open in Approvals Workbench</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </Link>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
 
 export default function DecisionHistoryPage() {
   return (
-    <AppShell activeItem="Decision History">
-      <DecisionHistoryContent />
-    </AppShell>
+    <Suspense
+      fallback={
+        <AppShell activeItem="Decision History">
+          <div className="py-20 text-center text-xs text-[#77766E]">
+            Loading Decision History...
+          </div>
+        </AppShell>
+      }
+    >
+      <AppShell activeItem="Decision History">
+        <DecisionHistoryContent />
+      </AppShell>
+    </Suspense>
   );
 }

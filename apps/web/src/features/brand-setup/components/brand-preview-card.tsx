@@ -83,4 +83,3 @@ export function BrandPreviewCard({
     </div>
   );
 }
-

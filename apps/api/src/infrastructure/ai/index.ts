@@ -1,9 +1,30 @@
+import type { RewriteAction } from '@evolyn/shared';
+
 /**
  * AI Provider Abstraction Interface
  * Keeps Gemini API integration isolated behind a clean contract
  */
 export interface AIEmbeddingOptions {
   dimensions?: number;
+}
+
+export interface AIRewriteOptions {
+  maxOutputTokens?: number;
+  temperature?: number;
+}
+
+export interface AIRewriteParams {
+  action: RewriteAction;
+  content: string;
+  instructions?: string;
+  rules?: Array<{ id: string; statement: string; severity: string }>;
+  facts?: Array<{ id: string; claim: string; source: string }>;
+  options?: AIRewriteOptions;
+}
+
+export interface AIRewriteResult {
+  rewrittenText: string;
+  rationale: string;
 }
 
 export interface AIProvider {
@@ -32,4 +53,9 @@ export interface AIProvider {
       evidenceStrengthScore: number;
     }>;
   }>;
+
+  /**
+   * Rewrites content according to a specified action, adhering to brand guidelines and verified facts
+   */
+  rewriteContent(params: AIRewriteParams): Promise<AIRewriteResult>;
 }

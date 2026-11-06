@@ -6,7 +6,10 @@ import {
   detectedIssueSchema,
   submitDecisionSchema,
   createApprovedFactSchema,
+  rewriteContentSchema,
+  rewriteResponseSchema,
 } from '../schemas.js';
+import { REWRITE_ACTIONS } from '../constants.js';
 
 describe('Shared Zod Schemas Validation', () => {
   describe('createGuidelineSchema', () => {
@@ -129,6 +132,110 @@ describe('Shared Zod Schemas Validation', () => {
       };
       const result = createApprovedFactSchema.safeParse(invalid);
       assert.equal(result.success, false);
+    });
+  });
+
+  describe('rewriteContentSchema', () => {
+    it('accepts valid input for all eight supported actions', () => {
+      for (const action of REWRITE_ACTIONS) {
+        const payload = {
+          action,
+          content: 'This is authentic brand content to be edited and improved.',
+          instructions: 'Keep voice authoritative and concise.',
+        };
+        const result = rewriteContentSchema.safeParse(payload);
+        assert.equal(result.success, true);
+      }
+    });
+
+    it('rejects invalid action strings', () => {
+      const payload = {
+        action: 'MAKE_FUNNY',
+        content: 'Valid content that has enough length.',
+      };
+      const result = rewriteContentSchema.safeParse(payload);
+      assert.equal(result.success, false);
+      if (!result.success) {
+        assert.ok(result.error.errors.some((e) => e.path.includes('action')));
+      }
+    });
+
+    it('rejects missing content', () => {
+      const payload = {
+        action: 'MAKE_SHORTER',
+      };
+      const result = rewriteContentSchema.safeParse(payload);
+      assert.equal(result.success, false);
+      if (!result.success) {
+        assert.ok(result.error.errors.some((e) => e.path.includes('content')));
+      }
+    });
+
+    it('rejects empty content and whitespace-only content', () => {
+      assert.equal(
+        rewriteContentSchema.safeParse({ action: 'SIMPLIFY', content: '' }).success,
+        false
+      );
+      assert.equal(
+        rewriteContentSchema.safeParse({ action: 'SIMPLIFY', content: '   \n\t  ' }).success,
+        false
+      );
+    });
+
+    it('rejects content exceeding length limit', () => {
+      const payload = {
+        action: 'HUMANIZE',
+        content: 'x'.repeat(50001),
+      };
+      const result = rewriteContentSchema.safeParse(payload);
+      assert.equal(result.success, false);
+      if (!result.success) {
+        assert.ok(result.error.errors.some((e) => e.path.includes('content')));
+      }
+    });
+
+    it('rejects instructions exceeding 1000 characters', () => {
+      const payload = {
+        action: 'CHANGE_TONE',
+        content: 'Valid content.',
+        instructions: 'a'.repeat(1001),
+      };
+      const result = rewriteContentSchema.safeParse(payload);
+      assert.equal(result.success, false);
+    });
+  });
+
+  describe('rewriteResponseSchema', () => {
+    it('accepts valid rewrite responses', () => {
+      const payload = {
+        originalText: 'Raw input content.',
+        rewrittenText: 'Polished brand-compliant copy.',
+        action: 'IMPROVE_WRITING',
+        rationale: 'Enhanced sentence structure and removed ambiguous qualifiers.',
+      };
+      const result = rewriteResponseSchema.safeParse(payload);
+      assert.equal(result.success, true);
+    });
+
+    it('rejects empty rewrittenText or rationale', () => {
+      assert.equal(
+        rewriteResponseSchema.safeParse({
+          originalText: 'Original',
+          rewrittenText: '',
+          action: 'IMPROVE_WRITING',
+          rationale: 'Valid rationale',
+        }).success,
+        false
+      );
+      assert.equal(
+        rewriteResponseSchema.safeParse({
+          originalText: 'Original',
+          rewrittenText: 'Valid rewritten',
+          action: 'IMPROVE_WRITING',
+          rationale: '',
+        }).success,
+        false
+      );
     });
   });
 });

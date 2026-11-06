@@ -7,12 +7,12 @@
 
 ## 1. Module Responsibility
 - Central governance review orchestration pipeline:
-  1. Retrieve submission text and generate query embeddings.
-  2. Perform vector search in pgvector for candidate rules and candidate approved facts.
-  3. Execute deterministic checks (exact banned phrases, case sensitivity, regex brand patterns).
-  4. Invoke Gemini AI via `infrastructure/ai` with structured output prompts.
-  5. Delegate issue persistence to `modules/findings`.
-  6. Compute overall compliance score (0–100%) and persist `ReviewRun`.
+  1. Retrieve the submission through the submissions service and generate a query embedding.
+  2. Retrieve similar rules and approved facts through injected public-service contracts.
+  3. Check exact quoted prohibited phrases before invoking the AI audit.
+  4. Invoke Gemini through `infrastructure/ai` with schema-validated JSON output.
+  5. Discard AI findings whose excerpt or citation cannot be grounded, then persist verified findings through `modules/findings`.
+  6. Compute the compliance score and persist a `ReviewRun`.
 
 ---
 
@@ -20,7 +20,7 @@
 - **Inputs:**
   - `submissionId: string`
 - **Outputs:**
-  - `ReviewResult`: `{ reviewRunId: string, complianceScore: number, issuesCount: number, issues: DetectedIssue[] }`
+  - `ReviewExecutionResult`: `{ reviewRun: ReviewRun, issues: DetectedIssue[] }`
 
 ---
 
@@ -39,6 +39,10 @@ Exported via `modules/reviews/index.ts`:
 - `ReviewService`:
   - `executeReview(submissionId: string): Promise<ReviewExecutionResult>`
   - `getReviewBySubmissionId(submissionId: string): Promise<ReviewExecutionResult | null>`
+
+The service receives submissions, similar-rule search, knowledge search, findings, and AI dependencies via its constructor. The HTTP router is created with `createReviewsRouter(reviewService, submissionService)` so the application can compose those dependencies without importing another module's repository. The router exposes `POST /submissions/:id/analyze` and `GET /submissions/:id/review` relative to its mount path.
+
+The current guidelines service contract does not yet expose `findSimilarRules`; the application composition must provide that adapter, along with an implemented knowledge service, before mounting the review router.
 
 ---
 

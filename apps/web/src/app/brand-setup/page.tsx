@@ -97,11 +97,11 @@ function BrandSetupContent() {
   });
 
   const handleSaveDraft = () => {
-    showToast('Brand setup draft saved successfully.');
+    showToast('Draft retained in local session only. Backend persistence is unavailable.');
   };
 
   const handlePublishSetup = () => {
-    showToast('✓ Brand Setup published successfully across Evolyn workspace!');
+    showToast('Brand setup is in UI preview mode. Backend persistence is unavailable.');
   };
 
   return (
