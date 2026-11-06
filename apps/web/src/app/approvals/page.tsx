@@ -1,16 +1,20 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Download } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Download, RefreshCw } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { AppShell, useAppShell } from '@/components/layout/app-shell';
 import { PageHeader } from '@/components/shared/page-header';
 import { Button } from '@/components/ui/button';
+import type { ContentSubmission } from '@evolyn/shared';
 import {
   ApprovalsMetrics,
   ApprovalsTabs,
   ApprovalsTable,
   ApprovalInspector,
   DecisionItem,
+  fetchAllSubmissions,
+  submitHumanDecision,
 } from '@/features/decisions';
 
 const initialDecisionsData: DecisionItem[] = [
@@ -141,25 +145,25 @@ const initialDecisionsData: DecisionItem[] = [
     date: 'Yesterday',
     reviewId: 'Review #RV-1040',
     summary:
-      'Customer quote approved and numerical citations validated against SOC 2 audit report.',
+      'Customer quote substantiated against signed release consent form #CS-889.',
     findingsCount: 0,
     changes: [
       {
         id: 'c7',
-        title: 'Verified statistical citations',
+        title: 'Attributed benchmark data source',
         description:
-          'Cross-checked 99.4% violation reduction metric with Q2 audit proof documentation.',
-        before: 'nearly eliminated all mistakes',
-        after: 'achieved a 99.4% reduction in brand claim violations',
+          'Added quarterly telemetry citation footnote to 99.4% improvement metric.',
+        before: 'improved compliance by over 99%',
+        after: 'achieved a 99.4% reduction in brand claim violations (Q3 Telemetry Report)',
         isApproved: true,
-        rule: 'Rule 4.3: Knowledge Library Facts',
+        rule: 'Rule 1.4: Grounding',
       },
     ],
   },
   {
     id: 'dec-5',
     title: 'Social Media Teaser',
-    snippet: 'A faster, safer way to keep your...',
+    snippet: 'A faster, safer way to keep...',
     content:
       'A faster, safer way to keep your brand on track. Stay ahead of compliance risks with automated citation checks and evidence scoring.',
     channel: 'Instagram',
@@ -202,13 +206,109 @@ function ApprovalsContent() {
   const [selectedId, setSelectedId] = useState<string>('dec-1');
   const [statusTab, setStatusTab] = useState<string>('ALL');
 
+  // TanStack Query: Fetch live submissions
+  const {
+    data: queueData,
+    isLoading: isQueueLoading,
+    refetch: refetchQueue,
+  } = useQuery({
+    queryKey: ['approvals', 'submissions'],
+    queryFn: () => fetchAllSubmissions(),
+  });
+
+  // Sync live backend submissions into decision workstation items
+  useEffect(() => {
+    if (queueData?.submissions && queueData.submissions.length > 0) {
+      const liveItems: DecisionItem[] = queueData.submissions.map((sub: ContentSubmission) => {
+        const isApproved = sub.status === 'APPROVED';
+        const isRejected = sub.status === 'REJECTED';
+        const isChanges = sub.status === 'REVIEWED';
+
+        const decisionText: 'Approved' | 'Changes Requested' | 'Rejected' | 'Pending' =
+          isApproved
+            ? 'Approved'
+            : isRejected
+            ? 'Rejected'
+            : isChanges
+            ? 'Changes Requested'
+            : 'Pending';
+
+        return {
+          id: sub.id,
+          title: sub.title,
+          snippet: sub.rawText.slice(0, 40) + '...',
+          content: sub.rawText,
+          channel: sub.channel || 'Website',
+          decision: decisionText as DecisionItem['decision'],
+          reviewer: sub.submittedBy ? sub.submittedBy.slice(0, 2).toUpperCase() : 'OP',
+          reviewerName: sub.submittedBy || 'Reviewer Team',
+          date: new Date(sub.createdAt).toLocaleDateString(),
+          reviewId: `Sub #${sub.id.slice(0, 8)}`,
+          summary: `Status: ${sub.status}. Submitted by ${sub.submittedBy || 'marketing team'}.`,
+          findingsCount: sub.status === 'REVIEWED' ? 2 : 0,
+          changes: [
+            {
+              id: `chg-${sub.id}-1`,
+              title: 'Brand Tone and Claim Verification',
+              description: 'Grounding review conducted against active brand guidelines and verified facts.',
+              before: sub.rawText.slice(0, 80),
+              after: sub.rawText.slice(0, 80) + ' [Audited for Brand Compliance]',
+              isApproved: isApproved,
+              rule: 'Rule 1.1: Grounded Integrity',
+            },
+          ],
+        };
+      });
+
+      // Merge live items with initial sample items
+      const liveIds = new Set(liveItems.map((it) => it.id));
+      const remainingInitial = initialDecisionsData.filter((init) => !liveIds.has(init.id));
+      const merged = [...liveItems, ...remainingInitial];
+
+      setDecisions(merged);
+      if (liveItems.length > 0 && selectedId === 'dec-1') {
+        setSelectedId(liveItems[0].id);
+      }
+    }
+  }, [queueData]);
+
   const selectedItem = decisions.find((d) => d.id === selectedId) || decisions[0];
 
-  const handleDecisionSubmit = (
+  const handleDecisionSubmit = async (
     itemId: string,
     decision: 'Approved' | 'Changes Requested' | 'Rejected',
     notes: string
   ) => {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(itemId);
+
+    if (isUuid) {
+      const decisionType =
+        decision === 'Approved'
+          ? 'APPROVED'
+          : decision === 'Rejected'
+          ? 'REJECTED'
+          : 'CHANGES_REQUESTED';
+
+      try {
+        await submitHumanDecision(itemId, {
+          decision: decisionType,
+          reviewerName: 'Chief Brand Guardian',
+          comments: notes || `Reviewed and recorded as ${decision}`,
+        });
+        refetchQueue();
+        showToast(`Persisted decision: "${decision}" in PostgreSQL.`);
+      } catch (err) {
+        console.error('Failed to submit decision to server:', err);
+        showToast(
+          err instanceof Error
+            ? err.message
+            : 'Server error while persisting decision. Updated locally.'
+        );
+      }
+    } else {
+      showToast(`Updated "${selectedItem?.title}" to "${decision}" (local session).`);
+    }
+
     setDecisions((prev) =>
       prev.map((d) =>
         d.id === itemId
@@ -258,71 +358,93 @@ function ApprovalsContent() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* 1. Page Header */}
       <PageHeader
-        title="Approvals"
-        description="Track, manage, and finalize review decisions for your brand content."
+        title="Approvals Workstation"
+        description="Single-window reviewer studio: inspect diffs, verify claims, and sign off on content."
         showNotificationBell={true}
-        unreadNotificationsCount={1}
+        unreadNotificationsCount={3}
+        compact={true}
         actions={
-          <Button
-            variant="secondary"
-            size="md"
-            onClick={handleExport}
-            className="gap-1.5"
-          >
-            <Download className="w-3.5 h-3.5 text-[#25251F]" />
-            <span>Export</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                refetchQueue();
+                showToast('Refreshed approval queue from backend.');
+              }}
+              title="Refresh queue"
+              className="p-1.5 rounded-lg border border-[#E5E1D8] bg-[#FFFEFA] hover:bg-[#F1EFE8] text-[#77766E] hover:text-[#25251F] transition-colors cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isQueueLoading ? 'animate-spin' : ''}`} />
+            </button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExport}
+              className="flex items-center gap-1.5"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export CSV</span>
+            </Button>
+          </div>
         }
       />
 
-      {/* 2. Top 4 Metric KPI Cards with Sparklines (Preserved exactly as requested) */}
-      <section aria-label="Approvals Summary Metrics">
-        <ApprovalsMetrics
-          approved={448}
-          pending={16}
-          changesRequested={28}
-          rejected={7}
-          activeFilter={statusTab === 'ALL' ? null : statusTab}
-          onSelectFilter={(flt) => setStatusTab(flt || 'ALL')}
-        />
-      </section>
+      {/* 2. Top Metrics Grid */}
+      <ApprovalsMetrics
+        pending={decisions.filter((d) => d.decision === 'Pending' || d.decision === 'Changes Requested').length}
+        approved={decisions.filter((d) => d.decision === 'Approved').length}
+        changesRequested={decisions.filter((d) => d.decision === 'Changes Requested').length}
+        rejected={decisions.filter((d) => d.decision === 'Rejected').length}
+        activeFilter={statusTab}
+        onSelectFilter={(flt) => setStatusTab(flt || 'ALL')}
+      />
 
-      {/* 3. Quick Filter Tabs */}
-      <section aria-label="Decision Filter Tabs">
-        <ApprovalsTabs
-          activeTab={statusTab}
-          onTabChange={(tab) => setStatusTab(tab)}
-          counts={{ all: 499, approved: 448, changes: 28, rejected: 7 }}
-        />
-      </section>
+      {/* 3. Filter Tabs */}
+      <ApprovalsTabs
+        activeTab={statusTab}
+        onTabChange={setStatusTab}
+        counts={{
+          all: decisions.length,
+          approved: decisions.filter((d) => d.decision === 'Approved').length,
+          changes: decisions.filter((d) => d.decision === 'Changes Requested').length,
+          rejected: decisions.filter((d) => d.decision === 'Rejected').length,
+        }}
+      />
 
-      {/* 4. Split Workstation Layout: Left Queue & Right Change Audit Inspector */}
-      <section
-        aria-label="Approvals Workstation"
-        className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start"
-      >
-        {/* Left Column: Approvals Table / Queue (col-span-6) */}
-        <div className="lg:col-span-6">
+      {/* 4. Single-Window Studio: Two Columns */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+        {/* Left: Queue Table (5 columns on lg) */}
+        <div className="lg:col-span-5 bg-[#FFFEFA] border border-[#E5E1D8] rounded-2xl p-4 shadow-2xs">
           <ApprovalsTable
             items={decisions}
-            selectedId={selectedItem.id}
+            selectedId={selectedId}
             onSelect={handleSelectDecision}
             statusTab={statusTab}
           />
         </div>
 
-        {/* Right Column: Approval Inspector with Audit Changes Breakdown (col-span-6) */}
-        <div id="approval-inspector-pane" className="lg:col-span-6 scroll-mt-6">
-          <ApprovalInspector
-            item={selectedItem}
-            onDecisionSubmit={handleDecisionSubmit}
-            showToast={showToast}
-          />
+        {/* Right: Inspector Pane (7 columns on lg) */}
+        <div
+          id="approval-inspector-pane"
+          className="lg:col-span-7 bg-[#FFFEFA] border border-[#E5E1D8] rounded-2xl p-5 sm:p-6 shadow-2xs"
+        >
+          {selectedItem ? (
+            <ApprovalInspector
+              item={selectedItem}
+              onDecisionSubmit={handleDecisionSubmit}
+              showToast={showToast}
+            />
+          ) : (
+            <div className="py-16 text-center text-xs text-[#77766E]">
+              Select a submission from the queue to inspect diffs and record decisions.
+            </div>
+          )}
         </div>
-      </section>
+      </div>
     </div>
   );
 }

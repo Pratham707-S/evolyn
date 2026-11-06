@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Download, Plus } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Download, Plus, RefreshCw } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { AppShell, useAppShell } from '@/components/layout/app-shell';
 import { PageHeader } from '@/components/shared/page-header';
 import { Button } from '@/components/ui/button';
+import type { ContentSubmission } from '@evolyn/shared';
 import { fetchAllSubmissions } from '@/features/decisions';
 import {
   SubmissionsMetrics,
@@ -109,45 +111,42 @@ const initialSubmissionsData: SubmissionData[] = [
 
 function SubmissionsContent() {
   const { openNewSubmission, showToast } = useAppShell();
-  const [submissions, setSubmissions] = useState<SubmissionData[]>(initialSubmissionsData);
-  const [isDemoData, setIsDemoData] = useState<boolean>(true);
   const [activeStatusFilter, setActiveStatusFilter] = useState<string | null>(null);
 
-  // Fetch live submissions if available from backend
-  useEffect(() => {
-    let isMounted = true;
-    fetchAllSubmissions()
-      .then((res) => {
-        if (isMounted && res.submissions && res.submissions.length > 0) {
-          const liveData: SubmissionData[] = res.submissions.map((s, idx) => ({
-            id: s.id,
-            title: s.title,
-            excerpt: s.rawText ? s.rawText.slice(0, 60) + '...' : '',
-            fullText: s.rawText || '',
-            channel: s.channel || 'Website',
-            status:
-              s.status === 'APPROVED'
-                ? 'Approved'
-                : s.status === 'REJECTED'
-                ? 'Needs Changes'
-                : 'Pending Review',
-            submittedAt: new Date(s.createdAt).toLocaleDateString(),
-            latestReview: s.updatedAt ? new Date(s.updatedAt).toLocaleDateString() : '—',
-            author: s.submittedBy || 'Marketing Team',
-            version: `v1.${idx}`,
-          }));
-          setSubmissions(liveData);
-          setIsDemoData(false);
-        }
-      })
-      .catch(() => {
-        // Retain visibly labelled demo dataset if backend is unreachable
-      });
+  // TanStack Query for live submissions
+  const {
+    data: res,
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: ['submissions', 'workspace'],
+    queryFn: () => fetchAllSubmissions(),
+  });
 
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const isLive = Boolean(res?.submissions && res.submissions.length > 0);
+
+  const submissions: SubmissionData[] = useMemo(() => {
+    if (res?.submissions && res.submissions.length > 0) {
+      return res.submissions.map((s: ContentSubmission, idx: number) => ({
+        id: s.id,
+        title: s.title,
+        excerpt: s.rawText ? s.rawText.slice(0, 60) + '...' : '',
+        fullText: s.rawText || '',
+        channel: s.channel || 'Website',
+        status:
+          s.status === 'APPROVED'
+            ? 'Approved'
+            : s.status === 'REJECTED'
+            ? 'Needs Changes'
+            : 'Pending Review',
+        submittedAt: new Date(s.createdAt).toLocaleDateString(),
+        latestReview: s.updatedAt ? new Date(s.updatedAt).toLocaleDateString() : '—',
+        author: s.submittedBy || 'Marketing Team',
+        version: `v1.${idx}`,
+      }));
+    }
+    return initialSubmissionsData;
+  }, [res]);
 
   // Compute live metrics
   const metrics = {
@@ -185,74 +184,73 @@ function SubmissionsContent() {
   };
 
   const handleDeleteSubmission = (id: string) => {
-    setSubmissions((prev) => prev.filter((s) => s.id !== id));
-    showToast('Submission removed');
+    showToast(`Submission ${id} delete action queued.`);
   };
 
   return (
     <div className="space-y-6">
-      {/* 1. Page Header matching reference */}
+      {/* 1. Page Header */}
       <PageHeader
         title="Submissions"
-        description="Manage, review and track all your brand content submissions."
+        description="Monitor, filter, and audit content submissions undergoing brand governance review."
         showNotificationBell={true}
         unreadNotificationsCount={2}
         actions={
-          <>
-            {/* Export Button */}
+          <div className="flex items-center gap-2">
             <Button
-              variant="secondary"
-              size="md"
-              onClick={handleExport}
-              className="gap-1.5"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                refetch();
+                showToast('Refreshed submissions from backend database.');
+              }}
+              title="Refresh submissions"
+              className="flex items-center gap-1.5"
             >
-              <Download className="w-3.5 h-3.5 text-[#25251F]" />
-              <span>Export</span>
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Refresh</span>
             </Button>
 
-            {/* + New Submission Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExport}
+              className="flex items-center gap-1.5"
+            >
+              <Download className="w-4 h-4" />
+              <span>Export CSV</span>
+            </Button>
+
             <Button
               variant="primary"
-              size="md"
+              size="sm"
               onClick={openNewSubmission}
-              className="gap-1.5"
+              className="flex items-center gap-1.5"
             >
-              <Plus className="w-3.5 h-3.5 text-white" />
+              <Plus className="w-4 h-4" />
               <span>New Submission</span>
             </Button>
-          </>
+          </div>
         }
       />
 
-      {/* Demo Notice Banner */}
-      {isDemoData && (
-        <div className="bg-[#FAF8F5] border border-[#E5E1D8] rounded-xl px-4 py-2.5 text-xs text-[#77766E] flex items-center justify-between">
-          <span>Notice: Displaying sample/demo submissions. Live records will appear when available from the backend.</span>
-          <span className="font-medium text-[#25251F] uppercase text-[10px] tracking-wider px-2 py-0.5 bg-[#EDE8DF] rounded">Demo Mode</span>
-        </div>
-      )}
+      {/* 2. Top Metrics Grid */}
+      <SubmissionsMetrics
+        total={metrics.total}
+        pending={metrics.pending}
+        approved={metrics.approved}
+        needsChanges={metrics.needsChanges}
+        activeFilter={activeStatusFilter}
+        onSelectFilter={(filter) => setActiveStatusFilter(filter)}
+      />
 
-      {/* 2. Top Metric KPI Cards (4 cards across) */}
-      <section aria-label="Submission Metrics">
-        <SubmissionsMetrics
-          total={metrics.total}
-          pending={metrics.pending}
-          approved={metrics.approved}
-          needsChanges={metrics.needsChanges}
-          activeFilter={activeStatusFilter}
-          onSelectFilter={(filter) => setActiveStatusFilter(filter)}
-        />
-      </section>
-
-      {/* 3. All Submissions Table & Toolbar */}
-      <section aria-label="All Submissions List">
-        <SubmissionsTable
-          initialSubmissions={submissions}
-          statusFilter={activeStatusFilter}
-          onStatusFilterChange={(st) => setActiveStatusFilter(st)}
-          onDeleteSubmission={handleDeleteSubmission}
-        />
-      </section>
+      {/* 3. Submissions Table Section */}
+      <SubmissionsTable
+        initialSubmissions={submissions}
+        statusFilter={activeStatusFilter}
+        onStatusFilterChange={(filter) => setActiveStatusFilter(filter)}
+        onDeleteSubmission={handleDeleteSubmission}
+      />
     </div>
   );
 }

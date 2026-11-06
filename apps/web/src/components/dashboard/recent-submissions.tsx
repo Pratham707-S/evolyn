@@ -12,12 +12,16 @@ export interface SubmissionItem {
 
 interface RecentSubmissionsProps {
   submissions?: SubmissionItem[];
+  isLive?: boolean;
+  isLoading?: boolean;
   onViewAll?: () => void;
   onSelectSubmission?: (submission: SubmissionItem) => void;
 }
 
 export function RecentSubmissions({
   submissions,
+  isLive = false,
+  isLoading = false,
   onViewAll,
   onSelectSubmission,
 }: RecentSubmissionsProps) {
@@ -58,8 +62,12 @@ export function RecentSubmissions({
           <h2 className="font-serif text-lg font-normal text-[#25251F] tracking-tight">
             Recent Submissions
           </h2>
-          <span className="text-[10px] font-mono uppercase tracking-wider text-[#A09D92] bg-[#F1EFE8] px-1.5 py-0.5 rounded">
-            Demo Preview
+          <span className={`text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded ${
+            isLive
+              ? 'text-[#4E6B54] bg-[#E8EBE1] border border-[#68745D]/20'
+              : 'text-[#A09D92] bg-[#F1EFE8]'
+          }`}>
+            {isLive ? 'Live Database' : 'Demo Preview'}
           </span>
         </div>
         <button

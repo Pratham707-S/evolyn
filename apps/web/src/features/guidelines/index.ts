@@ -10,3 +10,4 @@ export type { Guideline, GuidelineRule, GuidelineConflict };
 
 export * from './data/guidelines-data';
 export * from './components';
+export * from './api/guidelines-api';

@@ -1,7 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api/client';
+import type { ContentSubmission } from '@evolyn/shared';
 import {
   DashboardSidebar,
   DashboardHeader,
@@ -21,33 +24,63 @@ export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [notificationToast, setNotificationToast] = useState<string | null>(null);
 
-  // Initial submissions matching the reference image exactly
-  const [submissions, setSubmissions] = useState<SubmissionItem[]>([
-    {
-      id: 'sub-1',
-      title: 'Q3 Product Campaign (LinkedIn)',
-      timestamp: '2h ago',
-      status: 'Needs changes',
-    },
-    {
-      id: 'sub-2',
-      title: 'Website Hero Update',
-      timestamp: '4h ago',
-      status: 'Approved',
-    },
-    {
-      id: 'sub-3',
-      title: 'Product Launch Email',
-      timestamp: '6h ago',
-      status: 'Approved',
-    },
-    {
-      id: 'sub-4',
-      title: 'Customer Case Study',
-      timestamp: 'Yesterday',
-      status: 'Needs changes',
-    },
-  ]);
+  // Fetch real submissions from Neon PostgreSQL via Express API
+  const {
+    data: submissionsData,
+    isLoading: isSubmissionsLoading,
+    refetch: refetchSubmissions,
+  } = useQuery({
+    queryKey: ['submissions', 'list'],
+    queryFn: () =>
+      apiClient.get<{ submissions: ContentSubmission[]; total: number }>('/api/submissions'),
+  });
+
+  const isLive = Boolean(submissionsData?.submissions && submissionsData.submissions.length > 0);
+
+  // Map live submissions or fallback to initial preview items
+  const submissions: SubmissionItem[] = useMemo(() => {
+    if (submissionsData?.submissions && submissionsData.submissions.length > 0) {
+      return submissionsData.submissions.slice(0, 5).map((s: ContentSubmission) => ({
+        id: s.id,
+        title: s.title,
+        timestamp: new Date(s.createdAt).toLocaleDateString(),
+        status:
+          s.status === 'APPROVED'
+            ? 'Approved'
+            : s.status === 'REJECTED'
+            ? 'Needs changes'
+            : 'Pending',
+      }));
+    }
+
+    // Default fallback dataset
+    return [
+      {
+        id: 'sub-1',
+        title: 'Q3 Product Campaign (LinkedIn)',
+        timestamp: '2h ago',
+        status: 'Needs changes',
+      },
+      {
+        id: 'sub-2',
+        title: 'Website Hero Update',
+        timestamp: '4h ago',
+        status: 'Approved',
+      },
+      {
+        id: 'sub-3',
+        title: 'Product Launch Email',
+        timestamp: '6h ago',
+        status: 'Approved',
+      },
+      {
+        id: 'sub-4',
+        title: 'Customer Case Study',
+        timestamp: 'Yesterday',
+        status: 'Needs changes',
+      },
+    ];
+  }, [submissionsData]);
 
   const navRoutes: Record<string, string> = {
     Dashboard: '/',
@@ -74,8 +107,8 @@ export default function Home() {
   };
 
   const handleNewSubmissionSuccess = (newSub: SubmissionItem) => {
-    setSubmissions([newSub, ...submissions.slice(0, 3)]);
-    setNotificationToast(`Added "${newSub.title}" to local demo state (not persisted).`);
+    refetchSubmissions();
+    setNotificationToast(`Persisted "${newSub.title}" in PostgreSQL database.`);
     setTimeout(() => {
       setNotificationToast(null);
     }, 4000);
@@ -105,7 +138,7 @@ export default function Home() {
         onNavigate={handleNavigate}
       />
 
-      {/* Main Content Area: in-flow flex child, starts right after sidebar */}
+      {/* Main Content Area */}
       <main className="flex-1 min-w-0">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-4">
           {/* Toast feedback banner */}
@@ -128,7 +161,7 @@ export default function Home() {
             <WorkflowStepper onStepClick={handleStepClick} />
           </section>
 
-          {/* Row 2: Middle Charts (Brand Compliance & Content by Status) */}
+          {/* Row 2: Middle Charts */}
           <section
             aria-label="Compliance and Review Analytics"
             className="grid grid-cols-1 lg:grid-cols-2 gap-4"
@@ -137,7 +170,7 @@ export default function Home() {
             <ContentStatusChart />
           </section>
 
-          {/* Row 3: Bottom Analytics (4 KPI Metrics & Recent Submissions) */}
+          {/* Row 3: Bottom Analytics */}
           <section
             aria-label="Platform Health and Recent Audits"
             className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start"
@@ -145,8 +178,10 @@ export default function Home() {
             <DashboardMetrics />
             <RecentSubmissions
               submissions={submissions}
+              isLive={isLive}
+              isLoading={isSubmissionsLoading}
               onViewAll={() => router.push('/submissions')}
-              onSelectSubmission={(sub) => router.push('/reviews')}
+              onSelectSubmission={() => router.push('/reviews')}
             />
           </section>
 

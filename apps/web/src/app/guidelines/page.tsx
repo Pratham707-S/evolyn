@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { Bell, Download, Plus, Menu } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Bell, Download, Plus, Menu, RefreshCw } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { AppShell, useAppShell } from '@/components/layout/app-shell';
 import {
   INITIAL_CATEGORIES,
@@ -15,6 +16,9 @@ import {
   NewGuidelineModal,
   ImportGuidelineModal,
   EditCategoryModal,
+  fetchAllGuidelines,
+  createGuideline,
+  BackendGuidelineWithRules,
 } from '@/features/guidelines';
 
 function GuidelinesContent() {
@@ -23,6 +27,38 @@ function GuidelinesContent() {
   // Categories & Guidelines state
   const [categories, setCategories] = useState<GuidelineCategoryItem[]>(INITIAL_CATEGORIES);
   const [guidelines, setGuidelines] = useState<GuidelineItem[]>(INITIAL_GUIDELINES);
+
+  // TanStack Query for live guidelines from Express backend
+  const {
+    data: backendGuidelines,
+    isLoading: isGuidelinesLoading,
+    refetch: refetchGuidelines,
+  } = useQuery({
+    queryKey: ['guidelines', 'list'],
+    queryFn: () => fetchAllGuidelines(),
+  });
+
+  // Merge live backend guidelines when available
+  useEffect(() => {
+    if (backendGuidelines && backendGuidelines.length > 0) {
+      const mappedBackendItems: GuidelineItem[] = backendGuidelines.map((bg: BackendGuidelineWithRules) => ({
+        id: bg.id,
+        categoryId: bg.category?.toLowerCase() || 'messaging',
+        categoryName: bg.category || 'General',
+        title: bg.title,
+        description: bg.rawContent.slice(0, 160) + (bg.rawContent.length > 160 ? '...' : ''),
+        status: (bg.status === 'ACTIVE' ? 'Active' : 'Draft') as GuidelineItemStatus,
+        updatedAt: new Date(bg.updatedAt).toLocaleDateString(),
+        severity: 'CRITICAL',
+        ruleStatement: bg.rawContent,
+      }));
+
+      // Combine unique by ID with initial sample items
+      const existingIds = new Set(mappedBackendItems.map((m) => m.id));
+      const remainingInitial = INITIAL_GUIDELINES.filter((ig) => !existingIds.has(ig.id));
+      setGuidelines([...mappedBackendItems, ...remainingInitial]);
+    }
+  }, [backendGuidelines]);
 
   // Active navigation & filters
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | 'all'>('tone-voice');
@@ -85,11 +121,11 @@ function GuidelinesContent() {
     setMobileTab('guidelines');
   };
 
-  const handleSaveGuideline = (
+  const handleSaveGuideline = async (
     data: Omit<GuidelineItem, 'id' | 'updatedAt'> & { id?: string }
   ) => {
     if (data.id) {
-      // Edit existing
+      // Edit existing locally
       setGuidelines((prev) =>
         prev.map((item) =>
           item.id === data.id
@@ -103,14 +139,34 @@ function GuidelinesContent() {
       );
       showToast(`Updated guideline: "${data.title}"`);
     } else {
-      // Add new
-      const newItem: GuidelineItem = {
-        id: `g-${Date.now()}`,
-        ...data,
-        updatedAt: 'Just now',
-      };
-      setGuidelines((prev) => [newItem, ...prev]);
-      showToast(`Created new guideline: "${data.title}"`);
+      // Add new: Persist to backend PostgreSQL database
+      try {
+        const created = await createGuideline({
+          title: data.title,
+          category: data.categoryName.toUpperCase().replace(/\s+/g, '_'),
+          rawContent: data.description + (data.ruleStatement ? `\nRule: ${data.ruleStatement}` : ''),
+          version: '1.0',
+        });
+
+        const newItem: GuidelineItem = {
+          id: created.id,
+          ...data,
+          updatedAt: 'Just now',
+        };
+        setGuidelines((prev) => [newItem, ...prev]);
+        refetchGuidelines();
+        showToast(`Persisted guideline "${data.title}" to database.`);
+      } catch (err) {
+        console.error('Failed to persist guideline to database:', err);
+        // Optimistic fallback
+        const newItem: GuidelineItem = {
+          id: `g-${Date.now()}`,
+          ...data,
+          updatedAt: 'Just now',
+        };
+        setGuidelines((prev) => [newItem, ...prev]);
+        showToast(`Created guideline "${data.title}" (local state fallback).`);
+      }
     }
   };
 
@@ -120,67 +176,91 @@ function GuidelinesContent() {
     showToast(`Deleted guideline: "${target?.title || guidelineId}"`);
   };
 
-  const handleStatusChange = (guidelineId: string, newStatus: GuidelineItemStatus) => {
-    setGuidelines((prev) =>
-      prev.map((g) => (g.id === guidelineId ? { ...g, status: newStatus } : g))
-    );
-  };
-
-  const handleSaveCategory = (updatedCategory: GuidelineCategoryItem) => {
+  const handleEditCategorySave = (updatedCat: GuidelineCategoryItem) => {
     setCategories((prev) =>
-      prev.map((c) => (c.id === updatedCategory.id ? updatedCategory : c))
+      prev.map((c) => (c.id === updatedCat.id ? updatedCat : c))
     );
-    showToast(`Updated category "${updatedCategory.name}"`);
+    showToast(`Category "${updatedCat.name}" updated successfully`);
   };
 
-  const handleImportSuccess = (importedCount: number, catId: string) => {
-    const targetCat = categories.find((c) => c.id === catId);
-    showToast(
-      `✓ Successfully imported ${importedCount} rules into "${targetCat?.name || 'Category'}"!`
-    );
+  const handleExport = () => {
+    const csvContent =
+      'data:text/csv;charset=utf-8,' +
+      ['Category,Title,Description,Status,Severity,Updated At']
+        .concat(
+          guidelines.map(
+            (g) =>
+              `"${g.categoryName}","${g.title}","${g.description.replace(/"/g, '""')}","${g.status}","${g.severity}","${g.updatedAt}"`
+          )
+        )
+        .join('\n');
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `evolyn-brand-guidelines-${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    showToast('Brand Guidelines exported to CSV successfully');
   };
 
   return (
-    <div className="space-y-4 pb-8">
+    <div className="space-y-4">
       {/* 1. Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#E5E1D8]/60 shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 border-b border-[#E5E1D8]">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={openMobileSidebar}
             aria-label="Open sidebar"
-            className="lg:hidden p-2 -ml-2 rounded-lg text-[#73736C] hover:text-[#25251F] hover:bg-[#EAE6DF] cursor-pointer"
+            className="lg:hidden p-2 -ml-2 rounded-lg text-[#77766E] hover:text-[#25251F] hover:bg-[#EAE6DF] cursor-pointer"
           >
             <Menu className="w-5 h-5" />
           </button>
-
           <div>
-            <h1 className="font-serif text-2xl sm:text-3xl text-[#25251F] tracking-tight">
-              Guidelines
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="font-serif text-2xl sm:text-3xl text-[#25251F] tracking-tight">
+                Brand Guidelines
+              </h1>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#E8EBE1] text-[#4E6B54] border border-[#68745D]/20">
+                {backendGuidelines && backendGuidelines.length > 0 ? 'Live Sync' : 'Seeded'}
+              </span>
+            </div>
             <p className="text-xs sm:text-sm text-[#77766E] mt-0.5">
-              Define, manage, and keep your brand guidelines up to date for accurate AI reviews.
+              Atomic, verifiable rules governing brand voice, messaging, and claims.
             </p>
           </div>
         </div>
 
-        {/* Action Controls */}
-        <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
-            onClick={() => showToast('All notifications are up to date.')}
-            className="p-2 sm:p-2.5 rounded-xl border border-[#E5E1D8] bg-[#FFFEFA] hover:bg-[#F2EFE8] text-[#25251F] transition-colors cursor-pointer shadow-2xs"
-            title="Notifications"
+            onClick={() => {
+              refetchGuidelines();
+              showToast('Refreshed brand guidelines from backend.');
+            }}
+            title="Refresh guidelines"
+            className="p-2 rounded-xl border border-[#E5E1D8] bg-[#FFFEFA] hover:bg-[#F1EFE8] text-[#77766E] hover:text-[#25251F] transition-colors cursor-pointer"
           >
-            <Bell className="w-4 h-4" />
+            <RefreshCw className={`w-4 h-4 ${isGuidelinesLoading ? 'animate-spin' : ''}`} />
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExport}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#E5E1D8] bg-[#FFFEFA] hover:bg-[#F1EFE8] text-[#25251F] text-xs font-medium transition-colors cursor-pointer shadow-2xs"
+          >
+            <Download className="w-3.5 h-3.5 text-[#77766E]" />
+            <span className="hidden sm:inline">Export</span>
           </button>
 
           <button
             type="button"
             onClick={() => setIsImportModalOpen(true)}
-            className="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-[#E5E1D8] bg-[#FFFEFA] hover:bg-[#F2EFE8] text-xs sm:text-sm font-medium text-[#25251F] transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#E5E1D8] bg-[#FFFEFA] hover:bg-[#F1EFE8] text-[#25251F] text-xs font-medium transition-colors cursor-pointer shadow-2xs"
           >
-            <Download className="w-4 h-4 text-[#68745D]" />
             <span>Import</span>
           </button>
 
@@ -190,32 +270,30 @@ function GuidelinesContent() {
               setEditingGuideline(null);
               setIsNewModalOpen(true);
             }}
-            className="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-[#25251F] hover:bg-[#383832] text-xs sm:text-sm font-semibold text-white transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#25251F] hover:bg-[#383832] text-white text-xs font-semibold transition-colors cursor-pointer shadow-xs"
           >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
+            <Plus className="w-4 h-4" />
             <span>New Guideline</span>
           </button>
         </div>
       </div>
 
-      {/* 2. Category Filter Pills Row (Top Horizontal Tabs) */}
-      <div className="shrink-0">
-        <CategoryPills
-          categories={categories}
-          selectedCategoryId={selectedCategoryId}
-          totalGuidelinesCount={guidelines.length}
-          onSelectCategory={handleSelectCategory}
-        />
-      </div>
+      {/* 2. Horizontal Category Pills (Quick-filter) */}
+      <CategoryPills
+        categories={categories}
+        selectedCategoryId={selectedCategoryId}
+        totalGuidelinesCount={guidelines.length}
+        onSelectCategory={handleSelectCategory}
+      />
 
-      {/* 3. Mobile View Switcher (Visible on < lg screens) */}
-      <div className="lg:hidden shrink-0 flex items-center bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-1 gap-1">
+      {/* 3. Mobile View Switcher (Categories vs Guidelines List) */}
+      <div className="lg:hidden flex items-center border-b border-[#E5E1D8] bg-[#FFFEFA] rounded-lg p-1 text-xs">
         <button
           type="button"
           onClick={() => setMobileTab('categories')}
-          className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+          className={`flex-1 py-1.5 text-center font-medium rounded-md transition-colors ${
             mobileTab === 'categories'
-              ? 'bg-[#25251F] text-white font-semibold shadow-xs'
+              ? 'bg-[#25251F] text-white shadow-2xs'
               : 'text-[#77766E] hover:text-[#25251F]'
           }`}
         >
@@ -224,21 +302,21 @@ function GuidelinesContent() {
         <button
           type="button"
           onClick={() => setMobileTab('guidelines')}
-          className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+          className={`flex-1 py-1.5 text-center font-medium rounded-md transition-colors ${
             mobileTab === 'guidelines'
-              ? 'bg-[#25251F] text-white font-semibold shadow-xs'
+              ? 'bg-[#25251F] text-white shadow-2xs'
               : 'text-[#77766E] hover:text-[#25251F]'
           }`}
         >
-          Guidelines ({filteredGuidelines.length})
+          Rules ({filteredGuidelines.length})
         </button>
       </div>
 
-      {/* 4. Two-Column Workspace Grid: Parent cards hug content */}
+      {/* 4. Two-Column Workspace Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-        {/* Left Column: Category Sidebar (4 cols on desktop) */}
+        {/* Left Column: Category Sidebar (Hidden on mobile when rules tab active) */}
         <div
-          className={`lg:col-span-4 ${
+          className={`lg:col-span-4 xl:col-span-3 ${
             mobileTab === 'categories' ? 'block' : 'hidden lg:block'
           }`}
         >
@@ -247,48 +325,27 @@ function GuidelinesContent() {
             selectedCategoryId={selectedCategoryId}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
-            onSelectCategory={handleSelectCategory}
+            onSelectCategory={(catId) => handleSelectCategory(catId)}
             categoryFilterCounts={categoryCounts}
-            onOpenFilterMenu={() => {
-              const nextStatus =
-                statusFilter === 'ALL'
-                  ? 'Active'
-                  : statusFilter === 'Active'
-                  ? 'Needs Review'
-                  : 'ALL';
-              setStatusFilter(nextStatus);
-              showToast(
-                nextStatus === 'ALL'
-                  ? 'Showing all statuses'
-                  : `Filtered by status: ${nextStatus}`
-              );
-            }}
           />
         </div>
 
-        {/* Right Column: Guidelines List & Category Detail (8 cols on desktop) */}
+        {/* Right Column: Guidelines List (Hidden on mobile when categories tab active) */}
         <div
-          className={`lg:col-span-8 ${
+          className={`lg:col-span-8 xl:col-span-9 ${
             mobileTab === 'guidelines' ? 'block' : 'hidden lg:block'
           }`}
         >
           <GuidelinesList
             currentCategory={currentCategory}
             guidelines={filteredGuidelines}
-            totalCount={guidelines.length}
-            onEditCategory={() => {
-              if (currentCategory) {
-                setIsEditCategoryModalOpen(true);
-              } else {
-                showToast('Select a specific category to edit its details.');
-              }
-            }}
-            onEditGuideline={(guideline) => {
-              setEditingGuideline(guideline);
+            totalCount={filteredGuidelines.length}
+            onEditCategory={() => setIsEditCategoryModalOpen(true)}
+            onEditGuideline={(item) => {
+              setEditingGuideline(item);
               setIsNewModalOpen(true);
             }}
             onDeleteGuideline={handleDeleteGuideline}
-            onStatusChange={handleStatusChange}
             showToast={showToast}
           />
         </div>
@@ -301,26 +358,29 @@ function GuidelinesContent() {
           setIsNewModalOpen(false);
           setEditingGuideline(null);
         }}
+        onSave={handleSaveGuideline}
         categories={categories}
         defaultCategoryId={
-          selectedCategoryId === 'all' ? categories[0]?.id : selectedCategoryId
+          selectedCategoryId !== 'all' ? selectedCategoryId : 'tone-voice'
         }
         initialData={editingGuideline}
-        onSave={handleSaveGuideline}
       />
 
       <ImportGuidelineModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
         categories={categories}
-        onImportSuccess={handleImportSuccess}
+        onImportSuccess={(count) => {
+          refetchGuidelines();
+          showToast(`Imported ${count} guidelines successfully`);
+        }}
       />
 
       <EditCategoryModal
         isOpen={isEditCategoryModalOpen}
+        category={currentCategory || categories[0]}
         onClose={() => setIsEditCategoryModalOpen(false)}
-        category={currentCategory}
-        onSave={handleSaveCategory}
+        onSave={handleEditCategorySave}
       />
     </div>
   );

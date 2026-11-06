@@ -16,6 +16,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { SubmissionItem } from './recent-submissions';
+import { apiClient } from '@/lib/api/client';
 
 interface NewSubmissionModalProps {
   isOpen: boolean;
@@ -268,7 +269,7 @@ export function NewSubmissionModal({
     setIsDragging(false);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!title.trim()) {
@@ -306,21 +307,60 @@ export function NewSubmissionModal({
     setIsSubmitting(true);
     setError(null);
 
-    // Simulate async submission and instant AI review queueing
-    setTimeout(() => {
-      setIsSubmitting(false);
+    const channelMap: Record<string, string> = {
+      LinkedIn: 'SOCIAL',
+      Instagram: 'SOCIAL',
+      'Twitter/X': 'SOCIAL',
+      Website: 'WEBSITE',
+      Blog: 'BLOG',
+      Email: 'EMAIL',
+      Ads: 'AD_COPY',
+    };
+    const backendChannel = channelMap[channel] || 'WEBSITE';
+
+    try {
+      const response = await apiClient.post<{
+        submission: {
+          id: string;
+          title: string;
+          channel: string;
+          status: string;
+          createdAt: string;
+        };
+      }>('/api/submissions', {
+        title: title.trim(),
+        rawText: finalContent,
+        channel: backendChannel,
+        submittedBy: 'Marketing Campaign Team',
+      });
+
+      const sub = response.submission;
       const newEntry: SubmissionItem = {
-        id: `sub-${Date.now()}`,
-        title: `${title} (${channel})`,
+        id: sub.id,
+        title: `${sub.title} (${channel})`,
         timestamp: 'Just now',
-        status: 'Needs changes', // Initial status pending human review
+        status:
+          sub.status === 'APPROVED'
+            ? 'Approved'
+            : sub.status === 'REJECTED'
+            ? 'Needs changes'
+            : 'Pending',
       };
       onSubmitSuccess(newEntry);
       setTitle('');
       setWrittenContent('');
       handleResetFile();
       onClose();
-    }, 450);
+    } catch (err) {
+      console.error('Failed to create submission:', err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to submit content to server. Please try again.'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
