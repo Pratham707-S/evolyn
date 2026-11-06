@@ -1,8 +1,25 @@
 import { db, pool } from './index.js';
-import { guidelines, guidelineRules, approvedFacts, contentSubmissions } from './schema.js';
+import {
+  guidelines,
+  guidelineRules,
+  approvedFacts,
+  contentSubmissions,
+  reviewRuns,
+  detectedIssues,
+  decisions,
+} from './schema.js';
 
 async function seed() {
   console.log('🌱 Starting database seed for Evolyn Brand Governance...');
+
+  // 0. Clean old seed records
+  await db.delete(decisions);
+  await db.delete(detectedIssues);
+  await db.delete(reviewRuns);
+  await db.delete(contentSubmissions);
+  await db.delete(approvedFacts);
+  await db.delete(guidelineRules);
+  await db.delete(guidelines);
 
   // 1. Insert Core Brand Guideline
   const [guideline] = await db
@@ -90,8 +107,8 @@ async function seed() {
 
   console.log(`✅ Seeded ${insertedFacts.length} approved facts`);
 
-  // 4. Insert Sample Content Submission
-  const [submission] = await db
+  // 4. Insert Sample Content Submissions
+  const [pendingSubmission] = await db
     .insert(contentSubmissions)
     .values({
       title: 'Q4 Product Launch Announcement (Draft)',
@@ -102,7 +119,89 @@ async function seed() {
     })
     .returning();
 
-  console.log(`✅ Seeded sample submission: ${submission.title} (${submission.id})`);
+  console.log(`✅ Seeded pending submission: ${pendingSubmission.title} (${pendingSubmission.id})`);
+
+  // 5. Insert Reviewed Submission with Findings (for Approvals Queue)
+  const [reviewedSubmission] = await db
+    .insert(contentSubmissions)
+    .values({
+      title: 'Enterprise Brand Governance Case Study',
+      channel: 'WEBSITE',
+      rawText: `Evolyn enables global marketing teams to enforce brand compliance across distributed pipelines. With zero-hallucination guardrails and automated citation verification, review times are cut from days to minutes.`,
+      submittedBy: 'Content Editorial Lead',
+      status: 'REVIEWED',
+    })
+    .returning();
+
+  console.log(`✅ Seeded reviewed submission: ${reviewedSubmission.title} (${reviewedSubmission.id})`);
+
+  const [reviewRun] = await db
+    .insert(reviewRuns)
+    .values({
+      submissionId: reviewedSubmission.id,
+      overallComplianceScore: 88.5,
+      totalIssuesCount: 2,
+      modelUsed: 'gemini-3.1-flash-lite',
+      summary: {
+        passedChecksCount: 4,
+        failedChecksCount: 2,
+        notes: 'Clear terminology and grounded evidence citations',
+      },
+    })
+    .returning();
+
+  await db.insert(detectedIssues).values([
+    {
+      reviewRunId: reviewRun.id,
+      ruleId: insertedRules[0].id,
+      issueType: 'UNSUBSTANTIATED_CLAIM',
+      flaggedExcerpt: 'review times are cut from days to minutes',
+      explanation: 'Turnaround metric requires substantiation via verified internal case report.',
+      suggestedFix: 'review times are reduced by up to 80% based on verified customer benchmarks',
+      sourceQuote: "All performance claims must be accompanied by appropriate disclaimers.",
+      confidenceScore: 0.94,
+      evidenceStrengthScore: 0.85,
+      status: 'OPEN',
+    },
+    {
+      reviewRunId: reviewRun.id,
+      ruleId: insertedRules[1].id,
+      issueType: 'TERMINOLOGY_VIOLATION',
+      flaggedExcerpt: 'Evolyn',
+      explanation: 'Brand name is correctly capitalized.',
+      suggestedFix: 'Evolyn',
+      sourceQuote: "The brand name must always be capitalized as 'Evolyn'.",
+      confidenceScore: 0.99,
+      evidenceStrengthScore: 0.98,
+      status: 'OPEN',
+    },
+  ]);
+
+  console.log(`✅ Seeded review run & 2 detected issues for ${reviewedSubmission.title}`);
+
+  // 6. Insert Approved Submission with Decision History (for Decision History view)
+  const [decidedSubmission] = await db
+    .insert(contentSubmissions)
+    .values({
+      title: 'Global SOC 2 Certification Press Release',
+      channel: 'PRESS_RELEASE',
+      rawText: `Evolyn announced today that it has achieved ISO/IEC 27001:2022 and SOC 2 Type II certification, verifying its enterprise grade security guardrails.`,
+      submittedBy: 'PR & Communications Team',
+      status: 'APPROVED',
+    })
+    .returning();
+
+  await db.insert(decisions).values([
+    {
+      submissionId: decidedSubmission.id,
+      decision: 'APPROVED',
+      reviewerName: 'Chief Brand Guardian',
+      comments: 'Verified claims against official SOC 2 Type II audit report #EVO-SEC-2025-A. All compliance citations valid.',
+      overriddenIssueIds: [],
+    },
+  ]);
+
+  console.log(`✅ Seeded decision history record for ${decidedSubmission.title}`);
 
   console.log('🎉 Database seeding completed successfully!');
   await pool.end();
