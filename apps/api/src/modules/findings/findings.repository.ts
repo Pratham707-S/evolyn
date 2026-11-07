@@ -54,6 +54,15 @@ export class FindingsRepository {
     return Boolean(run);
   }
 
+  async updateStatus(findingId: string, status: 'OPEN' | 'ACCEPTED' | 'OVERRIDDEN'): Promise<DetectedIssueRecord | null> {
+    const [updated] = await db
+      .update(detectedIssues)
+      .set({ status })
+      .where(eq(detectedIssues.id, findingId))
+      .returning();
+    return updated || null;
+  }
+
   async findCanonicalSource(source: {
     ruleId?: string | null;
     factId?: string | null;

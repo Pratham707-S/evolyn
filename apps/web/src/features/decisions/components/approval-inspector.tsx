@@ -61,18 +61,29 @@ export interface ApprovalInspectorProps {
     notes: string
   ) => void;
   showToast: (msg: string) => void;
+  reviewerComment?: string;
+  onReviewerCommentChange?: (comment: string) => void;
+  onQuickAction?: (action: 'Approved' | 'Changes Requested' | 'Rejected') => void;
+  embedded?: boolean;
 }
 
 export function ApprovalInspector({
   item,
   onDecisionSubmit,
   showToast,
+  reviewerComment: controlledComment,
+  onReviewerCommentChange,
+  onQuickAction,
+  embedded = false,
 }: ApprovalInspectorProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'changes' | 'preview' | 'policy'>('changes');
   const [copied, setCopied] = useState(false);
-  const [reviewerComment, setReviewerComment] = useState('');
+  const [internalComment, setInternalComment] = useState('');
   const [changesFilter, setChangesFilter] = useState<'ALL' | 'APPROVED' | 'PENDING'>('ALL');
+
+  const currentComment = controlledComment !== undefined ? controlledComment : internalComment;
+  const setComment = onReviewerCommentChange || setInternalComment;
 
   const defaultChanges: AuditChangeItem[] = [
     {
@@ -117,7 +128,7 @@ export function ApprovalInspector({
     setLocalChanges(
       item.changes && item.changes.length > 0 ? item.changes : defaultChanges
     );
-    setReviewerComment('');
+    setComment('');
   }, [item.id, item.changes]);
 
   const approvedChanges = localChanges.filter((c) => c.isApproved);
@@ -213,19 +224,25 @@ export function ApprovalInspector({
 
   const handleDecision = (type: 'Approved' | 'Changes Requested' | 'Rejected') => {
     if (onDecisionSubmit) {
-      onDecisionSubmit(item.id, type, reviewerComment);
+      onDecisionSubmit(item.id, type, currentComment);
     }
     showToast(`Decision recorded: ${type} for "${item.title}"`);
-    setReviewerComment('');
+    setComment('');
   };
 
   const applyPresetComment = (preset: string) => {
-    setReviewerComment((prev) => (prev ? `${prev} • ${preset}` : preset));
+    setComment(currentComment ? `${currentComment} • ${preset}` : preset);
     showToast(`Added sign-off note: "${preset}"`);
   };
 
   return (
-    <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-2xl p-5 sm:p-6 space-y-5 shadow-2xs">
+    <div
+      className={
+        embedded
+          ? 'space-y-5'
+          : 'bg-[#FFFEFA] border border-[#E5E1D8] rounded-2xl p-5 sm:p-6 space-y-5 shadow-2xs'
+      }
+    >
       {/* 1. Item Header Bar */}
       <div className="flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-[#E5E1D8]/80">
         <div className="flex items-start gap-3 min-w-0">
@@ -630,7 +647,7 @@ export function ApprovalInspector({
               key={idx}
               type="button"
               onClick={() => applyPresetComment(preset)}
-              className="text-[10px] bg-[#FFFEFA] border border-[#E5E1D8] hover:border-[#68745D] text-[#55544E] hover:text-[#25251F] px-2 py-0.5 rounded-md transition-colors cursor-pointer"
+              className="text-[10px] bg-[#FFFEFA] border border-[#E5E1D8] hover:border-[#68745D] text-[#55544E] hover:text-[#25251F] px-2 py-0.5 rounded-md transition-colors cursor-pointer focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-[#68745D]"
             >
               + {preset}
             </button>
@@ -639,10 +656,10 @@ export function ApprovalInspector({
 
         <textarea
           rows={2}
-          value={reviewerComment}
-          onChange={(e) => setReviewerComment(e.target.value)}
+          value={currentComment}
+          onChange={(e) => setComment(e.target.value)}
           placeholder="Add optional notes for the submitter and audit log before finalizing decision..."
-          className="w-full bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-3 text-xs text-[#25251F] placeholder:text-[#A09D92] focus:outline-none focus:ring-1 focus:ring-[#68745D] transition-all resize-none"
+          className="w-full bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-3 text-xs text-[#25251F] placeholder:text-[#A09D92] focus:outline-hidden focus:ring-1 focus:ring-[#68745D] transition-all resize-none"
         />
 
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
@@ -654,8 +671,9 @@ export function ApprovalInspector({
             <Button
               variant="danger"
               size="sm"
-              onClick={() => handleDecision('Rejected')}
-              className="text-xs cursor-pointer"
+              disabled={item.decision === 'Approved' || item.decision === 'Rejected'}
+              onClick={() => (onQuickAction ? onQuickAction('Rejected') : handleDecision('Rejected'))}
+              className="text-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-[#B56E63]"
             >
               Reject
             </Button>
@@ -663,8 +681,13 @@ export function ApprovalInspector({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handleDecision('Changes Requested')}
-              className="text-xs border-[#B78A4A]/50 text-[#865920] hover:bg-[#FDF4E7] cursor-pointer"
+              disabled={item.decision === 'Approved' || item.decision === 'Rejected'}
+              onClick={() =>
+                onQuickAction
+                  ? onQuickAction('Changes Requested')
+                  : handleDecision('Changes Requested')
+              }
+              className="text-xs border-[#B78A4A]/50 text-[#865920] hover:bg-[#FDF4E7] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-[#B78A4A]"
             >
               Request Changes
             </Button>
@@ -672,8 +695,9 @@ export function ApprovalInspector({
             <Button
               variant="olive"
               size="sm"
-              onClick={() => handleDecision('Approved')}
-              className="text-xs gap-1 shadow-xs font-semibold cursor-pointer"
+              disabled={item.decision === 'Approved' || item.decision === 'Rejected'}
+              onClick={() => (onQuickAction ? onQuickAction('Approved') : handleDecision('Approved'))}
+              className="text-xs gap-1 shadow-xs font-semibold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-[#68745D]"
             >
               <Check className="w-3.5 h-3.5" />
               <span>Approve & Sign-Off</span>

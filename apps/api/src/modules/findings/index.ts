@@ -31,6 +31,10 @@ export interface IFindingsService {
   ): Promise<DetectedIssue[]>;
   verifyVerbatimQuote(quote: string, sourceText: string): boolean;
   getFindingsByReviewRunId(reviewRunId: string): Promise<DetectedIssue[] | null>;
+  updateFindingStatus?(
+    findingId: string,
+    status: 'OPEN' | 'ACCEPTED' | 'OVERRIDDEN'
+  ): Promise<DetectedIssue | null>;
 }
 
 export { FindingsService, findingsService } from './findings.service.js';

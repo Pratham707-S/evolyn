@@ -85,6 +85,34 @@ export class SubmissionRepository {
     return rows;
   }
 
+  async update(
+    id: string,
+    input: {
+      rawText?: string;
+      title?: string;
+      status?: SubmissionStatus;
+    }
+  ): Promise<SubmissionRecord> {
+    const updateData: Partial<typeof contentSubmissions.$inferInsert> = {
+      updatedAt: new Date(),
+    };
+    if (input.rawText !== undefined) updateData.rawText = input.rawText;
+    if (input.title !== undefined) updateData.title = input.title;
+    if (input.status !== undefined) updateData.status = input.status;
+
+    const [updatedSubmission] = await db
+      .update(contentSubmissions)
+      .set(updateData)
+      .where(eq(contentSubmissions.id, id))
+      .returning();
+
+    if (!updatedSubmission) {
+      throw new Error(`Submission not found: ${id}`);
+    }
+
+    return updatedSubmission;
+  }
+
   async updateStatus(id: string, status: SubmissionStatus): Promise<void> {
     const [updatedSubmission] = await db
       .update(contentSubmissions)

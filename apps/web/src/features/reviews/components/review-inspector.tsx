@@ -53,7 +53,7 @@ export function ReviewInspector({
     setAnalyzing(true);
     setTimeout(() => {
       setAnalyzing(false);
-      showToast('AI multi-layer semantic audit re-verified with Gemini 2.0');
+      showToast('AI multi-layer semantic audit re-verified with Evolyn Governance Engine');
     }, 1200);
   };
 
@@ -145,7 +145,7 @@ export function ReviewInspector({
             }`}
           >
             <AlertTriangle className="w-3.5 h-3.5 text-[#B78A4A]" />
-            <span>Findings ({item.findings.length})</span>
+            <span>Findings ({item?.findings?.length || 0})</span>
           </button>
 
           <button
@@ -373,7 +373,7 @@ export function ReviewInspector({
               </div>
               <div className="p-3 flex items-center justify-between bg-[#FFFEFA]">
                 <div>
-                  <p className="font-medium text-[#25251F]">Gemini 2.0 Semantic Evaluation Run</p>
+                  <p className="font-medium text-[#25251F]">Evolyn Semantic Governance Run</p>
                   <p className="text-[11px] text-[#77766E]">Generated 3 potential findings with verbatim quotes</p>
                 </div>
                 <span className="text-[#A09D92]">2h ago</span>

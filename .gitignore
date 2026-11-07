@@ -43,3 +43,5 @@ pnpm-debug.log*
 postgres-data/
 *.sqlite
 *.sqlite3
+uploads/
+apps/api/uploads/

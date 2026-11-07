@@ -4,6 +4,8 @@
 
 @layer base {
   :root {
+    --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-serif: 'Instrument Serif', Georgia, serif;
     --background: #F7F5F0;
     --surface: #FFFEFA;
     --sidebar: #F1EFE8;

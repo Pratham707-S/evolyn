@@ -1,10 +1,31 @@
 import { env } from 'process';
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  (typeof window !== 'undefined'
-    ? `${window.location.protocol}//${window.location.hostname}:5001`
-    : 'http://localhost:5001');
+function getApiBaseUrl(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '');
+  }
+
+  // If running in browser
+  if (typeof window !== 'undefined') {
+    const isLocalhost =
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1';
+
+    if (isLocalhost) {
+      return `${window.location.protocol}//${window.location.hostname}:5001`;
+    }
+
+    // In production browser without explicit NEXT_PUBLIC_API_URL, default to current origin (uses Next.js rewrites)
+    return window.location.origin;
+  }
+
+  // Server-side rendering fallback
+  return process.env.API_URL
+    ? process.env.API_URL.replace(/\/$/, '')
+    : 'http://localhost:5001';
+}
+
+const API_BASE_URL = getApiBaseUrl();
 
 export interface ApiClientOptions extends RequestInit {
   timeoutMs?: number;
@@ -48,6 +69,11 @@ export async function apiClient<T>(
   const headers = new Headers(requestOptions.headers);
   if (!headers.has('Content-Type') && !(requestOptions.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
+  }
+
+  // Set correlation ID for request tracing
+  if (!headers.has('x-request-id') && typeof crypto !== 'undefined' && crypto.randomUUID) {
+    headers.set('x-request-id', crypto.randomUUID());
   }
 
   // Abort controller for timeout handling
@@ -103,7 +129,7 @@ export async function apiClient<T>(
     }
     if (error instanceof Error && error.name === 'AbortError') {
       throw new ApiClientError(
-        `API request timed out after ${timeoutMs}ms: ${endpoint}`,
+        `API request timed out after ${timeoutMs}ms: ${endpoint}. The backend server may still be processing.`,
         408
       );
     }

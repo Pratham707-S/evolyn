@@ -424,7 +424,7 @@ export function SubmissionsTable({
 
         {/* Bottom Pagination Bar */}
         <div className="p-3.5 px-4 bg-[#FAF8F5]/50 border-t border-[#E5E1D8] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-[#77766E]">
-          {/* Summary Label matching reference: "Showing 1-5 of 486 submissions" */}
+          {/* Summary Label: "Showing 1-5 of 12 submissions" */}
           <p>
             Showing{' '}
             <strong className="text-[#25251F] font-medium">
@@ -433,87 +433,55 @@ export function SubmissionsTable({
             </strong>{' '}
             of{' '}
             <strong className="text-[#25251F] font-medium">
-              {totalCount}
+              {displayedTotal}
             </strong>{' '}
             submissions
           </p>
 
-          {/* Pagination Controls */}
-          <div className="flex items-center gap-1 self-center sm:self-auto select-none">
-            {/* Prev Button */}
-            <button
-              type="button"
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              className="w-7 h-7 rounded-lg border border-[#E5E1D8] bg-[#FFFEFA] text-[#25251F] flex items-center justify-center hover:bg-[#F1EFE8] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              aria-label="Previous page"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
+          {/* Dynamic Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1 self-center sm:self-auto select-none">
+              {/* Prev Button */}
+              <button
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="w-7 h-7 rounded-lg border border-[#E5E1D8] bg-[#FFFEFA] text-[#25251F] flex items-center justify-center hover:bg-[#F1EFE8] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
 
-            {/* Page 1 (Active Pill) */}
-            <button
-              type="button"
-              onClick={() => setCurrentPage(1)}
-              className={`w-7 h-7 rounded-lg text-xs font-medium flex items-center justify-center transition-colors ${
-                currentPage === 1
-                  ? 'bg-[#25251F] text-white shadow-xs'
-                  : 'bg-[#FFFEFA] border border-[#E5E1D8] text-[#25251F] hover:bg-[#F1EFE8]'
-              }`}
-            >
-              1
-            </button>
+              {/* Dynamic Page Buttons */}
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                <button
+                  key={pageNum}
+                  type="button"
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`w-7 h-7 rounded-lg text-xs font-medium flex items-center justify-center transition-colors ${
+                    currentPage === pageNum
+                      ? 'bg-[#25251F] text-white shadow-xs'
+                      : 'bg-[#FFFEFA] border border-[#E5E1D8] text-[#25251F] hover:bg-[#F1EFE8]'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              ))}
 
-            {/* Page 2 */}
-            <button
-              type="button"
-              onClick={() => setCurrentPage(2)}
-              className={`w-7 h-7 rounded-lg text-xs font-medium flex items-center justify-center transition-colors ${
-                currentPage === 2
-                  ? 'bg-[#25251F] text-white shadow-xs'
-                  : 'bg-[#FFFEFA] border border-[#E5E1D8] text-[#25251F] hover:bg-[#F1EFE8]'
-              }`}
-            >
-              2
-            </button>
-
-            {/* Page 3 */}
-            <button
-              type="button"
-              onClick={() => setCurrentPage(3)}
-              className={`w-7 h-7 rounded-lg text-xs font-medium flex items-center justify-center transition-colors ${
-                currentPage === 3
-                  ? 'bg-[#25251F] text-white shadow-xs'
-                  : 'bg-[#FFFEFA] border border-[#E5E1D8] text-[#25251F] hover:bg-[#F1EFE8]'
-              }`}
-            >
-              3
-            </button>
-
-            {/* Ellipsis */}
-            <span className="px-1 text-[#A09D92]">...</span>
-
-            {/* Last Page (98) */}
-            <button
-              type="button"
-              onClick={() => setCurrentPage(totalPages > 3 ? totalPages : 98)}
-              className="w-7 h-7 rounded-lg border border-[#E5E1D8] bg-[#FFFEFA] text-[#25251F] text-xs font-medium flex items-center justify-center hover:bg-[#F1EFE8] transition-colors"
-            >
-              98
-            </button>
-
-            {/* Next Button */}
-            <button
-              type="button"
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              className="w-7 h-7 rounded-lg border border-[#E5E1D8] bg-[#FFFEFA] text-[#25251F] flex items-center justify-center hover:bg-[#F1EFE8] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              aria-label="Next page"
-            >
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
+              {/* Next Button */}
+              <button
+                type="button"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="w-7 h-7 rounded-lg border border-[#E5E1D8] bg-[#FFFEFA] text-[#25251F] flex items-center justify-center hover:bg-[#F1EFE8] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                aria-label="Next page"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </div>
+
       </div>
 
       {/* Quick Preview Modal */}

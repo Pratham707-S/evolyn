@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   X,
   Sparkles,
@@ -12,8 +13,8 @@ import {
   CheckCircle2,
   Trash2,
   RefreshCw,
-  AlertTriangle,
   Loader2,
+  ArrowRight,
 } from 'lucide-react';
 import { SubmissionItem } from './recent-submissions';
 import { apiClient } from '@/lib/api/client';
@@ -25,136 +26,16 @@ interface NewSubmissionModalProps {
 }
 
 type InputMode = 'write' | 'upload' | 'url';
-
-/**
- * Extracts plain text from a .txt file
- */
-async function extractTextFromTxt(file: File): Promise<string> {
-  const text = await file.text();
-  const trimmed = text.trim();
-  if (!trimmed) {
-    throw new Error('The uploaded TXT file contains no readable text content.');
-  }
-  return trimmed;
-}
-
-/**
- * Extracts text from a .docx file by inspecting the ZIP package and parsing word/document.xml
- */
-async function extractTextFromDocx(file: File): Promise<string> {
-  const buffer = await file.arrayBuffer();
-  const view = new DataView(buffer);
-  let offset = 0;
-  let documentXmlContent: string | null = null;
-
-  while (offset < view.byteLength - 30) {
-    // Standard ZIP local file header signature: 0x04034b50
-    if (view.getUint32(offset, true) === 0x04034b50) {
-      const compressionMethod = view.getUint16(offset + 8, true);
-      const compressedSize = view.getUint32(offset + 18, true);
-      const fileNameLen = view.getUint16(offset + 26, true);
-      const extraFieldLen = view.getUint16(offset + 28, true);
-      const fileNameBytes = new Uint8Array(buffer, offset + 30, fileNameLen);
-      const fileName = new TextDecoder().decode(fileNameBytes);
-      const dataOffset = offset + 30 + fileNameLen + extraFieldLen;
-
-      if (fileName === 'word/document.xml') {
-        const compressedData = new Uint8Array(buffer, dataOffset, compressedSize);
-        if (compressionMethod === 8) {
-          // Deflate decompression
-          const ds = new DecompressionStream('deflate-raw');
-          const writer = ds.writable.getWriter();
-          writer.write(compressedData);
-          writer.close();
-          const response = new Response(ds.readable);
-          documentXmlContent = await response.text();
-        } else if (compressionMethod === 0) {
-          // Stored uncompressed
-          documentXmlContent = new TextDecoder().decode(compressedData);
-        } else {
-          throw new Error(`Unsupported DOCX compression format (${compressionMethod}).`);
-        }
-        break;
-      }
-      offset = dataOffset + compressedSize;
-    } else {
-      offset++;
-    }
-  }
-
-  if (!documentXmlContent) {
-    throw new Error('Unable to find document body (word/document.xml) inside the DOCX archive.');
-  }
-
-  // Extract all text inside <w:t> XML nodes
-  const textMatches = documentXmlContent.match(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g);
-  if (!textMatches || textMatches.length === 0) {
-    throw new Error('No readable text elements found inside the DOCX document.');
-  }
-
-  const extracted = textMatches
-    .map((tag) => tag.replace(/<[^>]+>/g, ''))
-    .join(' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  if (!extracted) {
-    throw new Error('Extracted DOCX text content is empty.');
-  }
-
-  return extracted;
-}
-
-/**
- * Extracts plain text from a .pdf file by searching for text operators.
- * If the PDF is scanned or requires OCR / custom font decoding, throws a clear, honest error.
- */
-async function extractTextFromPdf(file: File): Promise<string> {
-  const buffer = await file.arrayBuffer();
-  const bytes = new Uint8Array(buffer);
-  const rawString = new TextDecoder('latin1').decode(bytes);
-
-  const textMatches: string[] = [];
-
-  // Look for text operators: (Text) Tj and [(Text) ... ] TJ
-  const tjRegex = /\(([^)]+)\)\s*Tj/g;
-  let match: RegExpExecArray | null;
-  while ((match = tjRegex.exec(rawString)) !== null) {
-    if (match[1] && match[1].trim()) {
-      textMatches.push(match[1]);
-    }
-  }
-
-  const arrayTjRegex = /\[([^\]]+)\]\s*TJ/g;
-  while ((match = arrayTjRegex.exec(rawString)) !== null) {
-    const inner = match[1];
-    const subMatches = inner.match(/\(([^)]+)\)/g);
-    if (subMatches) {
-      for (const sm of subMatches) {
-        const cleaned = sm.slice(1, -1).trim();
-        if (cleaned) textMatches.push(cleaned);
-      }
-    }
-  }
-
-  const extracted = textMatches.join(' ').replace(/\s+/g, ' ').trim();
-
-  if (extracted.length >= 10) {
-    return extracted;
-  }
-
-  // Scanned or complex font encodings require OCR / backend extraction
-  throw new Error(
-    'Unable to extract readable text from this PDF (document may be scanned or encoded with proprietary font maps). Please copy and paste the text using Write / Paste mode.'
-  );
-}
+type ProcessingState = 'idle' | 'uploading' | 'processing' | 'extracting' | 'ready' | 'failed';
 
 export function NewSubmissionModal({
   isOpen,
   onClose,
   onSubmitSuccess,
 }: NewSubmissionModalProps) {
-  // Common Form Fields (Preserved)
+  const router = useRouter();
+
+  // Common Form Fields
   const [title, setTitle] = useState('');
   const [channel, setChannel] = useState<'Website' | 'LinkedIn' | 'Email' | 'Ads' | 'Blog'>('LinkedIn');
 
@@ -166,141 +47,194 @@ export function NewSubmissionModal({
 
   // Mode 2: Upload File
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'extracting' | 'extracted' | 'error'>('idle');
+  const [processingState, setProcessingState] = useState<ProcessingState>('idle');
   const [extractedText, setExtractedText] = useState('');
+  const [extractedPages, setExtractedPages] = useState<number>(1);
   const [fileError, setFileError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Mode 3: Import URL (Unavailable)
+  // Mode 3: Import URL
   const [urlInput, setUrlInput] = useState('');
+  const [isUrlExtracting, setIsUrlExtracting] = useState(false);
+  const [extractedUrlData, setExtractedUrlData] = useState<{
+    url: string;
+    title: string;
+    content: string;
+  } | null>(null);
 
   // Common submission states
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [createdSubmissionId, setCreatedSubmissionId] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
   const handleResetFile = () => {
     setUploadedFile(null);
     setExtractedText('');
-    setUploadStatus('idle');
+    setExtractedPages(1);
+    setProcessingState('idle');
     setFileError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
-  const processFile = async (file: File) => {
-    // 1. Validate file extension
-    const nameParts = file.name.split('.');
-    const ext = nameParts.length > 1 ? nameParts.pop()?.toLowerCase() : '';
-    if (!ext || !['pdf', 'docx', 'txt'].includes(ext)) {
-      setFileError('Unsupported document format. Allowed formats: PDF, DOCX, TXT.');
-      setUploadStatus('error');
+  const handleFileSelect = async (file: File) => {
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (ext !== 'pdf') {
+      setFileError('Only PDF files are supported for document upload.');
+      setProcessingState('failed');
       setUploadedFile(file);
-      setExtractedText('');
       return;
     }
 
-    // 2. Validate file size (max 5 MB)
-    const MAX_SIZE_BYTES = 5 * 1024 * 1024;
-    if (file.size > MAX_SIZE_BYTES) {
-      const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
-      setFileError(`File size (${sizeMB} MB) exceeds the maximum 5MB limit.`);
-      setUploadStatus('error');
+    const MAX_SIZE = 25 * 1024 * 1024; // 25 MB
+    if (file.size > MAX_SIZE) {
+      setFileError(`File size (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds 25MB limit.`);
+      setProcessingState('failed');
       setUploadedFile(file);
-      setExtractedText('');
       return;
     }
 
     setUploadedFile(file);
-    setUploadStatus('extracting');
     setFileError(null);
-    setExtractedText('');
+    setProcessingState('uploading');
+
+    // Automatically fill title from filename if title is empty
+    if (!title.trim()) {
+      setTitle(file.name.replace(/\.pdf$/i, ''));
+    }
 
     try {
-      let text = '';
-      if (ext === 'txt') {
-        text = await extractTextFromTxt(file);
-      } else if (ext === 'docx') {
-        text = await extractTextFromDocx(file);
-      } else if (ext === 'pdf') {
-        text = await extractTextFromPdf(file);
+      // Step 1: Uploading state
+      await new Promise((r) => setTimeout(r, 400));
+      setProcessingState('processing');
+
+      // Step 2: Processing state
+      await new Promise((r) => setTimeout(r, 400));
+      setProcessingState('extracting');
+
+      // Step 3: Send file to backend extraction endpoint
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('title', title.trim() || file.name.replace(/\.pdf$/i, ''));
+      formData.append('channel', channel === 'LinkedIn' ? 'SOCIAL' : channel === 'Ads' ? 'AD_COPY' : channel.toUpperCase());
+      formData.append('submittedBy', 'Compliance Officer');
+
+      const response = await fetch('http://localhost:5001/api/submissions/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Upload failed with HTTP ${response.status}`);
       }
 
-      if (text.length < 10) {
-        throw new Error('Extracted content must be at least 10 characters long for brand audit.');
+      const data = await response.json();
+      setExtractedText(data.extractedText || '');
+      setExtractedPages(data.numPages || 1);
+      setProcessingState('ready');
+
+      if (data.submission?.id) {
+        setCreatedSubmissionId(data.submission.id);
       }
-
-      setExtractedText(text);
-      setUploadStatus('extracted');
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to extract text from document.';
-      setFileError(message);
-      setUploadStatus('error');
-      setExtractedText('');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to process and extract PDF text';
+      setFileError(msg);
+      setProcessingState('failed');
     }
   };
 
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      processFile(file);
+  const handleUrlExtract = async () => {
+    if (!urlInput.trim()) {
+      setError('Please provide a valid web URL (e.g. https://example.com/announcement).');
+      return;
     }
-  };
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      processFile(file);
+    setIsUrlExtracting(true);
+    setError(null);
+
+    try {
+      const response = await apiClient.post<{
+        submission: {
+          id: string;
+          title: string;
+          channel: string;
+          status: string;
+          fileUrl?: string;
+        };
+        extracted: {
+          url: string;
+          title: string;
+          contentLength: number;
+        };
+      }>('/api/submissions/extract-url', {
+        url: urlInput.trim(),
+        title: title.trim() || undefined,
+        channel: channel === 'LinkedIn' ? 'SOCIAL' : channel === 'Ads' ? 'AD_COPY' : channel.toUpperCase(),
+        submittedBy: 'Web Content Importer',
+      });
+
+      if (response.submission) {
+        setCreatedSubmissionId(response.submission.id);
+        if (!title.trim() && response.extracted.title) {
+          setTitle(response.extracted.title);
+        }
+        setExtractedUrlData({
+          url: response.extracted.url,
+          title: response.extracted.title,
+          content: `Extracted ${response.extracted.contentLength} characters of clean text copy ready for brand audit.`,
+        });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to import and extract webpage content.');
+    } finally {
+      setIsUrlExtracting(false);
     }
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // If PDF upload already created a submission on backend
+    if (mode === 'upload' && createdSubmissionId) {
+      const newEntry: SubmissionItem = {
+        id: createdSubmissionId,
+        title: `${title} (${channel})`,
+        timestamp: 'Just now',
+        status: 'Pending',
+      };
+      onSubmitSuccess(newEntry);
+      onClose();
+      router.push(`/reviews?id=${createdSubmissionId}`);
+      return;
+    }
+
+    // If URL import already created a submission on backend
+    if (mode === 'url' && createdSubmissionId) {
+      const newEntry: SubmissionItem = {
+        id: createdSubmissionId,
+        title: `${title} (${channel})`,
+        timestamp: 'Just now',
+        status: 'Pending',
+      };
+      onSubmitSuccess(newEntry);
+      onClose();
+      router.push(`/reviews?id=${createdSubmissionId}`);
+      return;
+    }
+
+    // Mode 1: Write / Paste
     if (!title.trim()) {
       setError('Please provide a campaign or asset title.');
       return;
     }
 
-    let finalContent = '';
-
-    if (mode === 'write') {
-      if (!writtenContent.trim() || writtenContent.trim().length < 10) {
-        setError('Content copy must be at least 10 characters long for brand audit.');
-        return;
-      }
-      finalContent = writtenContent.trim();
-    } else if (mode === 'upload') {
-      if (!uploadedFile) {
-        setError('Please select or drop a document file to upload.');
-        return;
-      }
-      if (uploadStatus === 'extracting') {
-        setError('Document is still extracting text. Please wait a moment.');
-        return;
-      }
-      if (uploadStatus !== 'extracted' || !extractedText.trim() || extractedText.trim().length < 10) {
-        setError('Cannot submit empty or unextracted content. Please fix the document or use Write / Paste.');
-        return;
-      }
-      finalContent = extractedText.trim();
-    } else if (mode === 'url') {
-      setError('Backend URL extraction is currently unavailable. Please use Write / Paste or Upload File.');
+    if (!writtenContent.trim() || writtenContent.trim().length < 10) {
+      setError('Content copy must be at least 10 characters long for brand audit.');
       return;
     }
 
@@ -329,7 +263,7 @@ export function NewSubmissionModal({
         };
       }>('/api/submissions', {
         title: title.trim(),
-        rawText: finalContent,
+        rawText: writtenContent.trim(),
         channel: backendChannel,
         submittedBy: 'Marketing Campaign Team',
       });
@@ -339,18 +273,11 @@ export function NewSubmissionModal({
         id: sub.id,
         title: `${sub.title} (${channel})`,
         timestamp: 'Just now',
-        status:
-          sub.status === 'APPROVED'
-            ? 'Approved'
-            : sub.status === 'REJECTED'
-            ? 'Needs changes'
-            : 'Pending',
+        status: 'Pending',
       };
       onSubmitSuccess(newEntry);
-      setTitle('');
-      setWrittenContent('');
-      handleResetFile();
       onClose();
+      router.push(`/reviews?id=${sub.id}`);
     } catch (err) {
       console.error('Failed to create submission:', err);
       setError(
@@ -364,36 +291,22 @@ export function NewSubmissionModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-      <div
-        className="w-full max-w-xl bg-[#FFFEFA] border border-[#E5E1D8] rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[92vh] flex flex-col"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modal-headline"
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-2xl w-full max-w-xl shadow-xl flex flex-col max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E1D8] flex-shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-[#E8EBE1] flex items-center justify-center text-[#4E6B54]">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <div>
-              <h2
-                id="modal-headline"
-                className="font-serif text-xl font-normal text-[#25251F] leading-tight"
-              >
-                New Content Submission
-              </h2>
-              <p className="text-xs text-[#77766E]">
-                Add marketing copy for autonomous guideline and claim verification
-              </p>
-            </div>
+        <div className="p-6 pb-4 border-b border-[#E5E1D8] flex items-center justify-between flex-shrink-0">
+          <div>
+            <h2 className="font-serif text-xl sm:text-2xl text-[#25251F]">
+              New Content Submission
+            </h2>
+            <p className="text-xs text-[#77766E] mt-0.5">
+              Submit copy or documents for grounded brand compliance verification.
+            </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-md text-[#77766E] hover:text-[#25251F] hover:bg-[#F1EFE8] transition-colors"
-            aria-label="Close modal"
+            className="p-1.5 text-[#77766E] hover:text-[#25251F] rounded-lg hover:bg-[#F1EFE8] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -408,7 +321,7 @@ export function NewSubmissionModal({
             </div>
           )}
 
-          {/* Campaign Title (Preserved) */}
+          {/* Campaign Title */}
           <div>
             <label
               htmlFor="submission-title"
@@ -426,7 +339,7 @@ export function NewSubmissionModal({
             />
           </div>
 
-          {/* Target Channel (Preserved) */}
+          {/* Target Channel */}
           <div>
             <label
               htmlFor="submission-channel"
@@ -481,10 +394,10 @@ export function NewSubmissionModal({
                 }`}
               >
                 <UploadCloud className="w-3.5 h-3.5" />
-                <span>Upload File</span>
+                <span>Upload PDF</span>
               </button>
 
-              {/* Tab 3: Import URL (Unavailable) */}
+              {/* Tab 3: Import URL */}
               <button
                 type="button"
                 onClick={() => setMode('url')}
@@ -496,9 +409,6 @@ export function NewSubmissionModal({
               >
                 <Globe className="w-3.5 h-3.5" />
                 <span>Import URL</span>
-                <span className="text-[10px] px-1 py-0.2 rounded-xs bg-[#E5E1D8] text-[#77766E]">
-                  N/A
-                </span>
               </button>
             </div>
           </div>
@@ -531,23 +441,36 @@ export function NewSubmissionModal({
             </div>
           )}
 
-          {/* Mode 2: Upload File */}
+          {/* Mode 2: Upload File (PDF) */}
           {mode === 'upload' && (
             <div className="space-y-3">
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".pdf,.docx,.txt"
-                onChange={handleFileInputChange}
+                accept=".pdf,application/pdf"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleFileSelect(file);
+                }}
                 className="hidden"
               />
 
-              {/* Drag and Drop Zone if no file is selected */}
               {!uploadedFile && (
                 <div
-                  onDrop={handleDrop}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDragging(false);
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) handleFileSelect(file);
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDragging(true);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    setIsDragging(false);
+                  }}
                   onClick={() => fileInputRef.current?.click()}
                   className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
                     isDragging
@@ -559,17 +482,14 @@ export function NewSubmissionModal({
                     <UploadCloud className="w-5 h-5" />
                   </div>
                   <p className="text-xs font-medium text-[#25251F]">
-                    Click to browse or drag and drop your document
+                    Click to browse or drag and drop your PDF document
                   </p>
                   <p className="text-[11px] text-[#77766E] mt-1">
-                    Supports <strong className="text-[#25251F]">PDF</strong>,{' '}
-                    <strong className="text-[#25251F]">DOCX</strong>, and{' '}
-                    <strong className="text-[#25251F]">TXT</strong> (Max 5MB)
+                    Supports <strong className="text-[#25251F]">PDF</strong> up to 25MB with page text extraction
                   </p>
                 </div>
               )}
 
-              {/* File Info Card if file is selected */}
               {uploadedFile && (
                 <div className="p-3.5 rounded-xl border border-[#E5E1D8] bg-[#F7F5F0]/70 flex flex-col gap-2">
                   <div className="flex items-center justify-between">
@@ -582,33 +502,44 @@ export function NewSubmissionModal({
                           {uploadedFile.name}
                         </p>
                         <p className="text-[11px] text-[#77766E]">
-                          {(uploadedFile.size / 1024).toFixed(1)} KB
+                          {(uploadedFile.size / (1024 * 1024)).toFixed(2)} MB • {extractedPages} page{extractedPages > 1 ? 's' : ''}
                         </p>
                       </div>
                     </div>
 
-                    {/* Status Badge */}
+                    {/* Processing State Badges */}
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      {uploadStatus === 'extracting' && (
+                      {processingState === 'uploading' && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#F1EFE8] text-[#77766E]">
                           <Loader2 className="w-3 h-3 animate-spin" />
-                          <span>Extracting...</span>
+                          <span>Uploading...</span>
                         </span>
                       )}
-                      {uploadStatus === 'extracted' && (
+                      {processingState === 'processing' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#F1EFE8] text-[#77766E]">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span>Processing...</span>
+                        </span>
+                      )}
+                      {processingState === 'extracting' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#F1EFE8] text-[#77766E]">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span>Extracting text...</span>
+                        </span>
+                      )}
+                      {processingState === 'ready' && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#E8EBE1] text-[#4E6B54]">
                           <CheckCircle2 className="w-3 h-3" />
-                          <span>Extracted</span>
+                          <span>Ready for review</span>
                         </span>
                       )}
-                      {uploadStatus === 'error' && (
+                      {processingState === 'failed' && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#FBEBE8] text-[#B56E63]">
                           <AlertCircle className="w-3 h-3" />
                           <span>Failed</span>
                         </span>
                       )}
 
-                      {/* Replace / Remove buttons */}
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
@@ -628,7 +559,6 @@ export function NewSubmissionModal({
                     </div>
                   </div>
 
-                  {/* File Error Details */}
                   {fileError && (
                     <div className="p-2.5 rounded-lg bg-[#FBEBE8] border border-[#EAC4BE] text-[#B56E63] text-xs flex items-start gap-2 mt-1">
                       <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -636,19 +566,19 @@ export function NewSubmissionModal({
                     </div>
                   )}
 
-                  {/* Extracted Text Preview */}
-                  {uploadStatus === 'extracted' && extractedText && (
+                  {processingState === 'ready' && extractedText && (
                     <div className="mt-2 pt-2 border-t border-[#E5E1D8]">
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-[11px] font-semibold text-[#25251F] uppercase tracking-wider">
-                          Extracted Text Preview
+                          Extracted Document Text
                         </span>
                         <span className="text-[11px] text-[#A09D92]">
                           {extractedText.length} characters
                         </span>
                       </div>
-                      <div className="max-h-32 overflow-y-auto p-2.5 rounded-lg bg-[#FFFEFA] border border-[#E5E1D8] text-xs text-[#25251F] font-mono leading-relaxed whitespace-pre-wrap select-text">
-                        {extractedText}
+                      <div className="max-h-28 overflow-y-auto p-2.5 rounded-lg bg-[#FFFEFA] border border-[#E5E1D8] text-xs text-[#25251F] font-mono leading-relaxed whitespace-pre-wrap select-text">
+                        {extractedText.slice(0, 500)}
+                        {extractedText.length > 500 ? '...' : ''}
                       </div>
                     </div>
                   )}
@@ -657,67 +587,107 @@ export function NewSubmissionModal({
             </div>
           )}
 
-          {/* Mode 3: Import URL (Unavailable backend notice) */}
+          {/* Mode 3: Import URL */}
           {mode === 'url' && (
             <div className="space-y-3">
-              <div className="p-3 rounded-lg bg-[#FDF9F0] border border-[#F2E5C8] text-[#8A6B3D] text-xs flex items-start gap-2.5">
-                <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <p className="font-medium">URL Extraction Service Currently Unavailable</p>
-                  <p className="text-[11px] text-[#77766E] leading-relaxed">
-                    The backend web ingestion pipeline is not yet mounted on the Evolyn API server. Public webpage scraping will be activated in an upcoming milestone. Please use <strong>Write / Paste</strong> mode or <strong>Upload File</strong>.
-                  </p>
-                </div>
-              </div>
-
               <div>
                 <label
                   htmlFor="submission-url"
-                  className="block text-xs font-semibold text-[#77766E] uppercase tracking-wider mb-1"
+                  className="block text-xs font-semibold text-[#25251F] uppercase tracking-wider mb-1"
                 >
                   Public Webpage URL
                 </label>
-                <input
-                  id="submission-url"
-                  type="url"
-                  disabled
-                  placeholder="https://company.example.com/blog/announcement"
-                  value={urlInput}
-                  onChange={(e) => setUrlInput(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-[#E5E1D8] bg-[#F1EFE8]/70 text-[#A09D92] cursor-not-allowed select-none"
-                />
+                <div className="flex gap-2">
+                  <input
+                    id="submission-url"
+                    type="url"
+                    placeholder="https://example.com/blog/announcement"
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    className="flex-1 px-3 py-2 text-xs rounded-lg border border-[#E5E1D8] bg-[#FFFEFA] focus:outline-hidden focus:border-[#68745D] focus:ring-1 focus:ring-[#68745D] transition-colors text-[#25251F] placeholder:text-[#A09D92]"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleUrlExtract}
+                    disabled={isUrlExtracting || !urlInput.trim()}
+                    className="px-3 py-2 bg-[#25251F] hover:bg-[#383832] disabled:opacity-40 text-white text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors"
+                  >
+                    {isUrlExtracting ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Extracting...</span>
+                      </>
+                    ) : (
+                      <span>Import</span>
+                    )}
+                  </button>
+                </div>
+                <p className="text-[11px] text-[#77766E] mt-1">
+                  Protected with SSRF verification (internal and private IP destinations are blocked).
+                </p>
               </div>
+
+              {extractedUrlData && (
+                <div className="p-3 rounded-xl border border-[#E8EBE1] bg-[#E8EBE1]/30 space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-[#4E6B54]">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Webpage content successfully imported</span>
+                  </div>
+                  <p className="text-xs text-[#25251F] font-semibold">{extractedUrlData.title}</p>
+                  <p className="text-[11px] text-[#77766E]">{extractedUrlData.content}</p>
+                </div>
+              )}
             </div>
           )}
 
           {/* Actions */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#E5E1D8] flex-shrink-0">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="px-3.5 py-2 text-xs font-medium text-[#77766E] hover:text-[#25251F] hover:bg-[#F1EFE8] rounded-lg transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={
-                isSubmitting ||
-                mode === 'url' ||
-                (mode === 'upload' && (uploadStatus !== 'extracted' || !extractedText.trim()))
-              }
-              className="bg-[#25251F] hover:bg-[#383832] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-medium px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-xs transition-colors"
-            >
-              {isSubmitting ? (
-                <span>Adding...</span>
-              ) : (
-                <>
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Add Demo Submission</span>
-                </>
+          <div className="flex items-center justify-between pt-3 border-t border-[#E5E1D8] flex-shrink-0">
+            <div>
+              {createdSubmissionId && (
+                <span className="text-xs text-[#64816A] font-medium flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Submission persisted in database</span>
+                </span>
               )}
-            </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isSubmitting}
+                className="px-3.5 py-2 text-xs font-medium text-[#77766E] hover:text-[#25251F] hover:bg-[#F1EFE8] rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={
+                  isSubmitting ||
+                  (mode === 'write' && (!writtenContent.trim() || writtenContent.trim().length < 10)) ||
+                  (mode === 'upload' && processingState !== 'ready') ||
+                  (mode === 'url' && !createdSubmissionId)
+                }
+                className="bg-[#25251F] hover:bg-[#383832] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-medium px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-xs transition-colors"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Submitting...</span>
+                  </>
+                ) : createdSubmissionId ? (
+                  <>
+                    <span>Open in Review Workspace</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Create Submission</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </form>
       </div>

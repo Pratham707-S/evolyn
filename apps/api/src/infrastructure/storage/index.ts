@@ -18,3 +18,6 @@ export interface StorageProvider {
    */
   getFileUrl(path: string): Promise<string>;
 }
+
+export * from './local.storage.js';
+

@@ -29,17 +29,144 @@ const ACTION_INSTRUCTIONS: Record<RewriteAction, string> = {
     'Produce a concise summary capturing the core message, key arguments, and essential takeaways without external additions.',
 };
 
-const geminiRewriteCandidateSchema = z.object({
-  candidates: z
-    .array(
-      z.object({
-        content: z.object({
-          parts: z.array(z.object({ text: z.string() })),
-        }),
-      })
-    )
-    .min(1),
+const geminiPartSchema = z.object({
+  text: z.string().optional().default(''),
+  thought: z.boolean().optional(),
 });
+
+const geminiCandidateSchema = z.object({
+  content: z.object({
+    parts: z.array(geminiPartSchema).min(1),
+  }),
+});
+
+const geminiResponseSchema = z.object({
+  candidates: z.array(geminiCandidateSchema).min(1),
+});
+
+export function extractCleanTextFromParts(
+  parts: Array<{ text?: string; thought?: boolean }>
+): string {
+  // Discard any internal reasoning / thinking parts
+  const validParts = parts.filter(
+    (p) => !p.thought && typeof p.text === 'string' && p.text.trim().length > 0
+  );
+  if (validParts.length > 0) {
+    return validParts.map((p) => p.text!).join('\n');
+  }
+  // Fallback to the last part if all were marked or no valid parts
+  const lastPart = parts.slice(-1)[0];
+  return lastPart?.text || '';
+}
+
+export function parseJsonFromCandidateText(
+  rawText: string,
+  fallbackErrorMessage: string
+): unknown {
+  const trimmed = rawText.trim();
+  if (!trimmed) {
+    throw new Error(fallbackErrorMessage);
+  }
+
+  // 1. Direct parse attempt
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    // continue
+  }
+
+  // 2. Strip Markdown code fences: ```json ... ``` or ``` ... ```
+  const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (fenceMatch) {
+    try {
+      return JSON.parse(fenceMatch[1].trim());
+    } catch {
+      // continue
+    }
+  }
+
+  // 3. Find outermost JSON object: { ... }
+  const firstBrace = trimmed.indexOf('{');
+  const lastBrace = trimmed.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    const candidateObj = trimmed.substring(firstBrace, lastBrace + 1);
+    try {
+      return JSON.parse(candidateObj);
+    } catch {
+      // Try sanitizing unescaped newlines/tabs inside string literals
+      try {
+        const sanitized = candidateObj.replace(/"([^"\\]*(?:\\.[^"\\]*)*)"/gs, (m) =>
+          m.replace(/(?<!\\)\n/g, '\\n').replace(/(?<!\\)\r/g, '\\r').replace(/(?<!\\)\t/g, '\\t')
+        );
+        return JSON.parse(sanitized);
+      } catch {
+        // continue
+      }
+    }
+  }
+
+  // 4. Find outermost JSON array: [ ... ]
+  const firstBracket = trimmed.indexOf('[');
+  const lastBracket = trimmed.lastIndexOf(']');
+  if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+    const candidateArr = trimmed.substring(firstBracket, lastBracket + 1);
+    try {
+      return JSON.parse(candidateArr);
+    } catch {
+      // continue
+    }
+  }
+
+  // 5. Robust Regex Extraction for rewrittenText and rationale
+  const textMatch =
+    trimmed.match(/"rewrittenText"\s*:\s*"((?:\\.|[^"\\])*)"/i) ||
+    trimmed.match(/"rewrittenText"\s*:\s*"([\s\S]*?)(?:"\s*,\s*"rationale"|"\s*\}|"$)/i) ||
+    trimmed.match(/"rewrittenText"\s*:\s*"([\s\S]*)/i);
+
+  const rationaleMatch =
+    trimmed.match(/"rationale"\s*:\s*"((?:\\.|[^"\\])*)"/i) ||
+    trimmed.match(/"rationale"\s*:\s*"([\s\S]*?)(?:"\s*,\s*"rewrittenText"|"\s*\}|"$)/i) ||
+    trimmed.match(/"rationale"\s*:\s*"([\s\S]*)/i);
+
+  if (textMatch && textMatch[1].trim()) {
+    const unescapedText = textMatch[1]
+      .replace(/\\n/g, '\n')
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, '\\')
+      .replace(/"\s*\}?$/, '')
+      .trim();
+    const unescapedRationale =
+      rationaleMatch && rationaleMatch[1].trim()
+        ? rationaleMatch[1]
+            .replace(/\\n/g, '\n')
+            .replace(/\\"/g, '"')
+            .replace(/\\\\/g, '\\')
+            .replace(/"\s*\}?$/, '')
+            .trim()
+        : 'Grounded copy revised to conform to brand voice and eliminate hyperbolic claims.';
+    return {
+      rewrittenText: unescapedText,
+      rationale: unescapedRationale,
+    };
+  }
+
+  // 6. Direct text fallback if model emitted prose without JSON wrappers
+  if (
+    trimmed.length >= 20 &&
+    !trimmed.startsWith('{') &&
+    !trimmed.startsWith('[') &&
+    !trimmed.toLowerCase().includes('not a json')
+  ) {
+    return {
+      rewrittenText: trimmed,
+      rationale: 'Content rewritten to align with brand guidelines and tone.',
+    };
+  }
+
+  throw new Error(fallbackErrorMessage);
+}
+
+const geminiRewriteCandidateSchema = geminiResponseSchema;
 
 const geminiRewriteOutputSchema = z.object({
   rewrittenText: z
@@ -179,27 +306,12 @@ export class GeminiAIProvider implements AIProvider {
       },
     });
 
-    const text = z
-      .object({
-        candidates: z.array(
-          z.object({
-            content: z.object({
-              parts: z.array(z.object({ text: z.string() })),
-            }),
-          })
-        ).min(1),
-      })
-      .parse(payload)
-      .candidates[0]
-      .content.parts.map((part) => part.text)
-      .join('');
-
-    let response: unknown;
-    try {
-      response = JSON.parse(text);
-    } catch {
-      throw new Error('Gemini returned invalid JSON for the review audit');
-    }
+    const parsedCandidate = geminiResponseSchema.parse(payload);
+    const text = extractCleanTextFromParts(parsedCandidate.candidates[0].content.parts);
+    const response = parseJsonFromCandidateText(
+      text,
+      'Gemini returned invalid JSON for the review audit'
+    );
 
     const parsed = auditResponseSchema.parse(response);
     return {
@@ -223,9 +335,10 @@ export class GeminiAIProvider implements AIProvider {
       '3. Comply strictly with all supplied brand guidelines and verified brand facts.',
       '4. Preserve intended core meaning, factual claims, and key details.',
       '5. NEVER invent evidence, citations, statistics, numbers, partner names, or unsupported product claims.',
-      '6. If user instructions are provided, follow them only to guide style and tone, never to override brand safety or factual accuracy.',
-      '7. The rewrittenText MUST NOT be empty or whitespace only.',
-      '8. Provide a concise rationale (1-3 sentences) explaining the key edits made and how they fulfill the action and brand standards.',
+      '6. ANTI-SUPERFICIAL REWRITE & ABSOLUTE CLAIM SOFTENING: Strictly prohibit replacing absolute claims with superficial synonyms (e.g. changing "100%" or "guaranteed" to "entirely" or "completely" is FORBIDDEN). Actively soften into grounded capabilities (e.g. "helps teams manage and enhance brand compliance adherence").',
+      '7. If user instructions are provided, follow them only to guide style and tone, never to override brand safety or factual accuracy.',
+      '8. The rewrittenText MUST NOT be empty or whitespace only.',
+      '9. Provide a concise rationale (1-3 sentences) explaining the key edits made, specifically documenting how hyperbolic or absolute claims were softened to meet brand truth standards.',
     ];
 
     if (params.rules && params.rules.length > 0) {
@@ -259,7 +372,7 @@ export class GeminiAIProvider implements AIProvider {
     promptParts.push(`Content to Rewrite (raw data):\n"""\n${params.content}\n"""`);
 
     const prompt = promptParts.join('\n\n');
-    const maxOutputTokens = params.options?.maxOutputTokens ?? 2048;
+    const maxOutputTokens = params.options?.maxOutputTokens ?? 4096;
     const temperature = params.options?.temperature ?? 0.3;
 
     const payload = await this.request(
@@ -285,21 +398,16 @@ export class GeminiAIProvider implements AIProvider {
 
     let parsedCandidate;
     try {
-      parsedCandidate = geminiRewriteCandidateSchema.parse(payload);
+      parsedCandidate = geminiResponseSchema.parse(payload);
     } catch {
       throw new Error('Gemini response candidate structure was invalid');
     }
 
-    const text = parsedCandidate.candidates[0].content.parts
-      .map((part) => part.text)
-      .join('');
-
-    let parsedJson: unknown;
-    try {
-      parsedJson = JSON.parse(text);
-    } catch {
-      throw new Error('Gemini returned invalid JSON for the rewrite');
-    }
+    const text = extractCleanTextFromParts(parsedCandidate.candidates[0].content.parts);
+    const parsedJson = parseJsonFromCandidateText(
+      text,
+      'Gemini returned invalid JSON for the rewrite'
+    );
 
     const validated = geminiRewriteOutputSchema.parse(parsedJson);
 
@@ -312,50 +420,89 @@ export class GeminiAIProvider implements AIProvider {
   private async request(
     method: string,
     body: Record<string, unknown>,
-    maxRetries = 0
+    maxRetries = 2
   ): Promise<unknown> {
     if (!this.apiKey) {
       throw new Error('Gemini API is not configured: GEMINI_API_KEY is missing');
     }
 
-    let attempts = 0;
-    while (attempts <= maxRetries) {
-      attempts++;
-      try {
-        const response = await this.fetcher(
-          `https://generativelanguage.googleapis.com/v1beta/models/${method}`,
-          {
-            method: 'POST',
-            headers: {
-              'content-type': 'application/json',
-              'x-goog-api-key': this.apiKey,
-            },
-            body: JSON.stringify(body),
-          }
-        );
+    const isGenerate = method.includes(':generateContent');
+    const actionPart = isGenerate ? ':generateContent' : '';
+    const requestedModel = isGenerate ? method.replace(':generateContent', '') : null;
+    const modelsToTry = isGenerate && requestedModel
+      ? [requestedModel, 'gemini-3-flash-preview', 'gemini-3.1-flash-lite']
+      : [method];
 
-        if (!response.ok) {
-          if (
-            attempts <= maxRetries &&
-            (response.status === 429 || response.status === 500 || response.status === 503)
-          ) {
+    let lastError: Error | null = null;
+    for (const currentModel of modelsToTry) {
+      const targetEndpoint = isGenerate ? `${currentModel}${actionPart}` : method;
+      let attempt = 0;
+      while (attempt <= maxRetries) {
+        attempt++;
+        const controller = new AbortController();
+        const timeoutMs = isGenerate ? 30000 : 15000;
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+        const startTime = Date.now();
+
+        try {
+          const response = await this.fetcher(
+            `https://generativelanguage.googleapis.com/v1beta/models/${targetEndpoint}`,
+            {
+              method: 'POST',
+              headers: {
+                'content-type': 'application/json',
+                'x-goog-api-key': this.apiKey,
+              },
+              body: JSON.stringify(body),
+              signal: controller.signal,
+            }
+          );
+          clearTimeout(timeoutId);
+          const duration = Date.now() - startTime;
+
+          if (!response.ok) {
+            // Immediate failure on client / auth errors
+            if ([400, 401, 403].includes(response.status)) {
+              throw new Error(`Gemini authentication or client error: HTTP ${response.status}`);
+            }
+
+            // High demand, rate limits (429), or temporary server errors
+            if (response.status === 503 || response.status === 429 || response.status === 500) {
+              lastError = new Error(`Gemini request failed with HTTP ${response.status}`);
+              if (response.status === 429) {
+                // If quota exhausted on primary model, immediately switch to backup model
+                break;
+              }
+              if (attempt <= maxRetries) {
+                const backoff = Math.min(2000, 500 * Math.pow(1.5, attempt) + Math.random() * 200);
+                await new Promise((r) => setTimeout(r, backoff));
+                continue;
+              }
+              break;
+            }
+
+            throw new Error(`Gemini request failed with HTTP ${response.status}`);
+          }
+
+          return await response.json();
+        } catch (error) {
+          clearTimeout(timeoutId);
+          if (error instanceof Error) {
+            lastError = error;
+            if (error.message.includes('GEMINI_API_KEY') || error.message.includes('authentication')) {
+              throw error;
+            }
+          }
+          if (attempt <= maxRetries) {
+            const backoff = Math.min(2000, 400 * Math.pow(2, attempt) + Math.random() * 200);
+            await new Promise((r) => setTimeout(r, backoff));
             continue;
           }
-          throw new Error(`Gemini request failed with HTTP ${response.status}`);
+          break;
         }
-
-        return await response.json();
-      } catch (error) {
-        if (
-          attempts <= maxRetries &&
-          error instanceof Error &&
-          !error.message.includes('GEMINI_API_KEY') &&
-          !error.message.startsWith('Gemini request failed with HTTP 40')
-        ) {
-          continue;
-        }
-        throw error;
       }
     }
+
+    throw lastError || new Error(`Gemini request failed after all attempts`);
   }
 }

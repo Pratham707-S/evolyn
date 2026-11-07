@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { env } from '../config/env.js';
 import { GeminiAIProvider } from '../infrastructure/ai/gemini.provider.js';
 
 const ruleId = 'c0a80123-4567-4890-a123-456789abcdef';
@@ -242,6 +243,40 @@ describe('GeminiAIProvider', () => {
     );
   });
 
+  it('successfully extracts JSON wrapped in Markdown code fences and ignores thinking parts', async () => {
+    const provider = new GeminiAIProvider(
+      'test-key',
+      'test-model',
+      'test-embedding-model',
+      async () =>
+        createResponse({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: 'Let me think about how to soften this claim...',
+                    thought: true,
+                  },
+                  {
+                    text: '```json\n{\n  "rewrittenText": "Grounded and compliant text.",\n  "rationale": "Softened absolute claim into managed capability."\n}\n```',
+                  },
+                ],
+              },
+            },
+          ],
+        })
+    );
+
+    const result = await provider.rewriteContent({
+      action: 'IMPROVE_WRITING',
+      content: 'Eliminates 100% of risk.',
+    });
+
+    assert.equal(result.rewrittenText, 'Grounded and compliant text.');
+    assert.equal(result.rationale, 'Softened absolute claim into managed capability.');
+  });
+
   it('retries on transient errors and succeeds when retry resolves', async () => {
     let callCount = 0;
     const provider = new GeminiAIProvider(
@@ -322,7 +357,7 @@ describe('GeminiAIProvider', () => {
     assert.equal(vec.length, 768);
   });
 
-  it('uses default generation model (gemini-3.1-flash-lite) for content rewriting and auditing', async () => {
+  it('uses default generation model for content rewriting and auditing', async () => {
     let capturedUrl = '';
     const defaultProvider = new GeminiAIProvider(
       'mock-api-key',
@@ -353,7 +388,7 @@ describe('GeminiAIProvider', () => {
       action: 'IMPROVE_WRITING',
       content: 'Raw copy.',
     });
-    assert.ok(capturedUrl.includes('/models/gemini-3.1-flash-lite:generateContent'));
+    assert.ok(capturedUrl.includes(`/models/${env.GEMINI_MODEL}:generateContent`));
   });
 
   it('allows explicit model and embedding model overrides via constructor or environment', async () => {

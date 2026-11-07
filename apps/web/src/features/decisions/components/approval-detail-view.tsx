@@ -40,7 +40,7 @@ export function ApprovalDetailView({
       <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-2xl p-8 flex flex-col items-center justify-center min-h-[480px] text-center space-y-3">
         <Sparkles className="w-6 h-6 animate-spin text-[#68745D]" />
         <p className="text-xs font-medium text-[#25251F]">Loading Review Findings & Evidence...</p>
-        <p className="text-[11px] text-[#A09D92]">Retrieving automated Gemini review run and guideline citations.</p>
+        <p className="text-[11px] text-[#A09D92]">Retrieving automated governance review run and guideline citations.</p>
       </div>
     );
   }
@@ -168,7 +168,7 @@ export function ApprovalDetailView({
                 </h3>
               </div>
               <span className="text-[11px] font-mono text-[#A09D92]">
-                Model: {reviewRun.modelUsed}
+                Engine: Evolyn Governance ({reviewRun.modelUsed})
               </span>
             </div>
 

@@ -33,6 +33,7 @@ export interface ApprovalsTableProps {
   selectedId: string;
   onSelect: (item: DecisionItem) => void;
   statusTab: string;
+  compact?: boolean;
 }
 
 export function ApprovalsTable({
@@ -40,6 +41,7 @@ export function ApprovalsTable({
   selectedId,
   onSelect,
   statusTab,
+  compact = false,
 }: ApprovalsTableProps) {
   const router = useRouter();
   const [search, setSearch] = useState('');
@@ -134,85 +136,133 @@ export function ApprovalsTable({
   const paginated = filtered.slice((safePage - 1) * perPage, safePage * perPage);
 
   return (
-    <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-4 sm:p-5 space-y-4 shadow-2xs">
+    <div
+      className={
+        compact
+          ? 'space-y-3'
+          : 'bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-4 sm:p-5 space-y-4 shadow-2xs'
+      }
+    >
       {/* 1. Header Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="w-full sm:w-56">
+      {compact ? (
+        <div className="space-y-2">
           <Input
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
               setPage(1);
             }}
-            placeholder="Search reviewed items..."
+            placeholder="Search queue..."
             icon={<Search className="w-3.5 h-3.5" />}
-            className="h-9 text-xs"
+            className="h-8 text-xs bg-[#FAF9F5]"
           />
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <Select
-            value={channelFilter}
-            onChange={(e) => {
-              setChannelFilter(e.target.value);
-              setPage(1);
-            }}
-            className="h-9 text-xs"
-          >
-            <option value="ALL">All Channels</option>
-            <option value="linkedin">LinkedIn</option>
-            <option value="website">Website</option>
-            <option value="email">Email</option>
-            <option value="blog">Blog</option>
-            <option value="instagram">Instagram</option>
-          </Select>
-
-          <Select
-            value={dateFilter}
-            onChange={(e) => {
-              setDateFilter(e.target.value);
-              setPage(1);
-            }}
-            className="h-9 text-xs"
-          >
-            <option value="30d">Last 30 Days</option>
-            <option value="7d">Last 7 Days</option>
-            <option value="90d">Last 90 Days</option>
-          </Select>
-
-          {/* View Mode Toggle (Cards vs Table) */}
-          <div className="inline-flex rounded-lg border border-[#E5E1D8] p-0.5 bg-[#FAF9F5]">
-            <button
-              type="button"
-              onClick={() => setViewMode('cards')}
-              title="Cards View with Changes Summary"
-              className={`p-1.5 rounded-md transition-colors ${
-                viewMode === 'cards'
-                  ? 'bg-[#25251F] text-white shadow-2xs'
-                  : 'text-[#77766E] hover:text-[#25251F]'
-              }`}
+          <div className="flex items-center gap-1.5">
+            <Select
+              value={channelFilter}
+              onChange={(e) => {
+                setChannelFilter(e.target.value);
+                setPage(1);
+              }}
+              className="h-7 text-[11px] py-0 px-2 bg-[#FAF9F5] flex-1"
             >
-              <LayoutList className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('table')}
-              title="Dense Table View"
-              className={`p-1.5 rounded-md transition-colors ${
-                viewMode === 'table'
-                  ? 'bg-[#25251F] text-white shadow-2xs'
-                  : 'text-[#77766E] hover:text-[#25251F]'
-              }`}
-            >
-              <TableIcon className="w-3.5 h-3.5" />
-            </button>
+              <option value="ALL">All Channels</option>
+              <option value="linkedin">LinkedIn</option>
+              <option value="website">Website</option>
+              <option value="email">Email</option>
+              <option value="blog">Blog</option>
+              <option value="instagram">Instagram</option>
+            </Select>
+
+            <span className="text-[10px] text-[#A09D92] px-1 font-mono">
+              {filtered.length} found
+            </span>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="w-full sm:w-56">
+            <Input
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              placeholder="Search reviewed items..."
+              icon={<Search className="w-3.5 h-3.5" />}
+              className="h-9 text-xs"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <Select
+              value={channelFilter}
+              onChange={(e) => {
+                setChannelFilter(e.target.value);
+                setPage(1);
+              }}
+              className="h-9 text-xs"
+            >
+              <option value="ALL">All Channels</option>
+              <option value="linkedin">LinkedIn</option>
+              <option value="website">Website</option>
+              <option value="email">Email</option>
+              <option value="blog">Blog</option>
+              <option value="instagram">Instagram</option>
+            </Select>
+
+            <Select
+              value={dateFilter}
+              onChange={(e) => {
+                setDateFilter(e.target.value);
+                setPage(1);
+              }}
+              className="h-9 text-xs"
+            >
+              <option value="30d">Last 30 Days</option>
+              <option value="7d">Last 7 Days</option>
+              <option value="90d">Last 90 Days</option>
+            </Select>
+
+            {/* View Mode Toggle (Cards vs Table) */}
+            <div className="inline-flex rounded-lg border border-[#E5E1D8] p-0.5 bg-[#FAF9F5]">
+              <button
+                type="button"
+                onClick={() => setViewMode('cards')}
+                title="Cards View with Changes Summary"
+                className={`p-1.5 rounded-md transition-colors ${
+                  viewMode === 'cards'
+                    ? 'bg-[#25251F] text-white shadow-2xs'
+                    : 'text-[#77766E] hover:text-[#25251F]'
+                }`}
+              >
+                <LayoutList className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                title="Dense Table View"
+                className={`p-1.5 rounded-md transition-colors ${
+                  viewMode === 'table'
+                    ? 'bg-[#25251F] text-white shadow-2xs'
+                    : 'text-[#77766E] hover:text-[#25251F]'
+                }`}
+              >
+                <TableIcon className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 2. Review Submissions List / Feed (Card View) */}
       {viewMode === 'cards' ? (
-        <div className="space-y-3">
+        <div
+          className={
+            compact
+              ? 'space-y-2.5 max-h-[calc(100vh-370px)] min-h-[260px] overflow-y-auto custom-scrollbar pr-1'
+              : 'space-y-3'
+          }
+        >
           {paginated.length === 0 ? (
             <div className="p-8 text-center text-xs text-[#77766E] bg-[#FAF9F5] border border-[#E5E1D8] rounded-xl">
               No approval records match your criteria.
@@ -227,67 +277,73 @@ export function ApprovalsTable({
               return (
                 <div
                   key={row.id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => onSelect(row)}
-                  className={`p-4 rounded-xl border transition-all cursor-pointer space-y-3 ${
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onSelect(row);
+                    }
+                  }}
+                  className={`p-3 rounded-xl border transition-all cursor-pointer space-y-2.5 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#68745D] ${
                     isSelected
-                      ? 'bg-[#FAF8F5] border-[#68745D] ring-1 ring-[#68745D]/30 shadow-xs'
-                      : 'bg-[#FFFEFA] border-[#E5E1D8] hover:border-[#68745D]/40 hover:bg-[#FAF9F5]/50'
+                      ? 'bg-[#FAF8F5] border-[#68745D] ring-1 ring-[#68745D]/40 shadow-xs'
+                      : 'bg-[#FFFEFA] border-[#E5E1D8] hover:border-[#68745D]/40 hover:bg-[#FAF9F5]/60'
                   }`}
                 >
                   {/* Top Row: Title, Channel, Decision */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-start gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-[#F1EFE8] border border-[#E5E1D8] flex items-center justify-center text-[#25251F] shrink-0 mt-0.5">
+                  <div className="flex items-start justify-between gap-1.5">
+                    <div className="flex items-start gap-2 min-w-0">
+                      <div className="w-7 h-7 rounded-lg bg-[#F1EFE8] border border-[#E5E1D8] flex items-center justify-center text-[#25251F] shrink-0 mt-0.5">
                         {getChannelIcon(row.channel)}
                       </div>
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="font-semibold text-xs sm:text-sm text-[#25251F] truncate group-hover:text-[#68745D] transition-colors">
-                            {row.title}
-                          </h4>
-                        </div>
-                        <p className="text-[11px] text-[#77766E] mt-0.5">
-                          {row.channel} • {row.reviewId} • {row.date}
+                        <h4 className="font-semibold text-xs text-[#25251F] truncate group-hover:text-[#68745D] transition-colors leading-tight">
+                          {row.title}
+                        </h4>
+                        <p className="text-[10px] text-[#77766E] mt-0.5 font-mono truncate">
+                          {row.channel} • {row.date}
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="shrink-0 scale-90 origin-top-right">
                       {renderDecisionBadge(row.decision)}
                     </div>
                   </div>
 
                   {/* Summary of Changes after Review */}
-                  <div className="p-2.5 rounded-lg bg-[#F7F5F0]/80 border border-[#E5E1D8]/80 text-xs space-y-1.5">
-                    <div className="flex items-center justify-between text-[11px]">
+                  <div className="p-2 rounded-lg bg-[#F7F5F0]/80 border border-[#E5E1D8]/70 text-[11px] space-y-1">
+                    <div className="flex items-center justify-between text-[10px]">
                       <span className="font-medium text-[#25251F] flex items-center gap-1">
-                        <Sparkles className="w-3 h-3 text-[#68745D]" />
-                        <span>Changes After Review:</span>
+                        <Sparkles className="w-2.5 h-2.5 text-[#68745D]" />
+                        <span>Review Changes</span>
                       </span>
-                      <div className="flex items-center gap-1 font-mono text-[10px]">
-                        <span className="bg-[#EEF4EE] text-[#36533D] px-1.5 py-0.2 rounded font-medium border border-[#D1E2D3]">
-                          ✓ {approvedCount} Approved
+                      <div className="flex items-center gap-1 font-mono text-[9px]">
+                        <span className="bg-[#EEF4EE] text-[#36533D] px-1 py-0.2 rounded font-medium border border-[#D1E2D3]">
+                          ✓ {approvedCount}
                         </span>
                         {pendingCount > 0 && (
-                          <span className="bg-[#FDF4E7] text-[#865920] px-1.5 py-0.2 rounded font-medium border border-[#F0D5B5]">
-                            ⏳ {pendingCount} Pending
+                          <span className="bg-[#FDF4E7] text-[#865920] px-1 py-0.2 rounded font-medium border border-[#F0D5B5]">
+                            ⏳ {pendingCount}
                           </span>
                         )}
                       </div>
                     </div>
 
-                    <p className="text-[#55544E] text-[11px] leading-relaxed line-clamp-2">
+                    <p className="text-[#55544E] text-[10px] leading-relaxed line-clamp-2">
                       {row.summary}
                     </p>
                   </div>
 
                   {/* Footer Row: Reviewer & Workspace Action Link */}
-                  <div className="flex items-center justify-between text-[11px] text-[#77766E] pt-1 border-t border-[#E5E1D8]/50">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-5 h-5 rounded-full bg-[#E5E1D8] text-[9px] font-semibold text-[#25251F] flex items-center justify-center">
+                  <div className="flex items-center justify-between text-[10px] text-[#77766E] pt-1 border-t border-[#E5E1D8]/50">
+                    <div className="flex items-center gap-1 min-w-0 truncate">
+                      <div className="w-4 h-4 rounded-full bg-[#E5E1D8] text-[8px] font-semibold text-[#25251F] flex items-center justify-center shrink-0">
                         {row.reviewer}
                       </div>
-                      <span>Reviewer: {row.reviewerName}</span>
+                      <span className="truncate">{row.reviewerName}</span>
                     </div>
 
                     <button
@@ -296,10 +352,10 @@ export function ApprovalsTable({
                         e.stopPropagation();
                         router.push(`/reviews?id=${row.id}`);
                       }}
-                      className="text-[#68745D] hover:underline flex items-center gap-1 font-medium"
+                      className="text-[#68745D] hover:underline flex items-center gap-1 font-medium shrink-0 focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-[#68745D]"
                     >
-                      <ExternalLink className="w-3 h-3" />
-                      <span>Workspace</span>
+                      <ExternalLink className="w-2.5 h-2.5" />
+                      <span>Review</span>
                     </button>
                   </div>
                 </div>
@@ -429,49 +485,85 @@ export function ApprovalsTable({
       )}
 
       {/* 4. Footer Pagination */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-[#E5E1D8] text-xs text-[#77766E]">
-        <span className="text-[11px]">
-          Showing {filtered.length === 0 ? 0 : (safePage - 1) * perPage + 1} to{' '}
-          {Math.min(safePage * perPage, filtered.length)} of {filtered.length} reviewed submissions
-        </span>
+      {compact ? (
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#E5E1D8] text-xs text-[#77766E]">
+          <span className="text-[10px] text-[#A09D92] font-mono">
+            {filtered.length === 0
+              ? '0 items'
+              : `${(safePage - 1) * perPage + 1}–${Math.min(safePage * perPage, filtered.length)} of ${filtered.length}`}
+          </span>
 
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            disabled={safePage === 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            className="w-7 h-7 rounded-lg border border-[#E5E1D8] bg-[#FFFEFA] text-[#25251F] flex items-center justify-center hover:bg-[#F1EFE8] disabled:opacity-40 disabled:cursor-not-allowed"
-            aria-label="Previous page"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" />
-          </button>
-
-          {Array.from({ length: totalPages }, (_, idx) => idx + 1).map((pNum) => (
+          <div className="flex items-center gap-1">
             <button
-              key={pNum}
               type="button"
-              onClick={() => setPage(pNum)}
-              className={`w-7 h-7 rounded-lg text-xs font-medium flex items-center justify-center transition-colors ${
-                safePage === pNum
-                  ? 'bg-[#25251F] text-white shadow-2xs font-semibold'
-                  : 'border border-[#E5E1D8] bg-[#FFFEFA] text-[#25251F] hover:bg-[#F1EFE8]'
-              }`}
+              disabled={safePage === 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="w-6 h-6 rounded border border-[#E5E1D8] bg-[#FFFEFA] text-[#25251F] flex items-center justify-center hover:bg-[#F1EFE8] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              aria-label="Previous page"
             >
-              {pNum}
+              <ChevronLeft className="w-3 h-3" />
             </button>
-          ))}
 
-          <button
-            type="button"
-            disabled={safePage === totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            className="w-7 h-7 rounded-lg border border-[#E5E1D8] bg-[#FFFEFA] text-[#25251F] flex items-center justify-center hover:bg-[#F1EFE8] disabled:opacity-40 disabled:cursor-not-allowed"
-            aria-label="Next page"
-          >
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
+            <span className="text-[10px] font-mono px-1 text-[#25251F]">
+              {safePage} / {totalPages}
+            </span>
+
+            <button
+              type="button"
+              disabled={safePage === totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="w-6 h-6 rounded border border-[#E5E1D8] bg-[#FFFEFA] text-[#25251F] flex items-center justify-center hover:bg-[#F1EFE8] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              aria-label="Next page"
+            >
+              <ChevronRight className="w-3 h-3" />
+            </button>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-[#E5E1D8] text-xs text-[#77766E]">
+          <span className="text-[11px]">
+            Showing {filtered.length === 0 ? 0 : (safePage - 1) * perPage + 1} to{' '}
+            {Math.min(safePage * perPage, filtered.length)} of {filtered.length} reviewed submissions
+          </span>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              disabled={safePage === 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="w-7 h-7 rounded-lg border border-[#E5E1D8] bg-[#FFFEFA] text-[#25251F] flex items-center justify-center hover:bg-[#F1EFE8] disabled:opacity-40 disabled:cursor-not-allowed"
+              aria-label="Previous page"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+
+            {Array.from({ length: totalPages }, (_, idx) => idx + 1).map((pNum) => (
+              <button
+                key={pNum}
+                type="button"
+                onClick={() => setPage(pNum)}
+                className={`w-7 h-7 rounded-lg text-xs font-medium flex items-center justify-center transition-colors ${
+                  safePage === pNum
+                    ? 'bg-[#25251F] text-white shadow-2xs font-semibold'
+                    : 'border border-[#E5E1D8] bg-[#FFFEFA] text-[#25251F] hover:bg-[#F1EFE8]'
+                }`}
+              >
+                {pNum}
+              </button>
+            ))}
+
+            <button
+              type="button"
+              disabled={safePage === totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="w-7 h-7 rounded-lg border border-[#E5E1D8] bg-[#FFFEFA] text-[#25251F] flex items-center justify-center hover:bg-[#F1EFE8] disabled:opacity-40 disabled:cursor-not-allowed"
+              aria-label="Next page"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

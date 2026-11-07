@@ -17,37 +17,42 @@ import {
   AlertTriangle,
   Scale,
   BookOpen,
+  Loader2,
 } from 'lucide-react';
 
 export interface ReviewSidebarToolsProps {
   activeTool?: string;
   onSelectTool?: (toolId: string) => void;
+  onExecuteTool?: (action: string, label: string) => void;
+  onRunAudit?: () => void;
+  isExecuting?: boolean;
+  isAuditing?: boolean;
+  executingAction?: string | null;
   showToast: (msg: string) => void;
 }
 
 export function ReviewSidebarTools({
   activeTool = 'improve-writing',
   onSelectTool,
+  onExecuteTool,
+  onRunAudit,
+  isExecuting = false,
+  isAuditing = false,
+  executingAction = null,
   showToast,
 }: ReviewSidebarToolsProps) {
   const [selectedTool, setSelectedTool] = useState(activeTool);
 
-  const handleToolClick = (toolId: string, label: string) => {
-    setSelectedTool(toolId);
-    if (onSelectTool) onSelectTool(toolId);
-    showToast(`Tool active: "${label}"`);
-  };
-
   const aiReviewTools = [
-    { id: 'improve-writing', label: 'Improve Writing', icon: Sparkles },
-    { id: 'fix-grammar', label: 'Fix Grammar & Spelling', icon: Check },
-    { id: 'make-shorter', label: 'Make Shorter', icon: Minimize2 },
-    { id: 'make-longer', label: 'Make Longer', icon: Maximize2 },
-    { id: 'simplify', label: 'Simplify', icon: Type },
-    { id: 'change-tone', label: 'Change Tone', icon: Mic, hasChevron: true },
-    { id: 'humanize', label: 'Humanize', icon: User },
-    { id: 'summarize', label: 'Summarize', icon: FileText },
-    { id: 'translate', label: 'Translate', icon: Globe },
+    { id: 'improve-writing', action: 'IMPROVE_WRITING', label: 'Improve Writing', icon: Sparkles },
+    { id: 'fix-grammar', action: 'GRAMMAR_SPELLING', label: 'Fix Grammar & Spelling', icon: Check },
+    { id: 'make-shorter', action: 'MAKE_SHORTER', label: 'Make Shorter', icon: Minimize2 },
+    { id: 'make-longer', action: 'MAKE_LONGER', label: 'Make Longer', icon: Maximize2 },
+    { id: 'simplify', action: 'SIMPLIFY', label: 'Simplify', icon: Type },
+    { id: 'change-tone', action: 'CHANGE_TONE', label: 'Change Tone', icon: Mic, hasChevron: true },
+    { id: 'humanize', action: 'HUMANIZE', label: 'Humanize', icon: User },
+    { id: 'summarize', action: 'SUMMARIZE', label: 'Summarize', icon: FileText },
+    { id: 'translate', action: 'IMPROVE_WRITING', label: 'Translate', icon: Globe },
   ];
 
   const brandGovernanceTools = [
@@ -58,44 +63,61 @@ export function ReviewSidebarTools({
     { id: 'terminology-check', label: 'Terminology Check', icon: BookOpen },
   ];
 
+  const handleToolClick = (tool: { id: string; action: string; label: string }) => {
+    setSelectedTool(tool.id);
+    if (onSelectTool) onSelectTool(tool.id);
+    if (onExecuteTool) {
+      onExecuteTool(tool.action, tool.label);
+    } else {
+      showToast(`Selected tool: "${tool.label}"`);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-5 select-none h-full overflow-y-auto pr-1">
-      {/* 1. AI Review Tools */}
+      {/* 1. Evolyn AI Writing Tools */}
       <div>
         <div className="mb-2">
-          <h3 className="text-sm font-semibold text-[#25251F] leading-tight">
-            AI Review Tools
+          <h3 className="text-sm font-semibold text-[#25251F] leading-tight flex items-center justify-between">
+            <span>Evolyn AI Writing Tools</span>
+            {isExecuting && (
+              <span className="text-[10px] text-[#68745D] font-normal flex items-center gap-1">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                <span>Generating...</span>
+              </span>
+            )}
           </h3>
           <p className="text-[11px] text-[#77766E] mt-0.5">
-            Improve, refine, and ensure brand compliance.
+            Grounded AI rewriting with semantic rule alignment and brand safety.
           </p>
         </div>
 
         <div className="space-y-1">
           {aiReviewTools.map((tool) => {
             const Icon = tool.icon;
-            const isActive = selectedTool === tool.id;
+            const isCurrentlyRunning = isExecuting && executingAction === tool.action;
 
             return (
               <button
                 key={tool.id}
                 type="button"
-                onClick={() => handleToolClick(tool.id, tool.label)}
-                className={`w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-lg transition-colors text-left cursor-pointer ${
-                  isActive
-                    ? 'bg-[#E8EBE1] text-[#25251F] font-semibold border border-[#68745D]/25 shadow-2xs'
+                disabled={isExecuting}
+                onClick={() => handleToolClick(tool)}
+                className={`w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-lg transition-colors text-left cursor-pointer disabled:opacity-50 ${
+                  isCurrentlyRunning
+                    ? 'bg-[#E8EBE1] text-[#25251F] font-semibold border border-[#68745D]/40 shadow-2xs'
                     : 'text-[#25251F] hover:bg-[#EFECE5] border border-transparent'
                 }`}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <Icon
-                    className={`w-3.5 h-3.5 shrink-0 ${
-                      isActive ? 'text-[#68745D]' : 'text-[#77766E]'
-                    }`}
-                  />
+                  {isCurrentlyRunning ? (
+                    <Loader2 className="w-3.5 h-3.5 shrink-0 text-[#68745D] animate-spin" />
+                  ) : (
+                    <Icon className="w-3.5 h-3.5 shrink-0 text-[#77766E]" />
+                  )}
                   <span className="truncate">{tool.label}</span>
                 </div>
-                {tool.hasChevron && (
+                {tool.hasChevron && !isCurrentlyRunning && (
                   <ChevronRight className="w-3.5 h-3.5 text-[#A09D92] shrink-0" />
                 )}
               </button>
@@ -107,33 +129,42 @@ export function ReviewSidebarTools({
       {/* 2. Brand Governance Tools */}
       <div>
         <div className="mb-2">
-          <h4 className="text-xs font-semibold text-[#25251F] uppercase tracking-wider">
-            Brand Governance Tools
-          </h4>
+          <h3 className="text-sm font-semibold text-[#25251F] leading-tight flex items-center justify-between">
+            <span>Brand Governance</span>
+            {isAuditing && (
+              <span className="text-[10px] text-[#68745D] font-normal flex items-center gap-1">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                <span>Auditing...</span>
+              </span>
+            )}
+          </h3>
+          <p className="text-[11px] text-[#77766E] mt-0.5">
+            Audit against active guidelines & evidence facts.
+          </p>
         </div>
 
         <div className="space-y-1">
           {brandGovernanceTools.map((tool) => {
             const Icon = tool.icon;
-            const isActive = selectedTool === tool.id;
-
             return (
               <button
                 key={tool.id}
                 type="button"
-                onClick={() => handleToolClick(tool.id, tool.label)}
-                className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-lg transition-colors text-left cursor-pointer ${
-                  isActive
-                    ? 'bg-[#E8EBE1] text-[#25251F] font-semibold border border-[#68745D]/25 shadow-2xs'
-                    : 'text-[#25251F] hover:bg-[#EFECE5] border border-transparent'
-                }`}
+                disabled={isAuditing || isExecuting}
+                onClick={() => {
+                  if (onRunAudit) {
+                    showToast(`Auditing against: ${tool.label}...`);
+                    onRunAudit();
+                  } else {
+                    showToast(`Filter activated: ${tool.label}`);
+                  }
+                }}
+                className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-lg transition-colors text-left text-[#25251F] hover:bg-[#EFECE5] border border-transparent cursor-pointer disabled:opacity-50"
               >
-                <Icon
-                  className={`w-3.5 h-3.5 shrink-0 ${
-                    isActive ? 'text-[#68745D]' : 'text-[#77766E]'
-                  }`}
-                />
-                <span className="truncate">{tool.label}</span>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Icon className="w-3.5 h-3.5 text-[#77766E] shrink-0" />
+                  <span className="truncate">{tool.label}</span>
+                </div>
               </button>
             );
           })}

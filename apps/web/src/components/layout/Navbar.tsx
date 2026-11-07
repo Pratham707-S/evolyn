@@ -26,8 +26,8 @@ export function Navbar() {
           API & pgvector Ready
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 text-xs font-medium">
-          <Cpu className="w-3.5 h-3.5 text-blue-600" />
-          Gemini Flash Driven
+          <Cpu className="w-3.5 h-3.5 text-[#68745D]" />
+          Evolyn AI Engine Active
         </div>
       </div>
     </header>

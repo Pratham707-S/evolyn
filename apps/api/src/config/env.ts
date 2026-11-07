@@ -18,7 +18,7 @@ const envSchema = z.object({
 
   // Gemini AI Model Configuration (strictly environment-driven)
   GEMINI_API_KEY: z.string().optional().default(''),
-  GEMINI_MODEL: z.string().default('gemini-3.1-flash-lite'),
+  GEMINI_MODEL: z.string().default('gemini-3.8-flash'),
   GEMINI_EMBEDDING_MODEL: z.string().default('gemini-embedding-001'),
 
   // AWS S3 (optional in Phase 1 / local fallback)

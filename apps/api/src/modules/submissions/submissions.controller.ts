@@ -7,14 +7,27 @@ import type { NextFunction, Request, Response } from 'express';
 import { z } from 'zod';
 import type { ISubmissionService } from './index.js';
 import { SubmissionService, submissionService } from './submissions.service.js';
+import { localStorageProvider } from '../../infrastructure/storage/local.storage.js';
+import { pdfExtractorService } from './services/pdf-extractor.service.js';
+import { urlExtractorService } from './services/url-extractor.service.js';
 
 const listSubmissionsQuerySchema = z.object({
   status: submissionStatusSchema.optional(),
   channel: submissionChannelSchema.optional(),
+  search: z.string().optional(),
+  page: z.coerce.number().min(1).default(1),
+  pageSize: z.coerce.number().min(1).max(100).default(10),
 });
 
 const submissionParamsSchema = z.object({
   id: uuidSchema,
+});
+
+const extractUrlSchema = z.object({
+  url: z.string().url(),
+  title: z.string().optional(),
+  channel: submissionChannelSchema.default('WEBSITE'),
+  submittedBy: z.string().default('web-importer'),
 });
 
 export class SubmissionController {
@@ -31,9 +44,36 @@ export class SubmissionController {
 
   list = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const filter = listSubmissionsQuerySchema.parse(req.query);
-      const submissions = await this.service.listSubmissions(filter);
-      res.status(200).json({ submissions, total: submissions.length });
+      const query = listSubmissionsQuerySchema.parse(req.query);
+      const allSubmissions = await this.service.listSubmissions({
+        status: query.status,
+        channel: query.channel,
+      });
+
+      // Filter by search query if provided
+      let filtered = allSubmissions;
+      if (query.search && query.search.trim().length > 0) {
+        const searchLower = query.search.toLowerCase().trim();
+        filtered = allSubmissions.filter(
+          (s) =>
+            s.title.toLowerCase().includes(searchLower) ||
+            s.rawText.toLowerCase().includes(searchLower) ||
+            s.channel.toLowerCase().includes(searchLower)
+        );
+      }
+
+      const total = filtered.length;
+      const totalPages = Math.max(1, Math.ceil(total / query.pageSize));
+      const startIndex = (query.page - 1) * query.pageSize;
+      const paginated = filtered.slice(startIndex, startIndex + query.pageSize);
+
+      res.status(200).json({
+        submissions: paginated,
+        total,
+        page: query.page,
+        pageSize: query.pageSize,
+        totalPages,
+      });
     } catch (error) {
       next(error);
     }
@@ -50,6 +90,143 @@ export class SubmissionController {
 
       res.status(200).json({ submission });
     } catch (error) {
+      next(error);
+    }
+  };
+
+  update = async (req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { id } = submissionParamsSchema.parse(req.params);
+      const { rawText, title, status } = req.body || {};
+      if (typeof this.service.updateSubmission !== 'function') {
+        res.status(501).json({ error: 'Update not supported by service implementation' });
+        return;
+      }
+      const submission = await this.service.updateSubmission(id, {
+        rawText,
+        title,
+        status,
+      });
+      res.status(200).json({ submission });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getFile = async (req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { id } = submissionParamsSchema.parse(req.params);
+      const submission = await this.service.getSubmissionById(id);
+      if (!submission || !submission.fileUrl) {
+        res.status(404).json({ error: 'No PDF file associated with this submission' });
+        return;
+      }
+
+      if (submission.fileUrl.startsWith('data:')) {
+        const [header, base64Data] = submission.fileUrl.split(',');
+        const mimeMatch = header.match(/:(.*?);/);
+        const contentType = mimeMatch ? mimeMatch[1] : 'application/pdf';
+        const buffer = Buffer.from(base64Data, 'base64');
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Length', buffer.length);
+        res.setHeader('Content-Disposition', `inline; filename="${submission.title || 'document'}.pdf"`);
+        res.send(buffer);
+        return;
+      }
+
+      res.redirect(submission.fileUrl);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  uploadPdf = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const file = req.file;
+      if (!file) {
+        res.status(400).json({ error: 'No file uploaded. Please upload a PDF file.' });
+        return;
+      }
+
+      if (file.mimetype !== 'application/pdf') {
+        res.status(400).json({ error: 'Invalid file type. Only PDF documents are supported.' });
+        return;
+      }
+
+      const title = req.body.title || file.originalname.replace(/\.pdf$/i, '');
+      const parsedChannel = submissionChannelSchema.safeParse(req.body.channel);
+      const channel = parsedChannel.success ? parsedChannel.data : 'WEBSITE';
+      const submittedBy = req.body.submittedBy || 'pdf-uploader';
+
+      // 1. Save original PDF
+      const uniqueFilename = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const fileUrl = await localStorageProvider.uploadFile(file.buffer, uniqueFilename, {
+        filename: uniqueFilename,
+        contentType: 'application/pdf',
+      });
+
+      // 2. Extract text from PDF
+      const extracted = await pdfExtractorService.extractText(file.buffer);
+
+      if (!extracted.text || extracted.text.trim().length === 0) {
+        res.status(400).json({
+          error: 'PDF contains no readable text or is image-only. Please provide a text-based PDF.',
+        });
+        return;
+      }
+
+      // 3. Create persistent Content Submission
+      const submission = await this.service.createSubmission({
+        title,
+        channel,
+        rawText: extracted.text,
+        fileUrl,
+        submittedBy,
+      });
+
+      res.status(201).json({
+        submission,
+        extractedText: extracted.text,
+        numPages: extracted.numPages,
+        fileUrl,
+        metadata: extracted.metadata,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  extractUrl = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const input = extractUrlSchema.parse(req.body);
+
+      // Extract web page content with SSRF checks
+      const extracted = await urlExtractorService.extractContent(input.url);
+
+      const title = input.title && input.title.trim().length > 0 ? input.title : extracted.title;
+
+      // Create persistent Content Submission
+      const submission = await this.service.createSubmission({
+        title,
+        channel: input.channel,
+        rawText: extracted.content,
+        fileUrl: input.url,
+        submittedBy: input.submittedBy,
+      });
+
+      res.status(201).json({
+        submission,
+        extracted: {
+          url: extracted.url,
+          title: extracted.title,
+          contentLength: extracted.content.length,
+        },
+      });
+    } catch (error: any) {
+      if (error.message && (error.message.includes('restricted') || error.message.includes('blocked'))) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
       next(error);
     }
   };

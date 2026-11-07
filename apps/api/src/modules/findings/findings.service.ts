@@ -59,7 +59,12 @@ export type FindingsRepositoryDependency = Pick<
     factId?: string | null;
   }) => Promise<CanonicalSourceRecord | null>;
   reviewRunExists?: (reviewRunId: string) => Promise<boolean>;
+  updateStatus?: (
+    findingId: string,
+    status: 'OPEN' | 'ACCEPTED' | 'OVERRIDDEN'
+  ) => Promise<DetectedIssueRecord | null>;
 };
+
 
 export class FindingsService implements IFindingsService {
   constructor(
@@ -136,6 +141,19 @@ export class FindingsService implements IFindingsService {
     const records = await this.repository.listByReviewRunId(validatedReviewRunId);
     return records.map(mapRecord);
   }
+
+  async updateFindingStatus(
+    findingId: string,
+    status: 'OPEN' | 'ACCEPTED' | 'OVERRIDDEN'
+  ): Promise<DetectedIssue | null> {
+    const validatedId = uuidSchema.parse(findingId);
+    if (!this.repository.updateStatus) {
+      throw new Error('Repository does not support updateStatus');
+    }
+    const updated = await this.repository.updateStatus(validatedId, status);
+    return updated ? mapRecord(updated) : null;
+  }
 }
+
 
 export const findingsService = new FindingsService(findingsRepository);

@@ -1,5 +1,7 @@
+import { randomUUID } from 'node:crypto';
 import { rewriteContentSchema, uuidSchema } from '@evolyn/shared';
 import type { NextFunction, Request, Response } from 'express';
+import { env } from '../../config/env.js';
 import type { ISubmissionService } from '../submissions/index.js';
 import type { IReviewService } from './index.js';
 
@@ -105,16 +107,59 @@ export class ReviewsController {
     res: Response,
     next: NextFunction
   ): Promise<void> => {
+    const requestId =
+      (req.headers && (req.headers['x-request-id'] as string)) || randomUUID();
+    if (typeof res.setHeader === 'function') {
+      res.setHeader('x-request-id', requestId);
+    }
+    const startMs = Date.now();
+
     try {
       const submissionId = uuidSchema.parse(req.params.id);
       const input = rewriteContentSchema.parse(req.body);
+      const validationMs = Date.now() - startMs;
+
       if (!this.reviews.rewrite) {
         throw new Error('Review service does not support rewrite');
       }
 
+      const rewriteStartMs = Date.now();
       const result = await this.reviews.rewrite(submissionId, input);
+      const serviceMs = Date.now() - rewriteStartMs;
+      const totalMs = Date.now() - startMs;
+
+      // Structured Telemetry Log (Never log sensitive content or API keys)
+      console.log(
+        JSON.stringify({
+          type: 'REWRITE_TELEMETRY',
+          requestId,
+          operation: input.action,
+          modelId: env.GEMINI_MODEL,
+          durations: {
+            validationMs,
+            serviceMs,
+            totalMs,
+          },
+          httpStatus: 200,
+          outcome: 'SUCCESS',
+        })
+      );
+
       res.status(200).json(result);
     } catch (error) {
+      const totalMs = Date.now() - startMs;
+      console.error(
+        JSON.stringify({
+          type: 'REWRITE_TELEMETRY',
+          requestId,
+          modelId: env.GEMINI_MODEL,
+          durations: { totalMs },
+          httpStatus: error instanceof Error && error.message.includes('not found') ? 404 : 500,
+          outcome: 'FAILURE',
+          errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        })
+      );
+
       if (
         error instanceof Error &&
         (error.message === 'Submission not found' ||

@@ -1,9 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Underline from '@tiptap/extension-underline';
 import {
   ChevronLeft,
-  MoreVertical,
+  ChevronRight,
   Edit3,
   FileText,
   History,
@@ -13,68 +16,215 @@ import {
   Undo2,
   Redo2,
   Bold,
-  Underline,
+  Italic,
+  Underline as UnderlineIcon,
   Strikethrough,
   List,
   ListOrdered,
-  ChevronDown,
+  Heading1,
+  Heading2,
   Copy,
   ExternalLink,
   Save,
-  Linkedin,
+  Loader2,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 
 export interface ReviewEditorProps {
   initialTitle?: string;
   channel?: string;
-  isGuidelineAccepted?: boolean;
-  isEvidenceAdded?: boolean;
-  onSelectFinding?: (findingId: string) => void;
-  onSave?: () => void;
+  initialContent?: string;
+  submissionId?: string;
+  fileUrl?: string | null;
+  onSelectFinding?: (findingId: string, excerpt?: string) => void;
+  onSave?: (currentContent: string) => void;
+  onApplyRewrite?: (newContent: string) => void;
+  onContentChange?: (content: string) => void;
   showToast: (msg: string) => void;
+  isSaving?: boolean;
+}
+
+function cleanAndFormatPdfToHtml(raw: string): string {
+  if (!raw) return '<p>Loading document content...</p>';
+  if (
+    raw.includes('<p>') ||
+    raw.includes('<h1>') ||
+    raw.includes('<h2>') ||
+    raw.includes('<h3>') ||
+    raw.includes('<ul>') ||
+    raw.includes('<ol>') ||
+    raw.includes('<div>')
+  ) {
+    return raw;
+  }
+
+  // 1. Strip raw delimiter noise and convert page markers into structured tags
+  const cleaned = raw
+    .replace(/\f/g, '\n\n')
+    .replace(/---\s*Page\s*(\d+)(?:\s*of\s*\d+)?\s*---/gi, '\n\n[PAGE_BREAK_$1]\n\n')
+    .replace(/--\s*Page\s*(\d+)\s*--/gi, '\n\n[PAGE_BREAK_$1]\n\n')
+    .replace(/--\s*(\d+)\s*of\s*(\d+)\s*--/gi, '\n\n[PAGE_BREAK_$1]\n\n')
+    .replace(/Page\s+(\d+)\s+of\s+(\d+)/gi, '');
+
+  const lines = cleaned.split('\n');
+  const htmlBlocks: string[] = [];
+  let currentList: string[] = [];
+
+  const flushList = () => {
+    if (currentList.length > 0) {
+      htmlBlocks.push(`<ul>${currentList.map((li) => `<li>${li}</li>`).join('')}</ul>`);
+      currentList = [];
+    }
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) {
+      flushList();
+      continue;
+    }
+
+    const pageMatch = line.match(/^\[PAGE_BREAK_(\d+)\]$/);
+    if (pageMatch) {
+      flushList();
+      htmlBlocks.push(
+        `<p style="margin: 24px 0 12px; padding: 4px 10px; background: #F1EFE8; border-radius: 6px; font-family: monospace; font-size: 11px; color: #68745D; font-weight: 600; display: inline-block;">Page ${pageMatch[1]} Reference</p>`
+      );
+      continue;
+    }
+
+    if (line.startsWith('# ')) {
+      flushList();
+      htmlBlocks.push(`<h1>${line.replace('# ', '')}</h1>`);
+    } else if (line.startsWith('## ')) {
+      flushList();
+      htmlBlocks.push(`<h2>${line.replace('## ', '')}</h2>`);
+    } else if (line.startsWith('### ')) {
+      flushList();
+      htmlBlocks.push(`<h3>${line.replace('### ', '')}</h3>`);
+    } else if (
+      /^[A-Z0-9\s—:-]{4,60}$/.test(line) &&
+      !line.endsWith('.') &&
+      line.length > 5 &&
+      !line.includes('HTTP')
+    ) {
+      flushList();
+      htmlBlocks.push(`<h2>${line}</h2>`);
+    } else if (line.startsWith('• ') || line.startsWith('- ') || line.startsWith('* ')) {
+      currentList.push(line.replace(/^[•\-*]\s+/, ''));
+    } else {
+      flushList();
+      htmlBlocks.push(`<p>${line}</p>`);
+    }
+  }
+
+  flushList();
+  return htmlBlocks.join('');
 }
 
 export function ReviewEditor({
   initialTitle = 'Q3 Product Campaign',
   channel = 'LinkedIn Post',
-  isGuidelineAccepted = false,
-  isEvidenceAdded = false,
+  initialContent = '',
+  submissionId,
+  fileUrl,
   onSelectFinding,
   onSave,
+  onContentChange,
   showToast,
+  isSaving = false,
 }: ReviewEditorProps) {
   const [activeTab, setActiveTab] = useState<'editor' | 'pdf' | 'history'>('editor');
   const [copied, setCopied] = useState(false);
-  const [fontFormat, setFontFormat] = useState('Normal text');
-  const [isBold, setIsBold] = useState(false);
-  const [isUnderline, setIsUnderline] = useState(false);
-  const [isStrike, setIsStrike] = useState(false);
+  const [pdfZoom, setPdfZoom] = useState(100);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(5);
 
-  const documentText = `Introducing Evolyn: AI-Powered Brand Governance for Modern Marketing Teams
+  const lastSetContentRef = React.useRef('');
 
-Evolyn is a comprehensive brand governance platform that helps marketing teams create compliant, consistent, and on-brand content across every channel.
+  // Initialize TipTap Editor
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: {
+          levels: [1, 2, 3],
+        },
+      }),
+      Underline,
+    ],
+    content: cleanAndFormatPdfToHtml(initialContent),
+    editorProps: {
+      attributes: {
+        class:
+          'prose prose-sm max-w-none focus:outline-hidden min-h-[320px] text-[#25251F] leading-relaxed select-text font-sans p-4 sm:p-6',
+      },
+    },
+    onUpdate: ({ editor: ed }) => {
+      const text = ed.getText() || '';
+      lastSetContentRef.current = text;
+      onContentChange?.(text);
+    },
+  });
 
-With Evolyn, you can increase campaign performance by up to 3x while ensuring ${
-    isGuidelineAccepted ? 'verified brand compliance' : '100% brand compliance'
-  }. Our AI analyzes your content against brand guidelines, verifies claims with approved evidence, and provides actionable suggestions in seconds.
-
-From social media and ad copy to long-form content and product messaging, Evolyn keeps your brand voice consistent, your claims credible, and your ${
-    isEvidenceAdded ? 'marketing enterprise-ready.' : 'marketing risk-free.'
-  }`;
+  // Sync editor content when initialContent changes (e.g. API load, rewrite acceptance, or finding fix)
+  useEffect(() => {
+    if (editor && initialContent) {
+      const currentText = editor.getText?.() || '';
+      const isPlaceholder = !currentText || currentText === 'Loading document content...';
+      if (isPlaceholder || initialContent !== lastSetContentRef.current) {
+        lastSetContentRef.current = initialContent;
+        try {
+          editor.commands.setContent(cleanAndFormatPdfToHtml(initialContent));
+        } catch (err) {
+          console.error('Error syncing editor content:', err);
+        }
+      }
+    }
+  }, [editor, initialContent]);
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(documentText);
+    if (!editor) return;
+    const text = editor.getText?.() || '';
+    navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
     showToast('Document text copied to clipboard');
   };
 
   const handleSave = () => {
+    if (!editor) return;
+    const currentHtml = editor.getHTML?.() || '';
+    const currentText = editor.getText?.() || '';
+    const contentToSave = currentHtml && currentHtml !== '<p></p>' ? currentHtml : currentText;
     if (onSave) {
-      onSave();
+      onSave(contentToSave);
     } else {
       showToast('Revised version saved successfully');
+    }
+  };
+
+  const getWordCount = () => {
+    if (!editor) return 0;
+    try {
+      const raw = editor.getText?.();
+      if (!raw) return 0;
+      const text = raw.trim();
+      return text ? text.split(/\s+/).filter(Boolean).length : 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  const getCharCount = () => {
+    if (!editor) return 0;
+    try {
+      const raw = editor.getText?.();
+      return raw ? raw.length : 0;
+    } catch {
+      return 0;
     }
   };
 
@@ -85,7 +235,7 @@ From social media and ad copy to long-form content and product messaging, Evolyn
         <div className="flex items-center gap-2.5 min-w-0">
           <button
             type="button"
-            onClick={() => showToast('Navigating back to Submissions...')}
+            onClick={() => window.history.back()}
             className="p-1 -ml-1 text-[#77766E] hover:text-[#25251F] hover:bg-[#F1EFE8] rounded-md transition-colors"
             title="Back to submissions"
           >
@@ -97,334 +247,439 @@ From social media and ad copy to long-form content and product messaging, Evolyn
               {initialTitle}
             </h2>
             <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-[11px] text-[#77766E] mt-0.5 flex-wrap">
-              <span className="inline-flex items-center gap-1 font-medium text-[#0A66C2]">
-                <Linkedin className="w-3 h-3 fill-[#0A66C2] text-transparent" />
-                <span>{channel}</span>
-              </span>
+              <span className="font-medium text-[#68745D]">{channel}</span>
               <span>•</span>
-              <span>Submitted 2 hours ago</span>
+              <span>{getWordCount()} words</span>
               <span>•</span>
-              <span className="font-mono">Review #RV-1043</span>
+              <span>{getCharCount()} chars</span>
+              {submissionId && (
+                <>
+                  <span>•</span>
+                  <span className="font-mono text-[10px] text-[#A09D92]">
+                    ID: {submissionId.slice(0, 8)}
+                  </span>
+                </>
+              )}
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0 ml-auto sm:ml-0">
-          {/* Status pill */}
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#FDF4E7] text-[#B78A4A] border border-[#F0D5B5]">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#B78A4A]" />
-            <span>In Review</span>
-          </span>
+        {/* View Switcher: Editor / PDF / History */}
+        <div className="flex items-center gap-1 bg-[#FAF9F5] border border-[#E5E1D8] p-0.5 rounded-lg text-xs select-none">
+          <button
+            type="button"
+            onClick={() => setActiveTab('editor')}
+            className={`px-2.5 py-1 rounded-md font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'editor'
+                ? 'bg-[#FFFEFA] text-[#25251F] shadow-2xs font-semibold'
+                : 'text-[#77766E] hover:text-[#25251F]'
+            }`}
+          >
+            <Edit3 className="w-3.5 h-3.5" />
+            <span>Interactive Editor</span>
+          </button>
 
           <button
             type="button"
-            onClick={() => showToast('Review document actions menu')}
-            className="p-1.5 text-[#77766E] hover:text-[#25251F] hover:bg-[#F1EFE8] rounded-lg transition-colors cursor-pointer"
-            title="More options"
+            onClick={() => setActiveTab('pdf')}
+            className={`px-2.5 py-1 rounded-md font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'pdf'
+                ? 'bg-[#FFFEFA] text-[#25251F] shadow-2xs font-semibold'
+                : 'text-[#77766E] hover:text-[#25251F]'
+            }`}
           >
-            <MoreVertical className="w-4 h-4" />
+            <FileText className="w-3.5 h-3.5" />
+            <span>Original (PDF)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('history')}
+            className={`px-2.5 py-1 rounded-md font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'history'
+                ? 'bg-[#FFFEFA] text-[#25251F] shadow-2xs font-semibold'
+                : 'text-[#77766E] hover:text-[#25251F]'
+            }`}
+          >
+            <History className="w-3.5 h-3.5" />
+            <span>Revisions</span>
           </button>
         </div>
       </div>
 
-      {/* 2. Sub-Tabs */}
-      <div className="px-4 sm:px-5 pt-2 border-b border-[#E5E1D8] flex items-center gap-4 sm:gap-6 shrink-0 bg-[#FFFEFA] overflow-x-auto no-scrollbar">
-        <button
-          type="button"
-          onClick={() => setActiveTab('editor')}
-          className={`flex items-center gap-1.5 pb-2 text-xs font-medium transition-colors cursor-pointer border-b-2 ${
-            activeTab === 'editor'
-              ? 'border-[#25251F] text-[#25251F] font-semibold'
-              : 'border-transparent text-[#77766E] hover:text-[#25251F]'
-          }`}
-        >
-          <Edit3 className="w-3.5 h-3.5" />
-          <span>Editor</span>
-        </button>
+      {/* 2. Interactive TipTap Formatting Toolbar */}
+      {activeTab === 'editor' && editor && (
+        <div className="px-3 sm:px-4 py-2 border-b border-[#E5E1D8] bg-[#FAF8F5]/60 flex items-center justify-between gap-2 overflow-x-auto select-none shrink-0">
+          <div className="flex items-center gap-1 text-xs">
+            {/* Undo / Redo */}
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => editor.chain().focus().undo().run()}
+              disabled={!editor.can().undo()}
+              className="p-1.5 text-[#77766E] hover:text-[#25251F] hover:bg-[#E5E1D8] rounded-md transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              title="Undo (Ctrl+Z)"
+            >
+              <Undo2 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => editor.chain().focus().redo().run()}
+              disabled={!editor.can().redo()}
+              className="p-1.5 text-[#77766E] hover:text-[#25251F] hover:bg-[#E5E1D8] rounded-md transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              title="Redo (Ctrl+Y)"
+            >
+              <Redo2 className="w-3.5 h-3.5" />
+            </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('pdf')}
-          className={`flex items-center gap-1.5 pb-2 text-xs font-medium transition-colors cursor-pointer border-b-2 ${
-            activeTab === 'pdf'
-              ? 'border-[#25251F] text-[#25251F] font-semibold'
-              : 'border-transparent text-[#77766E] hover:text-[#25251F]'
-          }`}
-        >
-          <FileText className="w-3.5 h-3.5" />
-          <span>Original (PDF)</span>
-        </button>
+            <div className="w-[1px] h-4 bg-[#E5E1D8] mx-1" />
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('history')}
-          className={`flex items-center gap-1.5 pb-2 text-xs font-medium transition-colors cursor-pointer border-b-2 ${
-            activeTab === 'history'
-              ? 'border-[#25251F] text-[#25251F] font-semibold'
-              : 'border-transparent text-[#77766E] hover:text-[#25251F]'
-          }`}
-        >
-          <History className="w-3.5 h-3.5" />
-          <span>Version History</span>
-        </button>
-      </div>
+            {/* Headings */}
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+              className={`p-1.5 rounded-md transition-colors ${
+                editor.isActive('heading', { level: 1 })
+                  ? 'bg-[#25251F] text-white shadow-2xs'
+                  : 'text-[#77766E] hover:text-[#25251F] hover:bg-[#E5E1D8]'
+              }`}
+              title="Heading 1"
+            >
+              <Heading1 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+              className={`p-1.5 rounded-md transition-colors ${
+                editor.isActive('heading', { level: 2 })
+                  ? 'bg-[#25251F] text-white shadow-2xs'
+                  : 'text-[#77766E] hover:text-[#25251F] hover:bg-[#E5E1D8]'
+              }`}
+              title="Heading 2"
+            >
+              <Heading2 className="w-3.5 h-3.5" />
+            </button>
 
-      {/* 3. Document Content Canvas */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 sm:px-8 sm:py-6 space-y-5 font-sans">
+            <div className="w-[1px] h-4 bg-[#E5E1D8] mx-1" />
+
+            {/* Bold, Italic, Underline, Strike */}
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => editor.chain().focus().toggleBold().run()}
+              className={`p-1.5 rounded-md transition-colors ${
+                editor.isActive('bold')
+                  ? 'bg-[#25251F] text-white shadow-2xs'
+                  : 'text-[#77766E] hover:text-[#25251F] hover:bg-[#E5E1D8]'
+              }`}
+              title="Bold"
+            >
+              <Bold className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => editor.chain().focus().toggleItalic().run()}
+              className={`p-1.5 rounded-md transition-colors ${
+                editor.isActive('italic')
+                  ? 'bg-[#25251F] text-white shadow-2xs'
+                  : 'text-[#77766E] hover:text-[#25251F] hover:bg-[#E5E1D8]'
+              }`}
+              title="Italic"
+            >
+              <Italic className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => editor.chain().focus().toggleUnderline().run()}
+              className={`p-1.5 rounded-md transition-colors ${
+                editor.isActive('underline')
+                  ? 'bg-[#25251F] text-white shadow-2xs'
+                  : 'text-[#77766E] hover:text-[#25251F] hover:bg-[#E5E1D8]'
+              }`}
+              title="Underline"
+            >
+              <UnderlineIcon className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => editor.chain().focus().toggleStrike().run()}
+              className={`p-1.5 rounded-md transition-colors ${
+                editor.isActive('strike')
+                  ? 'bg-[#25251F] text-white shadow-2xs'
+                  : 'text-[#77766E] hover:text-[#25251F] hover:bg-[#E5E1D8]'
+              }`}
+              title="Strikethrough"
+            >
+              <Strikethrough className="w-3.5 h-3.5" />
+            </button>
+
+            <div className="w-[1px] h-4 bg-[#E5E1D8] mx-1" />
+
+            {/* Lists */}
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => editor.chain().focus().toggleBulletList().run()}
+              className={`p-1.5 rounded-md transition-colors ${
+                editor.isActive('bulletList')
+                  ? 'bg-[#25251F] text-white shadow-2xs'
+                  : 'text-[#77766E] hover:text-[#25251F] hover:bg-[#E5E1D8]'
+              }`}
+              title="Bullet list"
+            >
+              <List className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => editor.chain().focus().toggleOrderedList().run()}
+              className={`p-1.5 rounded-md transition-colors ${
+                editor.isActive('orderedList')
+                  ? 'bg-[#25251F] text-white shadow-2xs'
+                  : 'text-[#77766E] hover:text-[#25251F] hover:bg-[#E5E1D8]'
+              }`}
+              title="Numbered list"
+            >
+              <ListOrdered className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Quick Copy & Save Buttons */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="text-xs text-[#77766E] hover:text-[#25251F] flex items-center gap-1 px-2.5 py-1 rounded-md hover:bg-[#E5E1D8] transition-colors"
+              title="Copy clean text"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-[#64816A]" />
+                  <span className="text-[#64816A]">Copied</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Copy</span>
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={isSaving}
+              className="bg-[#25251F] hover:bg-[#383832] disabled:opacity-50 text-white text-xs font-medium px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Save Revision</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Editor / PDF / History Canvas Content */}
+      <div className="flex-1 min-h-0 overflow-y-auto bg-[#FFFEFA]">
         {activeTab === 'editor' && (
-          <>
-            {/* Lead Heading */}
-            <h1 className="text-xl sm:text-2xl font-serif font-bold text-[#25251F] tracking-tight leading-snug">
-              Introducing Evolyn: AI-Powered Brand Governance for Modern Marketing Teams
-            </h1>
-
-            {/* Paragraph 1 */}
-            <p className="text-sm sm:text-[15px] leading-relaxed text-[#25251F]">
-              Evolyn is a comprehensive brand governance platform that helps marketing teams create compliant, consistent, and on-brand content across every channel.
-            </p>
-
-            {/* Paragraph 2 with Interactive Highlights */}
-            <p className="text-sm sm:text-[15px] leading-relaxed text-[#25251F]">
-              With Evolyn, you can{' '}
-              <span
-                onClick={() => onSelectFinding?.('finding-evidence')}
-                className="bg-[#FDF4E7] text-[#865920] px-1 py-0.5 rounded border-b-2 border-[#E0A868] cursor-pointer hover:bg-[#F9ECCF] transition-colors"
-                title="Unsupported Claim: Click to view details"
-              >
-                increase campaign performance by up to 3x
-              </span>{' '}
-              while ensuring{' '}
-              <span
-                onClick={() => onSelectFinding?.('finding-guideline')}
-                className={`px-1 py-0.5 rounded border-b-2 cursor-pointer transition-colors ${
-                  isGuidelineAccepted
-                    ? 'bg-[#EEF4EE] text-[#36533D] border-[#64816A] font-medium'
-                    : 'bg-[#FDEAEA] text-[#9E342B] border-[#E07A70] font-medium hover:bg-[#F9D6D3]'
-                }`}
-                title="Guideline Violation: Click to inspect"
-              >
-                {isGuidelineAccepted ? 'verified brand compliance.' : '100% brand compliance.'}
-              </span>{' '}
-              Our AI analyzes your content against brand guidelines, verifies claims with approved evidence, and provides actionable suggestions in seconds.
-            </p>
-
-            {/* Paragraph 3 with Interactive Highlight */}
-            <p className="text-sm sm:text-[15px] leading-relaxed text-[#25251F]">
-              From social media and ad copy to long-form content and product messaging, Evolyn keeps your brand voice consistent, your claims credible, and your{' '}
-              <span
-                onClick={() => onSelectFinding?.('finding-evidence')}
-                className="bg-[#FDF4E7] text-[#865920] px-1 py-0.5 rounded border-b-2 border-[#E0A868] cursor-pointer hover:bg-[#F9ECCF] transition-colors"
-                title="Tone & Risk: Click to inspect"
-              >
-                marketing risk-free.
-              </span>
-            </p>
-
-            {/* Floating Inline AI Toolbar (Matching reference) */}
-            <div className="pt-1">
-              <div className="inline-flex items-center gap-2 bg-[#FFFEFA] border border-[#E5E1D8] shadow-sm rounded-lg px-3 py-1.5 text-xs text-[#25251F]">
-                <button
-                  type="button"
-                  onClick={() => showToast('AI Improvement applied')}
-                  className="flex items-center gap-1 font-medium hover:text-[#68745D] transition-colors cursor-pointer"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-[#68745D]" />
-                  <span>Improve</span>
-                </button>
-                <span className="text-[#E5E1D8]">•</span>
-                <button
-                  type="button"
-                  onClick={() => showToast('Rephrasing active segment...')}
-                  className="flex items-center gap-1 text-[#77766E] hover:text-[#25251F] transition-colors cursor-pointer"
-                >
-                  <RotateCcw className="w-3 h-3" />
-                  <span>Rephrase</span>
-                </button>
-                <span className="text-[#E5E1D8]">•</span>
-                <button
-                  type="button"
-                  onClick={() => showToast('Shortened sentence by 20%')}
-                  className="flex items-center gap-1 text-[#77766E] hover:text-[#25251F] transition-colors cursor-pointer"
-                >
-                  <Check className="w-3 h-3" />
-                  <span>Shorten</span>
-                </button>
-                <span className="text-[#E5E1D8]">•</span>
-                <button
-                  type="button"
-                  onClick={() => showToast('Opening additional AI transformation options...')}
-                  className="text-[#77766E] hover:text-[#25251F] transition-colors cursor-pointer"
-                >
-                  + More
-                </button>
-              </div>
-            </div>
-          </>
+          <div className="h-full">
+            <EditorContent editor={editor} />
+          </div>
         )}
 
         {activeTab === 'pdf' && (
-          <div className="p-8 border border-dashed border-[#E5E1D8] rounded-xl text-center space-y-3 bg-[#FAF9F5]">
-            <FileText className="w-10 h-10 text-[#68745D] mx-auto opacity-70" />
-            <h3 className="font-serif text-base text-[#25251F]">
-              Original Submitted Asset (PDF Preview)
-            </h3>
-            <p className="text-xs text-[#77766E] max-w-md mx-auto">
-              Campaign brief submitted as "Q3_Product_Launch_Copy.pdf" (1.4 MB). All AI extraction and semantic guidelines verified.
-            </p>
-            <button
-              type="button"
-              onClick={() => showToast('Downloading original submission document...')}
-              className="text-xs text-[#68745D] hover:underline font-medium inline-flex items-center gap-1"
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-              <span>Download Original PDF File</span>
-            </button>
+          <div className="h-full flex flex-col p-4 overflow-hidden">
+            {/* PDF Viewer Header Toolbar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 mb-3 border-b border-[#E5E1D8] shrink-0">
+              {/* Left: Document info & Page controls */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-[#25251F]">
+                  <FileText className="w-4 h-4 text-[#68745D]" />
+                  <span>Original PDF</span>
+                </div>
+
+                {fileUrl && (
+                  <div className="flex items-center bg-[#F1EFE8] rounded-lg p-0.5 border border-[#E5E1D8] text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage <= 1}
+                      className="p-1 text-[#77766E] hover:text-[#25251F] disabled:opacity-30 rounded-md transition-colors"
+                      title="Previous page"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="px-2 text-[11px] font-mono text-[#25251F]">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage >= totalPages}
+                      className="p-1 text-[#77766E] hover:text-[#25251F] disabled:opacity-30 rounded-md transition-colors"
+                      title="Next page"
+                    >
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Right: Zoom controls & External Link */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 bg-[#F1EFE8] rounded-lg p-0.5 border border-[#E5E1D8] text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setPdfZoom((z) => Math.max(50, z - 25))}
+                    className="p-1 text-[#77766E] hover:text-[#25251F] rounded-md transition-colors"
+                    title="Zoom out"
+                  >
+                    <ZoomOut className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="px-1 text-[11px] font-mono text-[#77766E] min-w-[38px] text-center">
+                    {pdfZoom}%
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPdfZoom((z) => Math.min(200, z + 25))}
+                    className="p-1 text-[#77766E] hover:text-[#25251F] rounded-md transition-colors"
+                    title="Zoom in"
+                  >
+                    <ZoomIn className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPdfZoom(100)}
+                    className="px-1.5 py-0.5 text-[10px] font-medium text-[#77766E] hover:text-[#25251F] rounded hover:bg-[#E5E1D8] transition-colors"
+                    title="Reset Zoom"
+                  >
+                    Reset
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPdfZoom(125)}
+                    className="px-1.5 py-0.5 text-[10px] font-medium text-[#77766E] hover:text-[#25251F] rounded hover:bg-[#E5E1D8] transition-colors"
+                    title="Fit to width"
+                  >
+                    Fit
+                  </button>
+                </div>
+
+                {fileUrl && (
+                  <a
+                    href={fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2.5 py-1 text-xs text-[#68745D] hover:text-[#515B48] bg-[#E8EBE1]/60 hover:bg-[#E8EBE1] rounded-lg font-medium transition-colors flex items-center gap-1"
+                  >
+                    <span>Full Window</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+              </div>
+            </div>
+
+            {/* PDF Main Content Area */}
+            {fileUrl ? (
+              <div className="flex-1 min-h-0 flex gap-3 overflow-hidden">
+                {/* Left Thumbnail/Page Navigation Drawer */}
+                <div className="hidden sm:flex flex-col w-28 shrink-0 border border-[#E5E1D8] rounded-xl bg-[#FAF9F5] p-2 overflow-y-auto space-y-2 select-none">
+                  <span className="text-[10px] font-semibold text-[#77766E] uppercase tracking-wider px-1">
+                    Thumbnails
+                  </span>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
+                    <button
+                      key={pg}
+                      type="button"
+                      onClick={() => setCurrentPage(pg)}
+                      className={`w-full p-2 rounded-lg border text-left transition-all cursor-pointer flex flex-col items-center gap-1 ${
+                        currentPage === pg
+                          ? 'border-[#68745D] bg-[#E8EBE1]/60 text-[#25251F] font-semibold shadow-2xs ring-1 ring-[#68745D]'
+                          : 'border-[#E5E1D8] bg-[#FFFEFA] text-[#77766E] hover:border-[#68745D]/40'
+                      }`}
+                    >
+                      <div className="w-full h-12 rounded border border-[#E5E1D8] bg-white flex items-center justify-center text-[10px] text-[#A09D92]">
+                        <FileText className="w-4 h-4 opacity-50" />
+                      </div>
+                      <span className="text-[11px]">Page {pg}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* High-Fidelity PDF Renderer Container */}
+                <div className="flex-1 min-w-0 bg-[#FAF9F5] border border-[#E5E1D8] rounded-xl overflow-hidden flex items-center justify-center relative">
+                  <iframe
+                    key={fileUrl || 'pdf-viewer'}
+                    src={`${fileUrl}#page=${currentPage}&zoom=${pdfZoom}`}
+                    title="Original PDF Document"
+                    className="w-full h-full border-0 rounded-xl"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="p-8 border border-dashed border-[#E5E1D8] rounded-xl text-center space-y-3 bg-[#FAF9F5] my-auto">
+                <FileText className="w-10 h-10 text-[#68745D] mx-auto opacity-70" />
+                <h3 className="font-serif text-base text-[#25251F]">
+                  Text Submission (No PDF Attached)
+                </h3>
+                <p className="text-xs text-[#77766E] max-w-md mx-auto">
+                  This submission was entered directly via Write / Paste or Webpage Import. You can edit the text directly in the Interactive Editor tab.
+                </p>
+                <Button variant="outline" size="sm" onClick={() => setActiveTab('editor')}>
+                  Switch to Interactive Editor
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === 'history' && (
-          <div className="space-y-3">
+          <div className="p-6 space-y-4">
             <h3 className="text-xs font-semibold text-[#25251F] uppercase tracking-wider">
-              Revision Log (v1.2)
+              Revision Log & Version History
             </h3>
-            <div className="space-y-2 text-xs">
-              <div className="p-3 bg-[#FAF9F5] border border-[#E5E1D8] rounded-xl flex items-center justify-between">
+            <div className="space-y-2.5 text-xs">
+              <div className="p-3.5 bg-[#FAF9F5] border border-[#E5E1D8] rounded-xl flex items-center justify-between">
                 <div>
-                  <span className="font-medium text-[#25251F]">Version 1.2 (Current Draft)</span>
-                  <p className="text-[#77766E] text-[11px]">Applied guideline rule G-04 claim replacement.</p>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-[#25251F]">Version 1.2 (Active Draft)</span>
+                    <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-[#E8EBE1] text-[#4E6B54] font-medium">
+                      Current
+                    </span>
+                  </div>
+                  <p className="text-[#77766E] text-[11px] mt-0.5">
+                    Interactive edits in TipTap editor ready for brand sign-off.
+                  </p>
                 </div>
-                <span className="text-[#A09D92] text-[11px]">Just now</span>
+                <span className="text-[#A09D92] text-[11px]">Active</span>
               </div>
-              <div className="p-3 bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl flex items-center justify-between">
+
+              <div className="p-3.5 bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl flex items-center justify-between">
                 <div>
-                  <span className="font-medium text-[#25251F]">Version 1.0 (Initial Submission)</span>
-                  <p className="text-[#77766E] text-[11px]">Submitted by Marketing Team via Submissions portal.</p>
+                  <span className="font-medium text-[#25251F]">Version 1.0 (Initial Ingestion)</span>
+                  <p className="text-[#77766E] text-[11px] mt-0.5">
+                    Original raw content received from content intake pipeline.
+                  </p>
                 </div>
-                <span className="text-[#A09D92] text-[11px]">2h ago</span>
+                <span className="text-[#A09D92] text-[11px]">Original</span>
               </div>
             </div>
           </div>
         )}
-      </div>
-
-      {/* 4. Bottom Formatting Toolbar */}
-      <div className="px-3 sm:px-4 py-2 border-t border-[#E5E1D8] bg-[#FAF9F5] flex flex-wrap items-center justify-between gap-2.5 shrink-0">
-        {/* Left Side: Rich-text icons */}
-        <div className="flex items-center gap-1 text-[#77766E] overflow-x-auto no-scrollbar max-w-full pb-1 sm:pb-0">
-          <button
-            type="button"
-            onClick={() => showToast('Undo')}
-            className="p-1.5 hover:text-[#25251F] hover:bg-[#E5E1D8] rounded transition-colors"
-            title="Undo"
-          >
-            <Undo2 className="w-3.5 h-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => showToast('Redo')}
-            className="p-1.5 hover:text-[#25251F] hover:bg-[#E5E1D8] rounded transition-colors"
-            title="Redo"
-          >
-            <Redo2 className="w-3.5 h-3.5" />
-          </button>
-
-          <div className="h-4 w-[1px] bg-[#E5E1D8] mx-1" />
-
-          {/* Normal text dropdown */}
-          <button
-            type="button"
-            onClick={() => showToast('Font format: Normal text')}
-            className="flex items-center gap-1 px-2 py-1 text-xs text-[#25251F] hover:bg-[#E5E1D8] rounded transition-colors"
-          >
-            <span>{fontFormat}</span>
-            <ChevronDown className="w-3 h-3 text-[#77766E]" />
-          </button>
-
-          <div className="h-4 w-[1px] bg-[#E5E1D8] mx-1" />
-
-          <button
-            type="button"
-            onClick={() => setIsBold(!isBold)}
-            className={`p-1.5 rounded transition-colors ${
-              isBold ? 'bg-[#E5E1D8] text-[#25251F]' : 'hover:text-[#25251F] hover:bg-[#E5E1D8]'
-            }`}
-            title="Bold"
-          >
-            <Bold className="w-3.5 h-3.5" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setIsUnderline(!isUnderline)}
-            className={`p-1.5 rounded transition-colors ${
-              isUnderline ? 'bg-[#E5E1D8] text-[#25251F]' : 'hover:text-[#25251F] hover:bg-[#E5E1D8]'
-            }`}
-            title="Underline"
-          >
-            <Underline className="w-3.5 h-3.5" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setIsStrike(!isStrike)}
-            className={`p-1.5 rounded transition-colors ${
-              isStrike ? 'bg-[#E5E1D8] text-[#25251F]' : 'hover:text-[#25251F] hover:bg-[#E5E1D8]'
-            }`}
-            title="Strikethrough"
-          >
-            <Strikethrough className="w-3.5 h-3.5" />
-          </button>
-
-          <div className="h-4 w-[1px] bg-[#E5E1D8] mx-1" />
-
-          <button
-            type="button"
-            onClick={() => showToast('Bulleted list toggled')}
-            className="p-1.5 hover:text-[#25251F] hover:bg-[#E5E1D8] rounded transition-colors"
-            title="Bulleted List"
-          >
-            <List className="w-3.5 h-3.5" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => showToast('Numbered list toggled')}
-            className="p-1.5 hover:text-[#25251F] hover:bg-[#E5E1D8] rounded transition-colors"
-            title="Numbered List"
-          >
-            <ListOrdered className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        {/* Right Side: Action buttons */}
-        <div className="flex items-center gap-2 shrink-0 ml-auto sm:ml-0">
-          <button
-            type="button"
-            onClick={handleSave}
-            className="bg-[#68745D] hover:bg-[#58644E] text-white px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
-          >
-            <Save className="w-3.5 h-3.5 text-white" />
-            <span>Save Revised Version</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleCopy}
-            className="bg-[#FFFEFA] hover:bg-[#F1EFE8] border border-[#E5E1D8] text-[#25251F] px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
-          >
-            {copied ? (
-              <>
-                <Check className="w-3.5 h-3.5 text-[#64816A]" />
-                <span className="text-[#64816A]">Copied</span>
-              </>
-            ) : (
-              <>
-                <Copy className="w-3.5 h-3.5 text-[#77766E]" />
-                <span>Copy Text</span>
-              </>
-            )}
-          </button>
-        </div>
       </div>
     </div>
   );

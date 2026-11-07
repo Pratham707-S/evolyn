@@ -93,7 +93,7 @@ export class SubmissionService implements ISubmissionService {
     private readonly repository: Pick<
       SubmissionRepository,
       'create' | 'findById' | 'list' | 'updateStatus'
-    > = submissionRepository
+    > & { update?: SubmissionRepository['update'] } = submissionRepository
   ) {}
 
   async createSubmission(input: unknown): Promise<ContentSubmission> {
@@ -128,6 +128,28 @@ export class SubmissionService implements ISubmissionService {
     const submissionId = uuidSchema.parse(id);
     const validatedStatus = submissionStatusSchema.parse(status);
     await this.repository.updateStatus(submissionId, validatedStatus);
+  }
+
+  async updateSubmission(
+    id: string,
+    input: { rawText?: string; title?: string; status?: SubmissionStatus }
+  ): Promise<ContentSubmission> {
+    const submissionId = uuidSchema.parse(id);
+    const validatedStatus = input.status ? submissionStatusSchema.parse(input.status) : undefined;
+    const validatedText = input.rawText !== undefined ? input.rawText.trim() : undefined;
+    if (validatedText !== undefined && validatedText.length < 5) {
+      throw new Error('Revised content must be at least 5 characters');
+    }
+    const updatePayload: { rawText?: string; title?: string; status?: SubmissionStatus } = {};
+    if (validatedText !== undefined) updatePayload.rawText = validatedText;
+    if (input.title?.trim()) updatePayload.title = input.title.trim();
+    if (validatedStatus) updatePayload.status = validatedStatus;
+
+    if (!this.repository.update) {
+      throw new Error('Repository does not support update');
+    }
+    const record = await this.repository.update(submissionId, updatePayload);
+    return mapSubmission(record);
   }
 }
 

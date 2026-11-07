@@ -33,6 +33,7 @@ export interface ISubmissionService {
   getSubmissionById(id: string): Promise<SubmissionWithReview | null>;
   listSubmissions(filter?: { status?: SubmissionStatus; channel?: SubmissionChannel }): Promise<ContentSubmission[]>;
   updateSubmissionStatus(id: string, status: SubmissionStatus): Promise<void>;
+  updateSubmission?(id: string, input: { rawText?: string; title?: string; status?: SubmissionStatus }): Promise<ContentSubmission>;
 }
 
 export { SubmissionService, submissionService } from './submissions.service.js';

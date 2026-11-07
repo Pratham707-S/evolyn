@@ -12,72 +12,94 @@ import {
   BookOpen,
   FileText,
   Check,
-  Ban,
   X,
+  Scale,
+  Loader2,
+  RotateCcw,
 } from 'lucide-react';
+import type { DetectedIssue } from '@evolyn/shared';
 
 export interface ReviewAiPanelProps {
-  isGuidelineAccepted: boolean;
-  onAcceptGuideline: () => void;
-  onRejectGuideline: () => void;
-  isEvidenceAdded: boolean;
-  onAddEvidence: () => void;
-  onDismissEvidence: () => void;
+  issues?: DetectedIssue[];
   selectedFindingId?: string | null;
+  onSelectFinding?: (findingId: string, excerpt?: string) => void;
+  onAcceptFinding?: (issue: DetectedIssue) => void;
+  onDismissFinding?: (findingId: string) => void;
+  onRunAudit?: () => void;
+  isAuditing?: boolean;
+  auditError?: string | null;
+  hasReviewRun?: boolean;
+  complianceScore?: number;
   showToast: (msg: string) => void;
 }
 
 type FilterCategory = 'ALL' | 'GRAMMAR' | 'BRAND' | 'EVIDENCE' | 'RECO';
 
 export function ReviewAiPanel({
-  isGuidelineAccepted,
-  onAcceptGuideline,
-  onRejectGuideline,
-  isEvidenceAdded,
-  onAddEvidence,
-  onDismissEvidence,
+  issues = [],
   selectedFindingId,
+  onSelectFinding,
+  onAcceptFinding,
+  onDismissFinding,
+  onRunAudit,
+  isAuditing = false,
+  auditError = null,
+  hasReviewRun = true,
+  complianceScore,
   showToast,
 }: ReviewAiPanelProps) {
   const [activeFilter, setActiveFilter] = useState<FilterCategory>('ALL');
-  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({
-    'guideline-violation': true,
-    'unsupported-claim': true,
-    'grammar-spelling': true,
-    'brand-tone': true,
-    'ai-reco': true,
-  });
+  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
 
-  const toggleExpand = (cardId: string) => {
+  const toggleExpand = (id: string) => {
     setExpandedCards((prev) => ({
       ...prev,
-      [cardId]: !prev[cardId],
+      [id]: prev[id] === undefined ? false : !prev[id],
     }));
   };
 
-  const filterTabs = [
-    { id: 'ALL', label: 'All', count: 5 },
-    { id: 'GRAMMAR', label: 'Grammar', count: 1 },
-    { id: 'BRAND', label: 'Brand', count: 2 },
-    { id: 'EVIDENCE', label: 'Evidence', count: 1 },
-    { id: 'RECO', label: 'Reco', count: 1 },
-  ];
+  const safeIssues = Array.isArray(issues) ? issues.filter(Boolean) : [];
 
-  const showGuideline = activeFilter === 'ALL' || activeFilter === 'BRAND';
-  const showEvidence = activeFilter === 'ALL' || activeFilter === 'EVIDENCE';
-  const showGrammar = activeFilter === 'ALL' || activeFilter === 'GRAMMAR';
-  const showTone = activeFilter === 'ALL' || activeFilter === 'BRAND';
-  const showReco = activeFilter === 'ALL' || activeFilter === 'RECO';
+  const getIssueCategory = (issueType?: string): FilterCategory => {
+    const t = (issueType || '').toUpperCase();
+    if (t.includes('GRAMMAR') || t.includes('SPELL') || t.includes('TYPO')) return 'GRAMMAR';
+    if (t.includes('CLAIM') || t.includes('EVIDENCE') || t.includes('UNSUBSTANTIATED') || t.includes('FACT')) return 'EVIDENCE';
+    if (t.includes('RECO') || t.includes('SUGGESTION')) return 'RECO';
+    // Brand violations include PROHIBITED_PHRASE, TERMINOLOGY_VIOLATION, TONE_MISMATCH, COMPLIANCE_RISK
+    return 'BRAND';
+  };
+
+  // Filter issues
+  const filteredIssues = safeIssues.filter((issue) => {
+    if (activeFilter === 'ALL') return true;
+    return getIssueCategory(issue.issueType) === activeFilter;
+  });
+
+  const grammarCount = safeIssues.filter((i) => getIssueCategory(i.issueType) === 'GRAMMAR').length;
+  const brandCount = safeIssues.filter((i) => getIssueCategory(i.issueType) === 'BRAND').length;
+  const evidenceCount = safeIssues.filter((i) => getIssueCategory(i.issueType) === 'EVIDENCE').length;
+  const recoCount = safeIssues.filter((i) => getIssueCategory(i.issueType) === 'RECO').length;
+
+  const filterTabs = [
+    { id: 'ALL', label: 'All', count: safeIssues.length },
+    { id: 'GRAMMAR', label: 'Grammar', count: grammarCount },
+    { id: 'BRAND', label: 'Brand', count: brandCount },
+    { id: 'EVIDENCE', label: 'Evidence', count: evidenceCount },
+    { id: 'RECO', label: 'Reco', count: recoCount },
+  ];
 
   return (
     <div className="flex flex-col h-full overflow-hidden select-none">
       {/* 1. Header */}
       <div className="mb-2 shrink-0">
-        <h3 className="text-sm font-semibold text-[#25251F] leading-tight">
-          AI Findings & Suggestions
+        <h3 className="text-sm font-semibold text-[#25251F] leading-tight flex items-center justify-between">
+          <span>AI Findings & Suggestions</span>
+          <span className="text-[11px] font-mono text-[#68745D] bg-[#E8EBE1] px-1.5 py-0.5 rounded-full">
+            {safeIssues.length} active
+          </span>
         </h3>
         <p className="text-[11px] text-[#77766E] mt-0.5">
-          Issues, recommendations, and brand checks for this content.
+          Grounded anti-hallucination citations and brand rule checks.
         </p>
       </div>
 
@@ -98,8 +120,8 @@ export function ReviewAiPanel({
             >
               <span>{tab.label}</span>
               <span
-                className={`text-[10px] font-mono px-1 rounded-full ${
-                  isSelected ? 'bg-white/20 text-white' : 'bg-[#E5E1D8] text-[#25251F]'
+                className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                  isSelected ? 'bg-white/20 text-white' : 'bg-[#E5E1D8] text-[#77766E]'
                 }`}
               >
                 {tab.count}
@@ -109,285 +131,262 @@ export function ReviewAiPanel({
         })}
       </div>
 
-      {/* 3. Findings Cards List */}
-      <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pr-1">
-        {/* Card 1: Guideline Violation (High) */}
-        {showGuideline && (
-          <div
-            className={`bg-[#FFFEFA] border rounded-xl p-3.5 shadow-2xs transition-all space-y-2.5 ${
-              isGuidelineAccepted
-                ? 'border-[#C8DEC9] bg-[#F7FAF7]'
-                : selectedFindingId === 'finding-guideline'
-                ? 'border-[#E07A70] ring-1 ring-[#E07A70]/50'
-                : 'border-[#F4BFB9]'
-            }`}
-          >
-            {/* Card Header */}
-            <div
-              onClick={() => toggleExpand('guideline-violation')}
-              className="flex items-center justify-between cursor-pointer"
-            >
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-[#C0392B] shrink-0" />
-                <span className="text-xs font-semibold text-[#25251F]">
-                  Guideline Violation
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-[#FDEAEA] text-[#9E342B]">
-                  High
-                </span>
-                {expandedCards['guideline-violation'] ? (
-                  <ChevronUp className="w-3.5 h-3.5 text-[#77766E]" />
-                ) : (
-                  <ChevronDown className="w-3.5 h-3.5 text-[#77766E]" />
-                )}
-              </div>
+      {/* 3. Findings Cards Container */}
+      <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+        {isAuditing ? (
+          <div className="p-8 border border-dashed border-[#68745D]/40 rounded-xl text-center space-y-3 bg-[#E8EBE1]/30 my-auto animate-pulse">
+            <Loader2 className="w-8 h-8 text-[#68745D] animate-spin mx-auto" />
+            <h4 className="text-xs font-semibold text-[#25251F]">
+              Auditing with Evolyn Governance Engine...
+            </h4>
+            <p className="text-[11px] text-[#77766E] max-w-xs mx-auto leading-relaxed">
+              Scanning document against active brand rules, voice constraints, and approved factual evidence.
+            </p>
+          </div>
+        ) : auditError ? (
+          <div className="p-6 border border-dashed border-[#EAC4BE] rounded-xl text-center space-y-3 bg-[#FBEBE8]/40 my-auto">
+            <AlertTriangle className="w-8 h-8 text-[#B56E63] mx-auto" />
+            <div className="space-y-1">
+              <h4 className="text-xs font-semibold text-[#25251F]">
+                Governance Audit Incomplete or Timed Out
+              </h4>
+              <p className="text-[11px] text-[#77766E] leading-relaxed max-w-xs mx-auto">
+                {auditError.includes('timeout') || auditError.includes('timed out')
+                  ? 'The automated review took longer than expected due to document length. You can retry the audit now.'
+                  : auditError}
+              </p>
             </div>
-
-            {/* Card Body */}
-            {expandedCards['guideline-violation'] && (
-              <div className="space-y-2.5 pt-1 text-xs">
-                <p className="text-[#25251F] leading-relaxed">
-                  "100% brand compliance" is an absolute claim and isn't allowed per your brand guidelines.
+            {onRunAudit && (
+              <button
+                type="button"
+                onClick={onRunAudit}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#25251F] hover:bg-[#383832] text-white rounded-lg text-xs font-medium transition-colors shadow-2xs cursor-pointer mt-1"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Retry Governance Audit</span>
+              </button>
+            )}
+          </div>
+        ) : filteredIssues.length === 0 ? (
+          safeIssues.length === 0 && hasReviewRun ? (
+            <div className="p-8 border border-dashed border-[#D4DBC9] rounded-xl text-center space-y-3 bg-[#EEF4EE]/40 my-auto">
+              <CheckCircle2 className="w-8 h-8 text-[#4E6B54] mx-auto" />
+              <div className="space-y-1">
+                <h4 className="text-xs font-semibold text-[#25251F]">
+                  All Core Checks Passed ({complianceScore ?? 100}% Compliant)
+                </h4>
+                <p className="text-[11px] text-[#77766E] leading-relaxed max-w-xs mx-auto">
+                  No brand guideline violations, prohibited buzzwords, or unsubstantiated claims detected. Document is fully verified.
                 </p>
-
-                <div className="flex items-center gap-1.5 text-[11px] text-[#77766E]">
-                  <BookOpen className="w-3.5 h-3.5 text-[#68745D] shrink-0" />
-                  <span>Guideline: Claims & Promise (G-04)</span>
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-2 pt-1 border-t border-[#E5E1D8]/60">
-                  {isGuidelineAccepted ? (
-                    <div className="w-full bg-[#EEF4EE] border border-[#D1E2D3] text-[#36533D] text-[11px] font-medium py-1 px-2.5 rounded-lg flex items-center justify-between">
-                      <span className="flex items-center gap-1">
-                        <Check className="w-3 h-3 text-[#64816A]" /> Accepted: Wording updated in editor
-                      </span>
-                      <button
-                        type="button"
-                        onClick={onRejectGuideline}
-                        className="text-[10px] text-[#77766E] hover:underline cursor-pointer"
-                      >
-                        Undo
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        onClick={onAcceptGuideline}
-                        className="bg-[#68745D] hover:bg-[#58644E] text-white text-xs font-medium py-1.5 px-3 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Accept Suggestion</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={onRejectGuideline}
-                        className="border border-[#E5E1D8] hover:bg-[#F1EFE8] text-[#77766E] hover:text-[#25251F] text-xs font-medium py-1.5 px-3 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
-                      >
-                        <Ban className="w-3 h-3 text-[#A09D92]" />
-                        <span>Reject</span>
-                      </button>
-                    </>
-                  )}
-                </div>
               </div>
-            )}
-          </div>
-        )}
-
-        {/* Card 2: Unsupported Claim (Medium) */}
-        {showEvidence && (
-          <div
-            className={`bg-[#FFFEFA] border rounded-xl p-3.5 shadow-2xs transition-all space-y-2.5 ${
-              isEvidenceAdded
-                ? 'border-[#C8DEC9] bg-[#F7FAF7]'
-                : selectedFindingId === 'finding-evidence'
-                ? 'border-[#E0A868] ring-1 ring-[#E0A868]/50'
-                : 'border-[#F0D5B5]'
-            }`}
-          >
-            {/* Card Header */}
-            <div
-              onClick={() => toggleExpand('unsupported-claim')}
-              className="flex items-center justify-between cursor-pointer"
-            >
-              <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-[#D97706] shrink-0" />
-                <span className="text-xs font-semibold text-[#25251F]">
-                  Unsupported Claim
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-[#FDF4E7] text-[#92540D]">
-                  Medium
-                </span>
-                {expandedCards['unsupported-claim'] ? (
-                  <ChevronUp className="w-3.5 h-3.5 text-[#77766E]" />
-                ) : (
-                  <ChevronDown className="w-3.5 h-3.5 text-[#77766E]" />
-                )}
-              </div>
+              {onRunAudit && (
+                <button
+                  type="button"
+                  onClick={onRunAudit}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#E5E1D8] hover:bg-[#FAF9F5] text-[#25251F] rounded-lg text-xs font-medium transition-colors shadow-2xs cursor-pointer mt-1"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-[#68745D]" />
+                  <span>Re-Verify Content</span>
+                </button>
+              )}
             </div>
-
-            {/* Card Body */}
-            {expandedCards['unsupported-claim'] && (
-              <div className="space-y-2.5 pt-1 text-xs">
-                <p className="text-[#25251F] leading-relaxed">
-                  "Increase campaign performance by up to 3x" needs supporting evidence.
+          ) : safeIssues.length === 0 && !hasReviewRun ? (
+            <div className="p-8 border border-dashed border-[#E5E1D8] rounded-xl text-center space-y-3 bg-[#FAF9F5] my-auto">
+              <Sparkles className="w-8 h-8 text-[#B78A4A] mx-auto opacity-80" />
+              <div className="space-y-1">
+                <h4 className="text-xs font-semibold text-[#25251F]">
+                  Ready for Brand Governance Audit
+                </h4>
+                <p className="text-[11px] text-[#77766E] leading-relaxed max-w-xs mx-auto">
+                  Evaluate this content against enterprise brand guidelines, prohibited terminology, and verified evidence facts.
                 </p>
+              </div>
+              {onRunAudit && (
+                <button
+                  type="button"
+                  onClick={onRunAudit}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#25251F] hover:bg-[#383832] text-white rounded-lg text-xs font-medium transition-colors shadow-2xs cursor-pointer mt-1"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-[#B78A4A]" />
+                  <span>Run AI Governance Audit</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="p-8 border border-dashed border-[#E5E1D8] rounded-xl text-center space-y-3 bg-[#FAF9F5] my-auto">
+              <CheckCircle2 className="w-8 h-8 text-[#4E6B54] mx-auto opacity-80" />
+              <h4 className="text-xs font-semibold text-[#25251F]">
+                No Issues in this Category
+              </h4>
+              <p className="text-[11px] text-[#77766E] leading-relaxed max-w-xs mx-auto">
+                All content conforms to verified guidelines in this review layer. Check other category tabs or "All" for detected findings.
+              </p>
+            </div>
+          )
+        ) : (
+          filteredIssues.map((issue, idx) => {
+            const issueId = issue.id || `issue-${idx}`;
+            const isSelected = selectedFindingId === issueId;
+            const isExpanded = expandedCards[issueId] !== false;
+            const isAccepted = issue.status === 'ACCEPTED';
+            const isOverridden = issue.status === 'OVERRIDDEN';
 
-                <div className="flex items-center gap-1.5 text-[11px] text-[#77766E]">
-                  <FileText className="w-3.5 h-3.5 text-[#68745D] shrink-0" />
-                  <span>Evidence: No linked source</span>
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-2 pt-1 border-t border-[#E5E1D8]/60">
-                  {isEvidenceAdded ? (
-                    <div className="w-full bg-[#EEF4EE] border border-[#D1E2D3] text-[#36533D] text-[11px] font-medium py-1 px-2.5 rounded-lg flex items-center justify-between">
-                      <span className="flex items-center gap-1">
-                        <Check className="w-3 h-3 text-[#64816A]" /> Evidence linked: SOC2 Benchmark Report
-                      </span>
-                      <button
-                        type="button"
-                        onClick={onDismissEvidence}
-                        className="text-[10px] text-[#77766E] hover:underline cursor-pointer"
-                      >
-                        Reset
-                      </button>
+            return (
+              <div
+                key={issueId}
+                onClick={() => onSelectFinding?.(issueId, issue.flaggedExcerpt)}
+                className={`bg-[#FFFEFA] border rounded-xl p-3.5 shadow-2xs transition-all cursor-pointer ${
+                  isSelected
+                    ? 'border-[#68745D] ring-2 ring-[#68745D]/20 shadow-xs'
+                    : 'border-[#E5E1D8] hover:border-[#68745D]/40'
+                } ${isAccepted ? 'opacity-60 bg-[#EEF4EE]/50' : ''}`}
+              >
+                {/* Header */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${
+                        issue.issueType?.includes('PROHIBITED') ||
+                        issue.issueType?.includes('VIOLATION') ||
+                        issue.issueType?.includes('COMPLIANCE') ||
+                        issue.issueType?.includes('GUIDELINE')
+                          ? 'bg-[#FBEBE8] text-[#B56E63]'
+                          : issue.issueType?.includes('CLAIM') || issue.issueType?.includes('EVIDENCE')
+                          ? 'bg-[#FDF9F0] text-[#B78A4A]'
+                          : 'bg-[#E8EBE1] text-[#4E6B54]'
+                      }`}
+                    >
+                      {issue.issueType?.includes('PROHIBITED') ||
+                      issue.issueType?.includes('VIOLATION') ||
+                      issue.issueType?.includes('COMPLIANCE') ||
+                      issue.issueType?.includes('GUIDELINE') ? (
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                      ) : issue.issueType?.includes('CLAIM') || issue.issueType?.includes('EVIDENCE') ? (
+                        <Scale className="w-3.5 h-3.5" />
+                      ) : (
+                        <Sparkles className="w-3.5 h-3.5" />
+                      )}
                     </div>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        onClick={onAddEvidence}
-                        className="bg-[#68745D] hover:bg-[#58644E] text-white text-xs font-medium py-1.5 px-3 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Add Evidence</span>
-                      </button>
+                    <div>
+                      <h4 className="text-xs font-semibold text-[#25251F]">
+                        {issue.issueType?.replace(/_/g, ' ')}
+                      </h4>
+                      <p className="text-[10px] text-[#A09D92]">
+                        Confidence: {Math.round((issue.confidenceScore || 1) * 100)}%
+                        {issue.evidenceStrengthScore !== undefined && issue.evidenceStrengthScore > 0 && (
+                          <span> • Evidence: {Math.round(issue.evidenceStrengthScore * 100)}%</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
 
-                      <button
-                        type="button"
-                        onClick={onDismissEvidence}
-                        className="border border-[#E5E1D8] hover:bg-[#F1EFE8] text-[#77766E] hover:text-[#25251F] text-xs font-medium py-1.5 px-3 rounded-lg transition-colors cursor-pointer"
-                      >
-                        Dismiss
-                      </button>
-                    </>
-                  )}
+                  <div className="flex items-center gap-1">
+                    {isAccepted && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#E8EBE1] text-[#4E6B54] font-medium">
+                        Accepted
+                      </span>
+                    )}
+                    {isOverridden && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#F1EFE8] text-[#77766E] font-medium">
+                        Dismissed
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleExpand(issueId);
+                      }}
+                      className="p-1 text-[#77766E] hover:text-[#25251F] rounded-md transition-colors"
+                    >
+                      {isExpanded ? (
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        )}
 
-        {/* Card 3: Grammar & Spelling (Low) */}
-        {showGrammar && (
-          <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-3 shadow-2xs transition-all space-y-1.5">
-            <div
-              onClick={() => toggleExpand('grammar-spelling')}
-              className="flex items-center justify-between cursor-pointer"
-            >
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-[#4E7D55] shrink-0" />
-                <span className="text-xs font-semibold text-[#25251F]">
-                  Grammar & Spelling
-                </span>
-              </div>
+                {/* Body when expanded */}
+                {isExpanded && (
+                  <div className="mt-2.5 pt-2 border-t border-[#E5E1D8]/60 space-y-2 text-xs">
+                    {/* Explanation */}
+                    <p className="text-[#25251F] text-[11px] leading-relaxed">
+                      {issue.explanation}
+                    </p>
 
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-[#EEF4EE] text-[#36533D]">
-                  Low
-                </span>
-                {expandedCards['grammar-spelling'] ? (
-                  <ChevronUp className="w-3.5 h-3.5 text-[#77766E]" />
-                ) : (
-                  <ChevronDown className="w-3.5 h-3.5 text-[#77766E]" />
+                    {/* Flagged Excerpt */}
+                    {issue.flaggedExcerpt && (
+                      <div className="p-2 rounded-lg bg-[#FAF9F5] border border-[#E5E1D8] text-[11px]">
+                        <span className="text-[10px] font-semibold text-[#77766E] uppercase tracking-wider block mb-0.5">
+                          Flagged Excerpt:
+                        </span>
+                        <span className="text-[#B56E63] font-medium font-mono">
+                          "{issue.flaggedExcerpt}"
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Suggested Fix */}
+                    {issue.suggestedFix && (
+                      <div className="p-2 rounded-lg bg-[#EEF4EE] border border-[#D4DBC9] text-[11px]">
+                        <span className="text-[10px] font-semibold text-[#4E6B54] uppercase tracking-wider block mb-0.5">
+                          Suggested Replacement:
+                        </span>
+                        <span className="text-[#36533D] font-medium font-mono">
+                          "{issue.suggestedFix}"
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Grounded Citation Source Quote */}
+                    {issue.sourceQuote && (
+                      <div className="text-[10px] text-[#77766E] flex items-start gap-1 bg-[#FAF8F5] p-1.5 rounded-md border border-[#E5E1D8]/40">
+                        <BookOpen className="w-3 h-3 text-[#68745D] shrink-0 mt-0.5" />
+                        <span className="italic leading-normal">
+                          Rule Source: "{issue.sourceQuote}"
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    {!isAccepted && !isOverridden && (
+                      <div className="flex items-center gap-2 pt-1">
+                        {issue.suggestedFix && onAcceptFinding && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onAcceptFinding(issue);
+                            }}
+                            className="flex-1 py-1.5 px-2 bg-[#25251F] hover:bg-[#383832] text-white rounded-lg text-xs font-medium flex items-center justify-center gap-1 transition-colors shadow-2xs"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Apply Fix</span>
+                          </button>
+                        )}
+
+                        {onDismissFinding && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDismissFinding(issueId);
+                            }}
+                            className="py-1.5 px-2 text-[#77766E] hover:text-[#25251F] hover:bg-[#F1EFE8] border border-[#E5E1D8] rounded-lg text-xs font-medium transition-colors"
+                          >
+                            Dismiss
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
-            </div>
+            );
+          })
 
-            {expandedCards['grammar-spelling'] && (
-              <p className="text-[11px] text-[#77766E] pt-1">
-                No critical grammar or spelling issues found.
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Card 4: Brand Tone (Medium) */}
-        {showTone && (
-          <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-3 shadow-2xs transition-all space-y-1.5">
-            <div
-              onClick={() => toggleExpand('brand-tone')}
-              className="flex items-center justify-between cursor-pointer"
-            >
-              <div className="flex items-center gap-2">
-                <AudioLines className="w-4 h-4 text-[#68745D] shrink-0" />
-                <span className="text-xs font-semibold text-[#25251F]">
-                  Brand Tone
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-[#FDF4E7] text-[#92540D]">
-                  Medium
-                </span>
-                {expandedCards['brand-tone'] ? (
-                  <ChevronUp className="w-3.5 h-3.5 text-[#77766E]" />
-                ) : (
-                  <ChevronDown className="w-3.5 h-3.5 text-[#77766E]" />
-                )}
-              </div>
-            </div>
-
-            {expandedCards['brand-tone'] && (
-              <p className="text-[11px] text-[#77766E] pt-1">
-                Consider a more balanced and less promotional tone.
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Card 5: AI Recommendation (Low) */}
-        {showReco && (
-          <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-3 shadow-2xs transition-all space-y-1.5">
-            <div
-              onClick={() => toggleExpand('ai-reco')}
-              className="flex items-center justify-between cursor-pointer"
-            >
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-3.5 h-3.5 text-[#68745D] shrink-0" />
-                <span className="text-xs font-semibold text-[#25251F]">
-                  AI Recommendation
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-[#EEF4EE] text-[#36533D]">
-                  Low
-                </span>
-                {expandedCards['ai-reco'] ? (
-                  <ChevronUp className="w-3.5 h-3.5 text-[#77766E]" />
-                ) : (
-                  <ChevronDown className="w-3.5 h-3.5 text-[#77766E]" />
-                )}
-              </div>
-            </div>
-
-            {expandedCards['ai-reco'] && (
-              <p className="text-[11px] text-[#77766E] pt-1">
-                Refine the closing line to be more specific and action-oriented.
-              </p>
-            )}
-          </div>
         )}
       </div>
     </div>

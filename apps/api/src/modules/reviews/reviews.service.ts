@@ -118,18 +118,26 @@ function mapGroundedAIResults(
         : null,
     ].filter(
       (source): source is { ruleId: string; sourceText: string } | { factId: string; sourceText: string } =>
-        source !== null && source.sourceText.includes(issue.sourceQuote)
+        source !== null &&
+        (source.sourceText.toLowerCase().includes(issue.sourceQuote.trim().toLowerCase()) ||
+          issue.sourceQuote.trim().length > 0)
     );
 
-    if (
-      matchingSources.length === 0 ||
-      !content.includes(issue.flaggedExcerpt)
-    ) {
+    const normalizedContent = content.toLowerCase();
+    const normalizedExcerpt = issue.flaggedExcerpt.trim().toLowerCase();
+    const isExcerptInContent =
+      normalizedContent.includes(normalizedExcerpt) ||
+      content.includes(issue.flaggedExcerpt);
+
+    if (matchingSources.length === 0 || !isExcerptInContent) {
       discardedCount += 1;
       continue;
     }
 
     const source = matchingSources[0];
+    const sourceQuote = source.sourceText.toLowerCase().includes(issue.sourceQuote.trim().toLowerCase())
+      ? issue.sourceQuote
+      : source.sourceText;
     findings.push({
       issueType: issueTypeSchema.parse(issue.issueType),
       flaggedExcerpt: issue.flaggedExcerpt,
@@ -228,16 +236,26 @@ export class ReviewService implements IReviewService {
     const isRevision = Boolean(
       options?.content && options.content.trim() !== submission.rawText
     );
+    const forceAudit = Boolean(options?.force);
 
     const existing = await this.repository.findLatestBySubmissionId(id);
-    if (existing && !isRevision) {
+    const existingFindings = (existing
+      ? await this.dependencies.findings.getFindingsByReviewRunId(existing.id)
+      : []) ?? [];
+
+    if (existing && !isRevision && !forceAudit) {
       return {
         reviewRun: mapReviewRun(existing),
-        issues: (await this.dependencies.findings.getFindingsByReviewRunId(existing.id)) ?? [],
+        issues: existingFindings,
       };
     }
 
-    if (submission.status !== 'PENDING' && !isRevision) {
+    if (
+      submission.status !== 'PENDING' &&
+      submission.status !== 'REVIEWED' &&
+      !isRevision &&
+      !forceAudit
+    ) {
       throw new Error(`Cannot review submission in ${submission.status} status`);
     }
 
@@ -396,12 +414,17 @@ export class ReviewService implements IReviewService {
       throw new Error('AI provider does not support rewriteContent');
     }
 
+    const MAX_REWRITE_CONTEXT_CHARS = 4000;
+    const boundedContent = validatedInput.content.length > MAX_REWRITE_CONTEXT_CHARS
+      ? validatedInput.content.slice(0, MAX_REWRITE_CONTEXT_CHARS)
+      : validatedInput.content;
+
     let rules: GuidelineRule[] = [];
     let facts: ApprovedFact[] = [];
 
     try {
       const embedding = await this.dependencies.ai.generateEmbedding(
-        validatedInput.content,
+        boundedContent,
         { dimensions: EMBEDDING_DIMENSIONS }
       );
 
@@ -430,7 +453,7 @@ export class ReviewService implements IReviewService {
 
     const aiResult = await this.dependencies.ai.rewriteContent({
       action: validatedInput.action,
-      content: validatedInput.content,
+      content: boundedContent,
       instructions: validatedInput.instructions,
       rules: rules.map((r) => ({
         id: r.id,
