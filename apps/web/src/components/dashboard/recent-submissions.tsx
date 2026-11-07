@@ -55,9 +55,9 @@ export function RecentSubmissions({
   const items = submissions !== undefined ? submissions : defaultSubmissions;
 
   return (
-    <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-4 sm:p-5 flex flex-col justify-between h-full min-h-[340px]">
+    <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-4 sm:p-5 flex flex-col h-full">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pb-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-1 border-b border-[#E5E1D8]/50">
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           <h2 className="font-serif text-base sm:text-lg font-normal text-[#25251F] tracking-tight">
             Recent Submissions
