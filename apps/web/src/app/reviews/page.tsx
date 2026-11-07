@@ -99,7 +99,22 @@ function ReviewWorkspaceInner() {
         if (targetSub) {
           targetId = targetSub.id;
         } else {
-          return null;
+          try {
+            const newDraftRes = await apiClient.post<{ submission: ContentSubmission }>('/api/submissions', {
+              title: 'Global Brand Campaign Draft',
+              channel: 'SOCIAL',
+              rawText:
+                'Get ready for the revolutionary EVOLYN experience! Our new autonomous governance engine guarantees 100% risk-free compliance with zero human effort. Trusted by 100 enterprise clients with 100% uptime. Sign up today!',
+              submittedBy: 'Marketing Campaign Team',
+            });
+            if (newDraftRes?.submission?.id) {
+              targetId = newDraftRes.submission.id;
+            } else {
+              return null;
+            }
+          } catch {
+            return null;
+          }
         }
       }
 
