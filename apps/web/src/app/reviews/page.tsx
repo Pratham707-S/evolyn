@@ -89,10 +89,16 @@ function ReviewWorkspaceInner() {
       let targetId = urlSubmissionId;
 
       if (!targetId) {
-        // Fetch all submissions to grab the latest one
+        // Fetch all submissions and prioritize pending items requiring review
         const subListRes = await apiClient<{ submissions: ContentSubmission[] }>('/api/submissions');
-        if (subListRes.submissions && subListRes.submissions.length > 0) {
-          targetId = subListRes.submissions[0].id;
+        const activeSubmissions = subListRes.submissions || [];
+        const pendingSub =
+          activeSubmissions.find((s) => s.status === 'PENDING') ||
+          activeSubmissions.find((s) => s.status !== 'APPROVED') ||
+          activeSubmissions[0];
+
+        if (pendingSub) {
+          targetId = pendingSub.id;
         } else {
           return null;
         }
@@ -135,11 +141,14 @@ function ReviewWorkspaceInner() {
     return null;
   }, [urlNotes, reviewData?.decision]);
 
+  const isApproved = reviewData?.decision?.decision === 'APPROVED';
+
   const isChangesRequested =
-    urlStatus === 'changes_requested' ||
-    reviewData?.decision?.decision === 'CHANGES_REQUESTED' ||
-    reviewData?.submission?.status === 'REJECTED' ||
-    Boolean(reviewerFeedback);
+    !isApproved &&
+    (urlStatus === 'changes_requested' ||
+      reviewData?.decision?.decision === 'CHANGES_REQUESTED' ||
+      reviewData?.submission?.status === 'REJECTED' ||
+      Boolean(urlNotes));
 
   // 2. Gemini Rewrite Mutation
   const rewriteMutation = useMutation({
@@ -606,8 +615,27 @@ function ReviewWorkspaceInner() {
             mobileTab === 'editor' ? 'flex flex-col' : 'hidden'
           } lg:flex lg:flex-col flex-1 min-w-0 h-full overflow-hidden`}
         >
+          {/* Approved Status Banner */}
+          {isApproved && (
+            <div className="bg-[#EEF4EE] dark:bg-[#1A261C] border border-[#CDE0CF] dark:border-[#2D4530] rounded-xl px-3.5 py-2 mb-2.5 flex items-center justify-between gap-2.5 shadow-2xs shrink-0 animate-in fade-in">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <CheckCircle2 className="w-4 h-4 text-[#2D5A3A] dark:text-[#86EFAC] shrink-0" />
+                <span className="text-xs font-semibold text-[#2D5A3A] dark:text-[#86EFAC] truncate">
+                  Approved & Signed Off: &ldquo;{reviewData?.decision?.comments || 'Passed brand governance review'}&rdquo;
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => router.push('/decision-history')}
+                className="text-xs text-[#2D5A3A] dark:text-[#86EFAC] hover:underline font-medium shrink-0 cursor-pointer"
+              >
+                View Timeline →
+              </button>
+            </div>
+          )}
+
           {/* Reviewer Feedback / Change Request Banner */}
-          {Boolean(reviewerFeedback) && showFeedbackBanner && (
+          {isChangesRequested && Boolean(reviewerFeedback) && showFeedbackBanner && (
             <div className="bg-[#FAF7F0] dark:bg-[#2A2318] border border-[#D5A770] dark:border-[#59401F] rounded-xl px-3.5 py-2.5 mb-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-2xs shrink-0 animate-in fade-in slide-in-from-top-1">
               <div className="flex items-start gap-2.5 min-w-0">
                 <div className="w-6 h-6 rounded-md bg-[#F4E8D5] dark:bg-[#3D2E1A] text-[#8A5B28] dark:text-[#FCD34D] flex items-center justify-center shrink-0 mt-0.5">

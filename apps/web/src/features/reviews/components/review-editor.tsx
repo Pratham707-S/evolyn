@@ -181,15 +181,16 @@ export function ReviewEditor({
     },
   });
 
+  const lastExternalContentRef = React.useRef(initialContent);
+
   // Sync editor content when initialContent or active issues change (e.g. API load, rewrite acceptance, or finding fix)
   useEffect(() => {
     if (editor && initialContent) {
-      const currentText = editor.getText?.() || '';
-      const isPlaceholder = !currentText || currentText === 'Loading document content...';
-      const contentChanged = initialContent !== lastSetContentRef.current;
+      const isExternalChange = initialContent !== lastExternalContentRef.current;
       const issuesChanged = issuesHash !== lastIssuesHashRef.current;
 
-      if (isPlaceholder || contentChanged || issuesChanged) {
+      if (isExternalChange || issuesChanged) {
+        lastExternalContentRef.current = initialContent;
         lastSetContentRef.current = initialContent;
         lastIssuesHashRef.current = issuesHash;
         try {
