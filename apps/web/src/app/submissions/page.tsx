@@ -2,10 +2,11 @@
 
 import React, { useState, useMemo } from 'react';
 import { Download, Plus, RefreshCw } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AppShell, useAppShell } from '@/components/layout/app-shell';
 import { PageHeader } from '@/components/shared/page-header';
 import { Button } from '@/components/ui/button';
+import { apiClient } from '@/lib/api/client';
 import type { ContentSubmission } from '@evolyn/shared';
 import { fetchAllSubmissions } from '@/features/decisions';
 import {
@@ -183,8 +184,42 @@ function SubmissionsContent() {
     showToast('Submissions exported to CSV successfully');
   };
 
+  const queryClient = useQueryClient();
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiClient.delete(`/api/submissions/${id}`);
+    },
+    onSuccess: () => {
+      showToast('Submission removed successfully.');
+      queryClient.invalidateQueries({ queryKey: ['submissions'] });
+    },
+    onError: (err: any) => {
+      showToast(`Delete failed: ${err.message || 'Server error'}`);
+    },
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      return apiClient.delete('/api/submissions', {
+        body: JSON.stringify({ ids }),
+      });
+    },
+    onSuccess: (_, ids) => {
+      showToast(`Removed ${ids.length} submission${ids.length > 1 ? 's' : ''}.`);
+      queryClient.invalidateQueries({ queryKey: ['submissions'] });
+    },
+    onError: (err: any) => {
+      showToast(`Bulk delete failed: ${err.message || 'Server error'}`);
+    },
+  });
+
   const handleDeleteSubmission = (id: string) => {
-    showToast(`Submission ${id} delete action queued.`);
+    deleteMutation.mutate(id);
+  };
+
+  const handleDeleteManySubmissions = (ids: string[]) => {
+    bulkDeleteMutation.mutate(ids);
   };
 
   return (
@@ -250,6 +285,7 @@ function SubmissionsContent() {
         statusFilter={activeStatusFilter}
         onStatusFilterChange={(filter) => setActiveStatusFilter(filter)}
         onDeleteSubmission={handleDeleteSubmission}
+        onDeleteManySubmissions={handleDeleteManySubmissions}
       />
     </div>
   );

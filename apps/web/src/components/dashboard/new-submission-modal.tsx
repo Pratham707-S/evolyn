@@ -17,7 +17,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { SubmissionItem } from './recent-submissions';
-import { apiClient } from '@/lib/api/client';
+import { apiClient, getApiBaseUrl } from '@/lib/api/client';
 
 interface NewSubmissionModalProps {
   isOpen: boolean;
@@ -123,7 +123,7 @@ export function NewSubmissionModal({
       formData.append('channel', channel === 'LinkedIn' ? 'SOCIAL' : channel === 'Ads' ? 'AD_COPY' : channel.toUpperCase());
       formData.append('submittedBy', 'Compliance Officer');
 
-      const response = await fetch('http://localhost:5001/api/submissions/upload', {
+      const response = await fetch(`${getApiBaseUrl()}/api/submissions/upload`, {
         method: 'POST',
         body: formData,
       });

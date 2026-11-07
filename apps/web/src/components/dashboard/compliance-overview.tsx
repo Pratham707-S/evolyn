@@ -12,17 +12,35 @@ if (typeof window !== 'undefined') {
 interface ComplianceOverviewProps {
   score?: number;
   delta?: number;
+  isLoading?: boolean;
 }
 
 export function ComplianceOverview({
   score = 92.4,
   delta = 4.8,
+  isLoading = false,
 }: ComplianceOverviewProps) {
   const [period, setPeriod] = useState('Last 6 months');
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const pathRef = useRef<SVGPathElement | null>(null);
+
+  if (isLoading) {
+    return (
+      <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-6 h-[278px] flex flex-col justify-between animate-pulse">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1.5">
+            <div className="w-36 h-4 bg-[#E5E1D8]/60 rounded" />
+            <div className="w-48 h-3 bg-[#E5E1D8]/40 rounded" />
+          </div>
+          <div className="w-24 h-6 bg-[#E5E1D8]/40 rounded-lg" />
+        </div>
+        <div className="w-28 h-10 bg-[#E5E1D8]/70 rounded mt-4" />
+        <div className="w-full h-24 bg-[#E5E1D8]/30 rounded-lg mt-auto" />
+      </div>
+    );
+  }
 
   const periods = ['Last 30 days', 'Last 6 months', 'Last year', 'All time'];
 

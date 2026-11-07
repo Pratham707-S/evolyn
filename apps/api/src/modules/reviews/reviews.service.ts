@@ -120,6 +120,34 @@ function mapGroundedAIResults(
   let discardedCount = 0;
 
   for (const issue of aiIssues) {
+    const normalizedContent = content.toLowerCase();
+    const normalizedExcerpt = issue.flaggedExcerpt.trim().toLowerCase();
+    const isExcerptInContent =
+      normalizedContent.includes(normalizedExcerpt) ||
+      content.includes(issue.flaggedExcerpt);
+
+    if (!isExcerptInContent) {
+      discardedCount += 1;
+      continue;
+    }
+
+    const isWritingQuality =
+      issue.issueType === 'GRAMMAR_ERROR' || issue.issueType === 'SPELLING_ERROR';
+
+    if (isWritingQuality) {
+      findings.push({
+        issueType: issueTypeSchema.parse(issue.issueType),
+        flaggedExcerpt: issue.flaggedExcerpt,
+        explanation: issue.explanation,
+        suggestedFix: issue.suggestedFix,
+        sourceQuote: issue.sourceQuote || issue.flaggedExcerpt,
+        confidenceScore: issue.confidenceScore ?? 0.9,
+        evidenceStrengthScore: issue.evidenceStrengthScore ?? 0.0,
+        sourceText: 'Writing Quality Standard',
+      });
+      continue;
+    }
+
     const rule = issue.ruleId ? rulesById.get(issue.ruleId) : undefined;
     const fact = issue.factId ? factsById.get(issue.factId) : undefined;
     const matchingSources = [
@@ -142,13 +170,7 @@ function mapGroundedAIResults(
           issue.sourceQuote.trim().length > 0)
     );
 
-    const normalizedContent = content.toLowerCase();
-    const normalizedExcerpt = issue.flaggedExcerpt.trim().toLowerCase();
-    const isExcerptInContent =
-      normalizedContent.includes(normalizedExcerpt) ||
-      content.includes(issue.flaggedExcerpt);
-
-    if (matchingSources.length === 0 || !isExcerptInContent) {
+    if (matchingSources.length === 0) {
       discardedCount += 1;
       continue;
     }
@@ -181,6 +203,10 @@ function buildCreateReviewRunInput(
   discardedCount: number
 ): CreateReviewRunInput {
   const penalty = findings.reduce((total, finding) => {
+    // Writing quality findings do NOT deduct from regulatory/brand compliance score
+    if (finding.issueType === 'GRAMMAR_ERROR' || finding.issueType === 'SPELLING_ERROR') {
+      return total;
+    }
     const rule = finding.ruleId ? rules.find(({ id }) => id === finding.ruleId) : undefined;
     const issueType = issueTypeSchema.parse(finding.issueType);
     const issuePenalty = rule
@@ -190,6 +216,11 @@ function buildCreateReviewRunInput(
         : 10;
     return total + issuePenalty;
   }, 0);
+
+  const brandFindingsCount = findings.filter(
+    (f) => f.issueType !== 'GRAMMAR_ERROR' && f.issueType !== 'SPELLING_ERROR'
+  ).length;
+  const writingQualityCount = findings.length - brandFindingsCount;
 
   const checksCount = rules.length + factCount;
   const notes = discardedCount
@@ -202,8 +233,10 @@ function buildCreateReviewRunInput(
     totalIssuesCount: findings.length,
     modelUsed: env.GEMINI_MODEL,
     summary: {
-      passedChecksCount: Math.max(0, checksCount - findings.length),
-      failedChecksCount: findings.length,
+      passedChecksCount: Math.max(0, checksCount - brandFindingsCount),
+      failedChecksCount: brandFindingsCount,
+      brandIssuesCount: brandFindingsCount,
+      writingQualityIssuesCount: writingQualityCount,
       ...(notes ? { notes } : {}),
     },
   };

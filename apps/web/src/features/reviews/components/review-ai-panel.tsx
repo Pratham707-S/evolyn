@@ -246,20 +246,24 @@ export function ReviewAiPanel({
                   <div className="flex items-center gap-2">
                     <div
                       className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${
-                        issue.issueType?.includes('PROHIBITED') ||
-                        issue.issueType?.includes('VIOLATION') ||
-                        issue.issueType?.includes('COMPLIANCE') ||
-                        issue.issueType?.includes('GUIDELINE')
+                        issue.issueType?.includes('GRAMMAR') || issue.issueType?.includes('SPELL')
+                          ? 'bg-[#EBF1F7] text-[#4A6B82]'
+                          : issue.issueType?.includes('PROHIBITED') ||
+                            issue.issueType?.includes('VIOLATION') ||
+                            issue.issueType?.includes('COMPLIANCE') ||
+                            issue.issueType?.includes('GUIDELINE')
                           ? 'bg-[#FBEBE8] text-[#B56E63]'
                           : issue.issueType?.includes('CLAIM') || issue.issueType?.includes('EVIDENCE')
                           ? 'bg-[#FDF9F0] text-[#B78A4A]'
                           : 'bg-[#E8EBE1] text-[#4E6B54]'
                       }`}
                     >
-                      {issue.issueType?.includes('PROHIBITED') ||
-                      issue.issueType?.includes('VIOLATION') ||
-                      issue.issueType?.includes('COMPLIANCE') ||
-                      issue.issueType?.includes('GUIDELINE') ? (
+                      {issue.issueType?.includes('GRAMMAR') || issue.issueType?.includes('SPELL') ? (
+                        <FileText className="w-3.5 h-3.5" />
+                      ) : issue.issueType?.includes('PROHIBITED') ||
+                        issue.issueType?.includes('VIOLATION') ||
+                        issue.issueType?.includes('COMPLIANCE') ||
+                        issue.issueType?.includes('GUIDELINE') ? (
                         <AlertTriangle className="w-3.5 h-3.5" />
                       ) : issue.issueType?.includes('CLAIM') || issue.issueType?.includes('EVIDENCE') ? (
                         <Scale className="w-3.5 h-3.5" />
@@ -345,7 +349,9 @@ export function ReviewAiPanel({
                       <div className="text-[10px] text-[#77766E] flex items-start gap-1 bg-[#FAF8F5] p-1.5 rounded-md border border-[#E5E1D8]/40">
                         <BookOpen className="w-3 h-3 text-[#68745D] shrink-0 mt-0.5" />
                         <span className="italic leading-normal">
-                          Rule Source: "{issue.sourceQuote}"
+                          {issue.issueType?.includes('GRAMMAR') || issue.issueType?.includes('SPELL')
+                            ? `Standard: "${issue.sourceQuote}"`
+                            : `Rule Source: "${issue.sourceQuote}"`}
                         </span>
                       </div>
                     )}

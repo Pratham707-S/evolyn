@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { contentSubmissions, decisions, reviewRuns } from '../../db/schema.js';
 import type { SubmissionChannel, SubmissionStatus } from '@evolyn/shared';
@@ -123,6 +123,23 @@ export class SubmissionRepository {
     if (!updatedSubmission) {
       throw new Error(`Submission not found: ${id}`);
     }
+  }
+
+  async delete(id: string): Promise<boolean> {
+    const deleted = await db
+      .delete(contentSubmissions)
+      .where(eq(contentSubmissions.id, id))
+      .returning({ id: contentSubmissions.id });
+    return deleted.length > 0;
+  }
+
+  async deleteMany(ids: string[]): Promise<number> {
+    if (ids.length === 0) return 0;
+    const deleted = await db
+      .delete(contentSubmissions)
+      .where(inArray(contentSubmissions.id, ids))
+      .returning({ id: contentSubmissions.id });
+    return deleted.length;
   }
 }
 

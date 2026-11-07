@@ -236,6 +236,66 @@ describe('ReviewService', () => {
     assert.match(result.reviewRun.summary.notes ?? '', /Discarded 1 AI finding/);
   });
 
+  it('records writing quality issues (GRAMMAR_ERROR and SPELLING_ERROR) without requiring brand ruleId and preserves brand score', async () => {
+    let createdInput: Parameters<ReviewsRepository['create']>[0] | undefined;
+    const dependencies = createDependencies({
+      guidelines: {
+        findSimilarRules: async () => [],
+      },
+      ai: {
+        generateEmbedding: async () => Array(768).fill(0.25),
+        auditContent: async () => ({
+          issues: [
+            {
+              issueType: 'GRAMMAR_ERROR',
+              flaggedExcerpt: 'launch',
+              explanation: 'Grammar issue explanation',
+              suggestedFix: 'launches',
+              sourceQuote: 'Writing Quality Standard',
+              confidenceScore: 0.95,
+              evidenceStrengthScore: 0,
+            },
+            {
+              issueType: 'SPELLING_ERROR',
+              flaggedExcerpt: 'ready',
+              explanation: 'Typo in ready',
+              suggestedFix: 'readied',
+              sourceQuote: 'Writing Quality Standard',
+              confidenceScore: 0.9,
+              evidenceStrengthScore: 0,
+            },
+          ],
+        }),
+      },
+    });
+
+    const service = new ReviewService(
+      dependencies,
+      createRepository({
+        create: async (input) => {
+          createdInput = input;
+          return createReviewRunRecord({
+            overallComplianceScore: input.overallComplianceScore,
+            totalIssuesCount: input.totalIssuesCount,
+            summary: input.summary,
+          });
+        },
+      })
+    );
+
+    const result = await service.executeReview(submissionId);
+
+    assert.equal(result.issues.length, 2);
+    assert.equal(result.issues[0].issueType, 'GRAMMAR_ERROR');
+    assert.equal(result.issues[1].issueType, 'SPELLING_ERROR');
+    assert.equal(result.issues[0].ruleId, null);
+    assert.equal(result.issues[0].factId, null);
+    // Writing quality errors should not deduct brand compliance penalty (starts at 100 with 0 brand penalties)
+    assert.equal(createdInput?.overallComplianceScore, 100);
+    assert.equal(createdInput?.summary?.writingQualityIssuesCount, 2);
+    assert.equal(createdInput?.summary?.brandIssuesCount, 0);
+  });
+
   it('returns an existing review without running AI again', async () => {
     let auditCalled = false;
     const dependencies = createDependencies({

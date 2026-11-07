@@ -28,6 +28,7 @@ export interface SubmissionsTableProps {
   statusFilter?: string | null;
   onStatusFilterChange?: (status: string | null) => void;
   onDeleteSubmission?: (id: string) => void;
+  onDeleteManySubmissions?: (ids: string[]) => void;
 }
 
 export function SubmissionsTable({
@@ -35,6 +36,7 @@ export function SubmissionsTable({
   statusFilter,
   onStatusFilterChange,
   onDeleteSubmission,
+  onDeleteManySubmissions,
 }: SubmissionsTableProps) {
   const router = useRouter();
   const [submissions, setSubmissions] = useState<SubmissionData[]>(initialSubmissions);
@@ -165,8 +167,45 @@ export function SubmissionsTable({
     setActiveMenuId(null);
   };
 
+  const handleBulkDelete = () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    if (onDeleteManySubmissions) {
+      onDeleteManySubmissions(ids);
+    } else {
+      setSubmissions((prev) => prev.filter((s) => !selectedIds.has(s.id)));
+    }
+    setSelectedIds(new Set());
+  };
+
   return (
     <div className="space-y-4">
+      {/* Bulk actions banner */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center justify-between p-2.5 px-4 bg-[#25251F] text-white rounded-xl shadow-xs text-xs animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <span className="font-medium">{selectedIds.size} submission{selectedIds.size > 1 ? 's' : ''} selected</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              className="px-2.5 py-1 text-xs text-[#E5E1D8] hover:text-white transition-colors cursor-pointer"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={handleBulkDelete}
+              className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#B56E63] hover:bg-[#a05c52] text-white rounded-lg text-xs font-medium transition-colors cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete Selected ({selectedIds.size})</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Table Section Header & Filter Toolbar */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-2">
         <h2 className="font-serif text-xl sm:text-2xl font-normal text-[#25251F] tracking-tight">

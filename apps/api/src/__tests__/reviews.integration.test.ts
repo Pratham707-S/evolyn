@@ -179,6 +179,62 @@ describe('Reviews Integration Tests (Express App E2E)', () => {
       assert.deepEqual(passedOptions, { content: 'Brand compliant revision text.' });
     });
 
+    it('validates force parameter strictly: accepts boolean true and false, rejects string values', async () => {
+      let passedOptions: unknown;
+      reviewService.executeReview = async (id: string, options) => {
+        passedOptions = options;
+        return {
+          reviewRun: sampleReviewRun,
+          issues: [],
+        };
+      };
+
+      // 1. force: true
+      const resTrue = await dispatch({
+        method: 'POST',
+        url: `/api/submissions/${validSubmissionId}/analyze`,
+        body: { force: true },
+      });
+      assert.equal(resTrue.statusCode, 200);
+      assert.deepEqual(passedOptions, { force: true });
+
+      // 2. force: false
+      const resFalse = await dispatch({
+        method: 'POST',
+        url: `/api/submissions/${validSubmissionId}/analyze`,
+        body: { force: false },
+      });
+      assert.equal(resFalse.statusCode, 200);
+      assert.deepEqual(passedOptions, { force: false });
+
+      // 3. force omitted
+      const resOmitted = await dispatch({
+        method: 'POST',
+        url: `/api/submissions/${validSubmissionId}/analyze`,
+        body: {},
+      });
+      assert.equal(resOmitted.statusCode, 200);
+      assert.equal(passedOptions, undefined);
+
+      // 4. force: "true" (string) -> must be rejected with 400
+      const resStringTrue = await dispatch({
+        method: 'POST',
+        url: `/api/submissions/${validSubmissionId}/analyze`,
+        body: { force: 'true' },
+      });
+      assert.equal(resStringTrue.statusCode, 400);
+      assert.equal(resStringTrue.body.error, 'Validation failed');
+
+      // 5. force: "false" (string) -> must be rejected with 400
+      const resStringFalse = await dispatch({
+        method: 'POST',
+        url: `/api/submissions/${validSubmissionId}/analyze`,
+        body: { force: 'false' },
+      });
+      assert.equal(resStringFalse.statusCode, 400);
+      assert.equal(resStringFalse.body.error, 'Validation failed');
+    });
+
     it('returns 400 when :id is not a valid UUID', async () => {
       const res = await dispatch({
         method: 'POST',

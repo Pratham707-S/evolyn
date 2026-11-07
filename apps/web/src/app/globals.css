@@ -29,7 +29,7 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  h1, h2, h3, .font-serif {
+  .font-serif {
     font-family: var(--font-serif), 'Instrument Serif', Georgia, serif;
   }
 }

@@ -255,8 +255,15 @@ export default function Home() {
             aria-label="Compliance and Review Analytics"
             className="grid grid-cols-1 lg:grid-cols-2 gap-4"
           >
-            <ComplianceOverview score={complianceScore} delta={isLive ? 2.5 : 4.8} />
-            <ContentStatusChart data={channelData} />
+            <ComplianceOverview
+              score={complianceScore}
+              delta={isLive ? 2.5 : 4.8}
+              isLoading={isSubmissionsLoading}
+            />
+            <ContentStatusChart
+              data={channelData}
+              isLoading={isSubmissionsLoading}
+            />
           </section>
 
           {/* Row 3: Bottom Analytics */}
@@ -264,7 +271,10 @@ export default function Home() {
             aria-label="Platform Health and Recent Audits"
             className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start"
           >
-            <DashboardMetrics metrics={liveMetrics} />
+            <DashboardMetrics
+              metrics={liveMetrics}
+              isLoading={isSubmissionsLoading}
+            />
             <RecentSubmissions
               submissions={submissions}
               isLive={isLive}

@@ -90,34 +90,47 @@ export class FindingsService implements IFindingsService {
     const findings: DetectedIssue[] = [];
 
     for (const finding of rawFindings) {
-      const sourceId = finding.ruleId ?? finding.factId;
-      if (!sourceId) {
-        throw new Error('Finding must specify a valid ruleId or factId for source verification');
-      }
+      const isWritingQuality =
+        finding.issueType === 'GRAMMAR_ERROR' || finding.issueType === 'SPELLING_ERROR';
 
-      if (typeof this.repository.findCanonicalSource !== 'function') {
-        throw new Error('Repository does not support canonical source verification');
-      }
+      if (!isWritingQuality) {
+        const sourceId = finding.ruleId ?? finding.factId;
+        if (!sourceId) {
+          throw new Error('Finding must specify a valid ruleId or factId for source verification');
+        }
 
-      const canonicalSource = await this.repository.findCanonicalSource({
-        ruleId: finding.ruleId ?? null,
-        factId: finding.factId ?? null,
-      });
+        if (typeof this.repository.findCanonicalSource !== 'function') {
+          throw new Error('Repository does not support canonical source verification');
+        }
 
-      if (!canonicalSource) {
-        throw new Error(`Unknown or inaccessible source: ${sourceId}`);
-      }
+        const canonicalSource = await this.repository.findCanonicalSource({
+          ruleId: finding.ruleId ?? null,
+          factId: finding.factId ?? null,
+        });
 
-      // Ground truth verification: verify quote strictly against canonical stored source content.
-      // AI-provided sourceText is never trusted as evidence.
-      if (!this.verifyVerbatimQuote(finding.sourceQuote, canonicalSource.content)) {
-        throw new Error('Finding source quote is not present verbatim in its trusted source');
+        if (!canonicalSource) {
+          throw new Error(`Unknown or inaccessible source: ${sourceId}`);
+        }
+
+        // Ground truth verification: verify quote strictly against canonical stored source content.
+        // AI-provided sourceText is never trusted as evidence.
+        if (!this.verifyVerbatimQuote(finding.sourceQuote, canonicalSource.content)) {
+          throw new Error('Finding source quote is not present verbatim in its trusted source');
+        }
+      } else {
+        // Writing quality verification: verify quote strictly against submitted content.
+        // Does not require or invent ruleId or factId.
+        if (!this.verifyVerbatimQuote(finding.sourceQuote, submissionText)) {
+          throw new Error('Writing quality source quote is not present verbatim in submitted content');
+        }
       }
 
       const offsets = getExcerptOffsets(finding, submissionText);
       const parsedIssue = detectedIssueSchema.parse({
         ...finding,
         ...offsets,
+        ruleId: finding.ruleId ?? null,
+        factId: finding.factId ?? null,
         reviewRunId: validatedReviewRunId,
       });
 

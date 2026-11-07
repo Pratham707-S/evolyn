@@ -20,3 +20,5 @@ submissionsRouter.get('/:id', submissionController.getById);
 submissionsRouter.get('/:id/file', submissionController.getFile);
 submissionsRouter.put('/:id', submissionController.update);
 submissionsRouter.patch('/:id', submissionController.update);
+submissionsRouter.delete('/:id', submissionController.delete);
+submissionsRouter.delete('/', submissionController.deleteMany);

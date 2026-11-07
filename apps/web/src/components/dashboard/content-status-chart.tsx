@@ -17,13 +17,33 @@ interface ChannelStatusData {
 
 interface ContentStatusChartProps {
   data?: ChannelStatusData[];
+  isLoading?: boolean;
 }
 
-export function ContentStatusChart({ data }: ContentStatusChartProps) {
+export function ContentStatusChart({ data, isLoading = false }: ContentStatusChartProps) {
   const [period, setPeriod] = useState('This week');
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  if (isLoading) {
+    return (
+      <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-6 h-[278px] flex flex-col justify-between animate-pulse">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1.5">
+            <div className="w-40 h-4 bg-[#E5E1D8]/60 rounded" />
+            <div className="w-52 h-3 bg-[#E5E1D8]/40 rounded" />
+          </div>
+          <div className="w-20 h-6 bg-[#E5E1D8]/40 rounded-lg" />
+        </div>
+        <div className="w-full h-36 bg-[#E5E1D8]/20 rounded-lg mt-auto flex items-end justify-around p-4 gap-4">
+          {[40, 70, 55, 80, 60].map((h, i) => (
+            <div key={i} className="w-8 bg-[#E5E1D8]/50 rounded-t" style={{ height: `${h}%` }} />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   const periods = ['This week', 'Last week', 'This month', 'This quarter'];
 

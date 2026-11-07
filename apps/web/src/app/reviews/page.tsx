@@ -175,6 +175,7 @@ function ReviewWorkspaceInner() {
         `/api/submissions/${subId}/analyze`,
         {
           content: text,
+          force: true,
         },
         { timeoutMs: 60000 }
       );

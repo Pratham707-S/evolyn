@@ -12,6 +12,8 @@ export interface CreateReviewRunInput {
   summary: {
     passedChecksCount: number;
     failedChecksCount: number;
+    brandIssuesCount?: number;
+    writingQualityIssuesCount?: number;
     notes?: string;
   };
 }

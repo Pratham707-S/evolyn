@@ -1,6 +1,6 @@
 import { env } from 'process';
 
-function getApiBaseUrl(): string {
+export function getApiBaseUrl(): string {
   if (process.env.NEXT_PUBLIC_API_URL) {
     return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '');
   }
@@ -15,14 +15,14 @@ function getApiBaseUrl(): string {
       return `${window.location.protocol}//${window.location.hostname}:5001`;
     }
 
-    // In production browser without explicit NEXT_PUBLIC_API_URL, default to current origin (uses Next.js rewrites)
-    return window.location.origin;
+    // In production browser without explicit NEXT_PUBLIC_API_URL, target production API
+    return 'https://evolyn-api.onrender.com';
   }
 
   // Server-side rendering fallback
   return process.env.API_URL
     ? process.env.API_URL.replace(/\/$/, '')
-    : 'http://localhost:5001';
+    : 'https://evolyn-api.onrender.com';
 }
 
 const API_BASE_URL = getApiBaseUrl();

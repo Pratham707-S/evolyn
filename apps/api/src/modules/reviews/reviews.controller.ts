@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { rewriteContentSchema, uuidSchema } from '@evolyn/shared';
 import type { NextFunction, Request, Response } from 'express';
+import { z } from 'zod';
 import { env } from '../../config/env.js';
 import type { ISubmissionService } from '../submissions/index.js';
 import type { IReviewService } from './index.js';
@@ -27,6 +28,15 @@ export function sanitizeRequestId(rawHeader: unknown): string {
   return trimmed;
 }
 
+const analyzeBodySchema = z
+  .object({
+    content: z.string().trim().min(1).optional(),
+    force: z.boolean({
+      invalid_type_error: 'force parameter must be a strict boolean (true or false)',
+    }).optional(),
+  })
+  .passthrough();
+
 export class ReviewsController {
   constructor(
     private readonly reviews: IReviewService,
@@ -47,11 +57,19 @@ export class ReviewsController {
 
     try {
       const submissionId = uuidSchema.parse(req.params.id);
-      const content =
-        typeof req.body?.content === 'string' && req.body.content.trim().length > 0
-          ? req.body.content.trim()
+      const parsedBody =
+        req.body !== undefined && req.body !== null
+          ? analyzeBodySchema.parse(req.body)
           : undefined;
-      const reviewOptions = content ? { content } : undefined;
+      const content = parsedBody?.content;
+      const force = parsedBody?.force;
+      const reviewOptions =
+        content !== undefined || force !== undefined
+          ? {
+              ...(content !== undefined ? { content } : {}),
+              ...(force !== undefined ? { force } : {}),
+            }
+          : undefined;
       const result = await this.reviews.executeReview(submissionId, reviewOptions, requestId);
       res.status(200).json({
         reviewRunId: result.reviewRun.id,

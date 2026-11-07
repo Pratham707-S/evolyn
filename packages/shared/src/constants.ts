@@ -42,6 +42,8 @@ export const ISSUE_TYPES = [
   'TONE_MISMATCH',
   'PROHIBITED_PHRASE',
   'COMPLIANCE_RISK',
+  'GRAMMAR_ERROR',
+  'SPELLING_ERROR',
 ] as const;
 
 export const ISSUE_STATUSES = ['OPEN', 'ACCEPTED', 'OVERRIDDEN'] as const;

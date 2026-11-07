@@ -22,9 +22,33 @@ export interface MetricCardData {
 
 interface DashboardMetricsProps {
   metrics?: MetricCardData[];
+  isLoading?: boolean;
 }
 
-export function DashboardMetrics({ metrics }: DashboardMetricsProps) {
+export function DashboardMetrics({ metrics, isLoading = false }: DashboardMetricsProps) {
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        {[1, 2, 3, 4].map((i) => (
+          <div
+            key={i}
+            className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-6 h-[188px] flex flex-col justify-between animate-pulse"
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-5 h-5 rounded bg-[#E5E1D8]/60" />
+              <div className="w-12 h-4 rounded bg-[#E5E1D8]/40" />
+            </div>
+            <div className="space-y-2 mt-2">
+              <div className="w-16 h-8 rounded bg-[#E5E1D8]/70" />
+              <div className="w-28 h-3.5 rounded bg-[#E5E1D8]/50" />
+            </div>
+            <div className="w-28 h-3 rounded bg-[#E5E1D8]/40" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   const defaultMetrics: MetricCardData[] = [
     {
       id: 'reviewed',
@@ -60,6 +84,7 @@ export function DashboardMetrics({ metrics }: DashboardMetricsProps) {
     },
   ];
 
+  const isLive = Boolean(metrics);
   const items = metrics || defaultMetrics;
 
   return (
@@ -78,13 +103,19 @@ export function DashboardMetrics({ metrics }: DashboardMetricsProps) {
                 : 'border border-[#E5E1D8] hover:border-[#68745D]/40'
             }`}
           >
-            {/* 1. Icon (Consistent 20px size) and Sample Indicator */}
+            {/* 1. Icon and Status Pill */}
             <div className="flex items-center justify-between text-[#25251F]">
               <div className="w-5 h-5 flex items-center justify-center">
                 <Icon className="w-5 h-5 text-[#25251F]" />
               </div>
-              <span className="text-[10px] font-mono uppercase tracking-wider text-[#A09D92] bg-[#F1EFE8] px-1.5 py-0.5 rounded">
-                Sample
+              <span
+                className={`text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                  isLive
+                    ? 'text-[#4E6B54] bg-[#EEF4EE] border border-[#D4DBC9]'
+                    : 'text-[#A09D92] bg-[#F1EFE8]'
+                }`}
+              >
+                {isLive ? 'Live' : 'Sample'}
               </span>
             </div>
 

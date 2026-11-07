@@ -32,8 +32,8 @@ function createSubmissionRecord(
 }
 
 function createRepository(
-  overrides: Partial<Pick<SubmissionRepository, 'create' | 'findById' | 'list' | 'updateStatus'>> = {}
-): Pick<SubmissionRepository, 'create' | 'findById' | 'list' | 'updateStatus'> {
+  overrides: Partial<Pick<SubmissionRepository, 'create' | 'findById' | 'list' | 'updateStatus' | 'delete' | 'deleteMany'>> = {}
+): Pick<SubmissionRepository, 'create' | 'findById' | 'list' | 'updateStatus' | 'delete' | 'deleteMany'> {
   return {
     create: async (input) =>
       createSubmissionRecord({
@@ -47,6 +47,8 @@ function createRepository(
     findById: async () => null,
     list: async () => [],
     updateStatus: async () => {},
+    delete: async () => true,
+    deleteMany: async () => 1,
     ...overrides,
   };
 }
@@ -160,5 +162,40 @@ describe('SubmissionService', () => {
 
     await service.updateSubmissionStatus(submissionId, 'ANALYZING');
     assert.equal(updatedStatus, 'ANALYZING');
+  });
+
+  it('deletes submission by valid UUID and rejects invalid UUID', async () => {
+    let deletedId = '';
+    const service = new SubmissionService(
+      createRepository({
+        delete: async (id) => {
+          deletedId = id;
+          return true;
+        },
+      })
+    );
+
+    const deleted = await service.deleteSubmission(submissionId);
+    assert.equal(deleted, true);
+    assert.equal(deletedId, submissionId);
+    await assert.rejects(service.deleteSubmission('invalid-uuid'), isZodError);
+  });
+
+  it('bulk deletes submissions and validates UUID array', async () => {
+    let deletedIds: string[] = [];
+    const service = new SubmissionService(
+      createRepository({
+        deleteMany: async (ids) => {
+          deletedIds = ids;
+          return ids.length;
+        },
+      })
+    );
+
+    const count = await service.deleteSubmissions([submissionId]);
+    assert.equal(count, 1);
+    assert.deepEqual(deletedIds, [submissionId]);
+    await assert.rejects(service.deleteSubmissions([]), isZodError);
+    await assert.rejects(service.deleteSubmissions(['not-valid']), isZodError);
   });
 });

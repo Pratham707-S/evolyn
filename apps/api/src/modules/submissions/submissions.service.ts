@@ -93,7 +93,11 @@ export class SubmissionService implements ISubmissionService {
     private readonly repository: Pick<
       SubmissionRepository,
       'create' | 'findById' | 'list' | 'updateStatus'
-    > & { update?: SubmissionRepository['update'] } = submissionRepository
+    > & {
+      update?: SubmissionRepository['update'];
+      delete?: SubmissionRepository['delete'];
+      deleteMany?: SubmissionRepository['deleteMany'];
+    } = submissionRepository
   ) {}
 
   async createSubmission(input: unknown): Promise<ContentSubmission> {
@@ -150,6 +154,22 @@ export class SubmissionService implements ISubmissionService {
     }
     const record = await this.repository.update(submissionId, updatePayload);
     return mapSubmission(record);
+  }
+
+  async deleteSubmission(id: string): Promise<boolean> {
+    const submissionId = uuidSchema.parse(id);
+    if (!this.repository.delete) {
+      throw new Error('Repository does not support delete');
+    }
+    return this.repository.delete(submissionId);
+  }
+
+  async deleteSubmissions(ids: string[]): Promise<number> {
+    const validIds = z.array(uuidSchema).min(1, 'At least one submission ID must be provided').parse(ids);
+    if (!this.repository.deleteMany) {
+      throw new Error('Repository does not support deleteMany');
+    }
+    return this.repository.deleteMany(validIds);
   }
 }
 

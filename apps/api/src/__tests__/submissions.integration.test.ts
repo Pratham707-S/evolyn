@@ -4,6 +4,7 @@ import http from 'http';
 import { Socket } from 'net';
 
 import { app } from '../app.js';
+import { env } from '../config/env.js';
 import { submissionRepository } from '../modules/submissions/submissions.repository.js';
 import type {
   DecisionRecord,
@@ -377,6 +378,109 @@ describe('Submissions Integration Tests (Express App E2E)', () => {
       assert.equal(res.body.error, 'Validation failed');
       const idError = res.body.details.find((d: any) => d.field === 'id');
       assert.ok(idError, 'Expected id error in validation details');
+    });
+  });
+
+  // -------------------------------------------------------------
+  // DELETE /api/submissions/:id
+  // -------------------------------------------------------------
+  describe('DELETE /api/submissions/:id', () => {
+    it('deletes a submission and returns 200 with success true', async () => {
+      let deletedId = '';
+      submissionRepository.delete = async (id: string) => {
+        deletedId = id;
+        return true;
+      };
+
+      const res = await dispatch({
+        method: 'DELETE',
+        url: `/api/submissions/${validUuid}`,
+      });
+
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.body.success, true);
+      assert.equal(deletedId, validUuid);
+    });
+
+    it('returns 404 when submission to delete does not exist', async () => {
+      submissionRepository.delete = async () => false;
+
+      const res = await dispatch({
+        method: 'DELETE',
+        url: `/api/submissions/${validUuid}`,
+      });
+
+      assert.equal(res.statusCode, 404);
+      assert.equal(res.body.error, 'Submission not found');
+    });
+
+    it('returns 400 when :id is not a valid UUID', async () => {
+      const res = await dispatch({
+        method: 'DELETE',
+        url: '/api/submissions/not-a-valid-uuid',
+      });
+
+      assert.equal(res.statusCode, 400);
+      assert.equal(res.body.error, 'Validation failed');
+    });
+
+    it('disables deletion in production environments and returns 403 Forbidden', async () => {
+      const originalNodeEnv = env.NODE_ENV;
+      try {
+        (env as any).NODE_ENV = 'production';
+
+        const res = await dispatch({
+          method: 'DELETE',
+          url: `/api/submissions/${validUuid}`,
+        });
+
+        assert.equal(res.statusCode, 403);
+        assert.match(res.body.error, /disabled in production/);
+
+        const resBulk = await dispatch({
+          method: 'DELETE',
+          url: '/api/submissions',
+          body: { ids: [validUuid] },
+        });
+
+        assert.equal(resBulk.statusCode, 403);
+        assert.match(resBulk.body.error, /disabled in production/);
+      } finally {
+        (env as any).NODE_ENV = originalNodeEnv;
+      }
+    });
+  });
+
+  // -------------------------------------------------------------
+  // DELETE /api/submissions (bulk)
+  // -------------------------------------------------------------
+  describe('DELETE /api/submissions (bulk)', () => {
+    it('deletes multiple submissions and returns 200 with count', async () => {
+      let deletedIds: string[] = [];
+      submissionRepository.deleteMany = async (ids: string[]) => {
+        deletedIds = ids;
+        return ids.length;
+      };
+
+      const res = await dispatch({
+        method: 'DELETE',
+        url: '/api/submissions',
+        body: { ids: [validUuid] },
+      });
+
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.body.deletedCount, 1);
+      assert.deepEqual(deletedIds, [validUuid]);
+    });
+
+    it('returns 400 when ids array is empty or contains invalid UUID', async () => {
+      const res = await dispatch({
+        method: 'DELETE',
+        url: '/api/submissions',
+        body: { ids: [] },
+      });
+
+      assert.equal(res.statusCode, 400);
     });
   });
 

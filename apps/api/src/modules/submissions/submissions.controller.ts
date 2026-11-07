@@ -5,6 +5,7 @@ import {
 } from '@evolyn/shared';
 import type { NextFunction, Request, Response } from 'express';
 import { z } from 'zod';
+import { env } from '../../config/env.js';
 import type { ISubmissionService } from './index.js';
 import { SubmissionService, submissionService } from './submissions.service.js';
 import { localStorageProvider } from '../../infrastructure/storage/local.storage.js';
@@ -108,6 +109,57 @@ export class SubmissionController {
         status,
       });
       res.status(200).json({ submission });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  delete = async (req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (env.NODE_ENV === 'production') {
+        res.status(403).json({
+          error: 'Submission deletion is disabled in production environments without authorization infrastructure.',
+        });
+        return;
+      }
+      const { id } = submissionParamsSchema.parse(req.params);
+      if (typeof this.service.deleteSubmission !== 'function') {
+        res.status(501).json({ error: 'Delete not supported by service implementation' });
+        return;
+      }
+      const deleted = await this.service.deleteSubmission(id);
+      if (!deleted) {
+        res.status(404).json({ error: 'Submission not found' });
+        return;
+      }
+      res.status(200).json({ success: true, message: 'Submission deleted successfully' });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  deleteMany = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (env.NODE_ENV === 'production') {
+        res.status(403).json({
+          error: 'Submission deletion is disabled in production environments without authorization infrastructure.',
+        });
+        return;
+      }
+      const bodySchema = z.object({
+        ids: z.array(uuidSchema).min(1, 'At least one submission ID is required for bulk delete'),
+      });
+      const { ids } = bodySchema.parse(req.body);
+      if (typeof this.service.deleteSubmissions !== 'function') {
+        res.status(501).json({ error: 'Bulk delete not supported by service implementation' });
+        return;
+      }
+      const deletedCount = await this.service.deleteSubmissions(ids);
+      res.status(200).json({
+        success: true,
+        deletedCount,
+        message: `Successfully deleted ${deletedCount} submission(s)`,
+      });
     } catch (error) {
       next(error);
     }
