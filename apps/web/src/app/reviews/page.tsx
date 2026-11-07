@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   XCircle,
   ShieldCheck,
+  ArrowRight,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AppShell, useAppShell } from '@/components/layout/app-shell';
@@ -411,10 +412,40 @@ function ReviewWorkspaceInner() {
     }
   };
 
+  // Auto-run Brand Governance evaluation whenever active submission text is loaded
+  const evaluatedSubmissionIdRef = React.useRef<string | null>(null);
+  useEffect(() => {
+    const sub = reviewData?.submission;
+    if (sub?.id && sub.id !== evaluatedSubmissionIdRef.current && !brandGovMutation.isPending) {
+      evaluatedSubmissionIdRef.current = sub.id;
+      brandGovMutation.mutate(sub.rawText || currentContent);
+    }
+  }, [reviewData?.submission?.id, reviewData?.submission?.rawText]);
+
   const handleAcceptFinding = (issue: DetectedIssue) => {
     if (issue.flaggedExcerpt && issue.suggestedFix) {
-      setCurrentContent((prev) => prev.replace(issue.flaggedExcerpt, issue.suggestedFix));
-      showToast(`Applied fix for: "${issue.flaggedExcerpt}"`);
+      if (
+        issue.suggestedFix.toLowerCase().includes('no change') ||
+        issue.suggestedFix.toLowerCase().includes('no changes needed')
+      ) {
+        showToast('Rule validated: Content is compliant with guidelines.');
+      } else {
+        setCurrentContent((prev) => {
+          if (!prev) return prev;
+          const excerpt = issue.flaggedExcerpt!.trim();
+          const fix = issue.suggestedFix!.trim();
+          if (prev.includes(excerpt)) {
+            return prev.replace(excerpt, fix);
+          }
+          const escaped = excerpt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const reg = new RegExp(escaped, 'i');
+          if (reg.test(prev)) {
+            return prev.replace(reg, fix);
+          }
+          return prev;
+        });
+        showToast(`Applied fix: "${issue.suggestedFix}"`);
+      }
     }
     if (issue.id) {
       patchFindingMutation.mutate({ findingId: issue.id, status: 'ACCEPTED' });
@@ -488,41 +519,11 @@ function ReviewWorkspaceInner() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => {
-                setDecisionModalType('APPROVED');
-                setIsDecisionModalOpen(true);
-              }}
-              className="bg-[#2D5A3A] hover:bg-[#23472E] text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-              title="Sign off and approve this submission"
+              onClick={() => router.push(submission?.id ? `/approvals?id=${submission.id}` : '/approvals')}
+              className="border border-[#D4D0C5] dark:border-[#383731] hover:bg-[#F4F1EA] dark:hover:bg-[#2A2924] text-[#25251F] dark:text-[#F7F5F0] px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
             >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Approve</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setDecisionModalType('CHANGES_REQUESTED');
-                setIsDecisionModalOpen(true);
-              }}
-              className="bg-[#8A5B28] hover:bg-[#6E481F] text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-              title="Request revisions from author"
-            >
-              <AlertTriangle className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Request Changes</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setDecisionModalType('REJECTED');
-                setIsDecisionModalOpen(true);
-              }}
-              className="bg-[#8B2626] hover:bg-[#6D1E1E] text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-              title="Reject this submission"
-            >
-              <XCircle className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Reject</span>
+              <span>Approvals Studio</span>
+              <ArrowRight className="w-3.5 h-3.5" />
             </button>
 
             <button
