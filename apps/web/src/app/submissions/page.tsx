@@ -15,101 +15,7 @@ import {
   SubmissionData,
 } from '@/features/submissions';
 
-// Initial demo dataset shown only as fallback sample data when live records are unavailable
-const initialSubmissionsData: SubmissionData[] = [
-  {
-    id: 'demo-1',
-    title: '[Sample] Q3 Product Campaign',
-    excerpt: 'Introducing our new AI-powered brand governance...',
-    fullText:
-      'Introducing our new AI-powered brand governance platform. Evolyn eliminates compliance bottlenecks and guarantees 100% adherence to all regulatory standards across your marketing pipeline.',
-    channel: 'LinkedIn',
-    status: 'Needs Changes',
-    submittedAt: '2h ago',
-    latestReview: '2h ago',
-    author: 'Sample Marketing Team',
-    version: 'v1.0',
-  },
-  {
-    id: 'demo-2',
-    title: '[Sample] Website Hero Update',
-    excerpt: 'Evolyn helps enterprise teams keep every piece of...',
-    fullText:
-      'Evolyn helps enterprise teams keep every piece of content aligned with verified brand truth. Built with grounded AI and zero-hallucination guardrails.',
-    channel: 'Website',
-    status: 'Approved',
-    submittedAt: '4h ago',
-    latestReview: '3h ago',
-    author: 'Sample Design Ops',
-    version: 'v2.1',
-  },
-  {
-    id: 'demo-3',
-    title: '[Sample] Product Launch Email',
-    excerpt: 'Be the first to explore Evolyn — a smarter way to...',
-    fullText:
-      'Be the first to explore Evolyn — a smarter way to verify claims, enforce tone of voice, and streamline creative approvals in real time.',
-    channel: 'Email',
-    status: 'Pending Review',
-    submittedAt: '6h ago',
-    latestReview: '—',
-    author: 'Sample Growth Team',
-    version: 'v1.0',
-  },
-  {
-    id: 'demo-4',
-    title: '[Sample] Customer Case Study',
-    excerpt: 'How a global brand improved compliance and speed...',
-    fullText:
-      'How a global enterprise achieved a 99.4% reduction in brand claim violations and shortened review turnaround from 3 days to under 15 minutes with Evolyn.',
-    channel: 'Blog',
-    status: 'Approved',
-    submittedAt: 'Yesterday',
-    latestReview: 'Yesterday',
-    author: 'Sample Editorial',
-    version: 'v1.3',
-  },
-  {
-    id: 'demo-5',
-    title: '[Sample] Social Media Teaser',
-    excerpt: 'A faster, safer way to keep your brand on track...',
-    fullText:
-      'A faster, safer way to keep your brand on track. Stay ahead of compliance risks with automated citation checks and evidence scoring.',
-    channel: 'Instagram',
-    status: 'Needs Changes',
-    submittedAt: 'Yesterday',
-    latestReview: 'Yesterday',
-    author: 'Sample Social Team',
-    version: 'v1.0',
-  },
-  {
-    id: 'demo-6',
-    title: '[Sample] Enterprise Security Whitepaper',
-    excerpt: 'SOC 2 Type II compliance and cryptographic audit logs...',
-    fullText:
-      'SOC 2 Type II compliance and cryptographic audit logs ensure every brand review is strictly verifiable and tamper-proof.',
-    channel: 'Blog',
-    status: 'Approved',
-    submittedAt: '2 days ago',
-    latestReview: '2 days ago',
-    author: 'Sample Infra Team',
-    version: 'v1.1',
-  },
-  {
-    id: 'demo-7',
-    title: '[Sample] Partner Ecosystem Press Release',
-    excerpt: 'Announcing global integrations with top creative suites...',
-    fullText:
-      'Announcing global integrations with top creative suites and content engines to bring brand governance directly into your creative workflows.',
-    channel: 'Website',
-    status: 'Pending Review',
-    submittedAt: '3 days ago',
-    latestReview: '—',
-    author: 'Sample PR Team',
-    version: 'v1.0',
-  },
-];
-
+// Submissions page displays 100% live database records (no mock/fake items)
 function SubmissionsContent() {
   const { openNewSubmission, showToast } = useAppShell();
   const [activeStatusFilter, setActiveStatusFilter] = useState<string | null>(null);
@@ -125,7 +31,6 @@ function SubmissionsContent() {
   });
 
   const queryClient = useQueryClient();
-  const [dismissedDemoIds, setDismissedDemoIds] = useState<Set<string>>(new Set());
 
   const isUuid = (id: string) =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
@@ -133,7 +38,6 @@ function SubmissionsContent() {
   const isLive = Boolean(res?.submissions && res.submissions.length > 0);
 
   const submissions: SubmissionData[] = useMemo(() => {
-    // If real backend API responded with submissions list (including empty list after deletions)
     if (res && Array.isArray(res.submissions)) {
       return res.submissions.map((s: ContentSubmission, idx: number) => ({
         id: s.id,
@@ -153,9 +57,8 @@ function SubmissionsContent() {
         version: `v1.${idx}`,
       }));
     }
-    // Only fallback to sample items if backend query failed or before initial connection
-    return initialSubmissionsData.filter((item) => !dismissedDemoIds.has(item.id));
-  }, [res, dismissedDemoIds]);
+    return [];
+  }, [res]);
 
   // Compute live metrics
   const metrics = {
@@ -221,25 +124,12 @@ function SubmissionsContent() {
   });
 
   const handleDeleteSubmission = (id: string) => {
-    if (!isUuid(id)) {
-      setDismissedDemoIds((prev) => new Set([...prev, id]));
-      showToast('Sample draft removed.');
-      return;
-    }
     deleteMutation.mutate(id);
   };
 
   const handleDeleteManySubmissions = (ids: string[]) => {
-    const realIds = ids.filter(isUuid);
-    const demoIds = ids.filter((id) => !isUuid(id));
-
-    if (demoIds.length > 0) {
-      setDismissedDemoIds((prev) => new Set([...prev, ...demoIds]));
-    }
-    if (realIds.length > 0) {
-      bulkDeleteMutation.mutate(realIds);
-    } else if (demoIds.length > 0) {
-      showToast(`Removed ${demoIds.length} sample item${demoIds.length > 1 ? 's' : ''}.`);
+    if (ids.length > 0) {
+      bulkDeleteMutation.mutate(ids);
     }
   };
 

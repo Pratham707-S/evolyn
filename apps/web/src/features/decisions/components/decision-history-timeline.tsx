@@ -182,11 +182,8 @@ export function DecisionHistoryTimeline({
       activeStatus === 'ALL' ||
       item.decision.toLowerCase() === activeStatus.toLowerCase();
 
-    // 2. Day Filter
-    const span = item.spanDays ?? 2;
-    const matchesDay =
-      selectedDay === null ||
-      (selectedDay >= item.dayIndex && selectedDay < item.dayIndex + span);
+    // 2. Day Filter: strictly match the actual day of review
+    const matchesDay = selectedDay === null || item.dayIndex === selectedDay;
 
     // 3. Channel Filter
     const matchesChannel =
@@ -373,9 +370,7 @@ export function DecisionHistoryTimeline({
 
             {/* Individual Day Buttons */}
             {daysOfWeek.map((day) => {
-              const dayItemCount = items.filter(
-                (it) => it.dayIndex === day.index || (day.index >= it.dayIndex && day.index < it.dayIndex + (it.spanDays ?? 2))
-              ).length;
+              const dayItemCount = items.filter((it) => it.dayIndex === day.index).length;
               const isDaySelected = selectedDay === day.index;
 
               return (
@@ -525,7 +520,7 @@ export function DecisionHistoryTimeline({
                         laneItems.map((item) => {
                           const theme = getDecisionTheme(item.decision);
                           const startCol = item.dayIndex;
-                          const spanCol = item.spanDays ?? 2;
+                          const spanCol = item.spanDays ?? 1;
 
                           return (
                             <button

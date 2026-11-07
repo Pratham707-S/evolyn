@@ -25,116 +25,10 @@ import {
   submitHumanDecision,
 } from '@/features/decisions';
 
-const initialDecisionsData: DecisionItem[] = [
-  {
-    id: 'dec-1',
-    title: 'Q3 Product Campaign',
-    snippet: 'Introducing our new AI-powered...',
-    content:
-      'Introducing our new AI-powered brand governance platform that helps marketing teams stay compliant, consistent, and on-brand across every channel. Built with grounded AI and zero-hallucination guardrails.',
-    channel: 'LinkedIn',
-    decision: 'Approved',
-    reviewer: 'MK',
-    reviewerName: 'Mann K.',
-    date: '2h ago',
-    reviewId: 'Review #RV-1043',
-    summary:
-      '2 AI suggestions accepted by submitter in Review Workspace. 1 speed assertion pending final sign-off.',
-    findingsCount: 3,
-    changes: [
-      {
-        id: 'c1',
-        title: 'Softened absolute performance guarantee',
-        description:
-          'Replaced unqualified absolute promise ("eliminates 100% of risk") with verified enterprise evidence wording.',
-        before: 'eliminates 100% of brand compliance risk and guarantees zero defect marketing',
-        after: 'helps marketing teams prevent compliance risks with verified audit citations',
-        isApproved: true,
-        rule: 'Rule 1.4: Grounded Performance',
-      },
-      {
-        id: 'c2',
-        title: 'Registered trademark notice added',
-        description:
-          'Inserted trademark symbol on primary platform product introduction.',
-        before: 'Evolyn',
-        after: 'Evolyn™ Brand Governance',
-        isApproved: true,
-        rule: 'Rule 3.2: Nomenclature Standard',
-      },
-      {
-        id: 'c3',
-        title: 'Speed assertion without benchmark link',
-        description:
-          'Phrase "in seconds" lacks empirical platform citation. Reviewer sign-off required to accept or flag.',
-        before: 'in seconds',
-        after: 'in real time with automated citation checks',
-        isApproved: false,
-        rule: 'Rule 2.1: Tone & Claims',
-      },
-    ],
-  },
-  {
-    id: 'dec-2',
-    title: 'Website Hero Update',
-    snippet: 'Evolyn helps enterprise teams...',
-    content:
-      'Evolyn helps enterprise teams keep every piece of content aligned with verified brand truth. Built with grounded AI and zero-hallucination guardrails.',
-    channel: 'Website',
-    decision: 'Changes Requested',
-    reviewer: 'AK',
-    reviewerName: 'Ayan K.',
-    date: '4h ago',
-    reviewId: 'Review #RV-1042',
-    summary:
-      'Flagged missing registered trademark symbol on primary headline before production push.',
-    findingsCount: 1,
-    changes: [
-      {
-        id: 'c4',
-        title: 'Trademark symbol required on lead H1 headline',
-        description:
-          'First headline introduction must include the ™ symbol to satisfy trademark legal policy.',
-        before: 'Evolyn Enterprise',
-        after: 'Evolyn™ Enterprise Brand Suite',
-        isApproved: false,
-        rule: 'Rule 3.2: Trademark Policy',
-      },
-    ],
-  },
-  {
-    id: 'dec-3',
-    title: 'Product Launch Email',
-    snippet: 'Be the first to explore Evolyn...',
-    content:
-      'Be the first to explore Evolyn — a smarter way to verify claims, enforce tone of voice, and streamline creative approvals in real time.',
-    channel: 'Email',
-    decision: 'Approved',
-    reviewer: 'PK',
-    reviewerName: 'Pratham K.',
-    date: '6h ago',
-    reviewId: 'Review #RV-1041',
-    summary:
-      'All product claims conform to corporate voice guidelines and approved knowledge proof sources.',
-    findingsCount: 0,
-    changes: [
-      {
-        id: 'c5',
-        title: 'Tone checked against corporate voice dimensions',
-        description: 'Verified authoritative and grounded attributes.',
-        before: 'Be the first to explore Evolyn',
-        after: 'Be the first to explore Evolyn',
-        isApproved: true,
-        rule: 'Voice Guideline: Confident Clarity',
-      },
-    ],
-  },
-];
-
 function ApprovalsContent() {
   const { showToast } = useAppShell();
-  const [decisions, setDecisions] = useState<DecisionItem[]>(initialDecisionsData);
-  const [selectedId, setSelectedId] = useState<string>('dec-1');
+  const [decisions, setDecisions] = useState<DecisionItem[]>([]);
+  const [selectedId, setSelectedId] = useState<string>('');
   const [statusTab, setStatusTab] = useState<string>('ALL');
   const [reviewerComment, setReviewerComment] = useState('');
   const [isSubmittingDecision, setIsSubmittingDecision] = useState(false);
@@ -153,7 +47,7 @@ function ApprovalsContent() {
     queryFn: () => fetchAllSubmissions(),
   });
 
-  // Sync live backend submissions into decision workstation items
+  // Sync 100% live backend submissions into decision workstation items (NO fake items)
   useEffect(() => {
     if (queueData?.submissions && queueData.submissions.length > 0) {
       const liveItems: DecisionItem[] = queueData.submissions.map((sub: ContentSubmission) => {
@@ -197,24 +91,25 @@ function ApprovalsContent() {
         };
       });
 
-      const liveIds = new Set(liveItems.map((it) => it.id));
-      const remainingInitial = initialDecisionsData.filter((init) => !liveIds.has(init.id));
-      const merged = [...liveItems, ...remainingInitial];
-
-      setDecisions(merged);
-      if (liveItems.length > 0 && selectedId === 'dec-1') {
+      setDecisions(liveItems);
+      if (liveItems.length > 0 && (!selectedId || !liveItems.some((i) => i.id === selectedId))) {
         setSelectedId(liveItems[0].id);
       }
+    } else {
+      setDecisions([]);
+      setSelectedId('');
     }
   }, [queueData]);
 
-  const selectedItem = decisions.find((d) => d.id === selectedId) || decisions[0];
+  const selectedItem = decisions.find((d) => d.id === selectedId) || decisions[0] || null;
 
   const handleInitiateDecision = (decision: 'Approved' | 'Changes Requested' | 'Rejected') => {
+    if (!selectedItem) return;
+
     if (decision === 'Approved' || decision === 'Rejected') {
       setConfirmationModal({
         type: decision,
-        title: selectedItem?.title || 'this submission',
+        title: selectedItem.title || 'this submission',
       });
       return;
     }
