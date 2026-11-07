@@ -62,16 +62,13 @@ export function markIssuesInHtml(html: string, issues?: DetectedIssue[]): string
 export function cleanAndFormatPdfToHtml(raw: string, issues?: DetectedIssue[]): string {
   if (!raw) return '<p>Loading document content...</p>';
 
-  // If already HTML, strip any legacy artifacts and return
-  if (
-    raw.includes('<p>') ||
-    raw.includes('<h1>') ||
-    raw.includes('<h2>') ||
-    raw.includes('<h3>') ||
-    raw.includes('<ul>') ||
-    raw.includes('<ol>') ||
-    raw.includes('<div>')
-  ) {
+  // Check if raw is already cleanly structured HTML (multiple paragraphs AND headings without run-on text)
+  const pMatches = raw.match(/<p[^>]*>([\s\S]*?)<\/p>/gi) || [];
+  const hMatches = raw.match(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/gi) || [];
+  const hasRunOnNumberedSections = /\b\d+[\.\)]\s+[A-Z][a-zA-Z\s]{2,25}(?:\.|\s+[A-Z])/i.test(raw);
+  const isWellStructuredHtml = pMatches.length >= 3 && hMatches.length >= 2 && !hasRunOnNumberedSections;
+
+  if (isWellStructuredHtml) {
     const cleaned = raw
       .replace(/<p[^>]*>Page\s*\d+\s*Reference<\/p>/gi, '')
       .replace(/<p[^>]*>\s*<\/p>/gi, '')
@@ -79,8 +76,11 @@ export function cleanAndFormatPdfToHtml(raw: string, issues?: DetectedIssue[]): 
     return markIssuesInHtml(cleaned, issues);
   }
 
-  // 1. Strip raw PDF page markers, running headers, and web-clipping artifacts
+  // 1. Convert any incoming HTML tags into clean newline breaks
   let preprocessed = raw
+    .replace(/<\/?(?:h[1-6]|p|div|section|blockquote)[^>]*>/gi, '\n\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
     .replace(/\r\n/g, '\n')
     .replace(/\f/g, '\n\n')
     .replace(/---\s*Page\s*(\d+)(?:\s*of\s*\d+)?\s*---/gi, '\n\n')
@@ -93,13 +93,26 @@ export function cleanAndFormatPdfToHtml(raw: string, issues?: DetectedIssue[]): 
     .trim();
 
   // 2. Normalize numbered headings without spaces (e.g. "1.Context" -> "1. Context", "2.The Access Token" -> "2. The Access Token")
-  preprocessed = preprocessed.replace(/^(\d+)[\.]([A-Za-z])/gm, '$1. $2');
+  preprocessed = preprocessed.replace(/(\d+)[\.]([A-Za-z])/g, '$1. $2');
 
-  // 3. Separate inline headings concatenated with paragraph body on the same line
+  // 3. Separate inline numbered headings concatenated anywhere in a paragraph
+  // e.g. "every page. 1. Context. Web applications" -> "every page.\n\n1. Context\n\nWeb applications"
+  preprocessed = preprocessed.replace(
+    /([.!?])\s*(\d+[\.\)]\s+[A-Za-z0-9\s—–-]{2,35}\.?)\s+([A-Z])/g,
+    '$1\n\n$2\n\n$3'
+  );
+
+  // 4. Separate inline conceptual headings anywhere in a paragraph
+  preprocessed = preprocessed.replace(
+    /([.!?])\s*((?:Balancing Security and Usability|A Small Problem|The Solution|To recap:?|In [Ss]hort:?|Summary|Conclusion|The Access Token|The Refresh Token|Storage)\.?)\s+([A-Z])/g,
+    '$1\n\n$2\n\n$3'
+  );
+
+  // 5. Separate inline headings concatenated with paragraph body on the start of a line
   // e.g. "1. Context Ever wondered how websites keep..." -> "1. Context\n\nEver wondered how websites keep..."
   // e.g. "2. The Access Token An access token is the equivalent..." -> "2. The Access Token\n\nAn access token is the equivalent..."
   preprocessed = preprocessed.replace(
-    /^(\d+[\.\)]\s+[A-Za-z0-9\s—–-]{2,30})\s+([A-Z][a-z].*)$/gm,
+    /^(\d+[\.\)]\s+[A-Za-z0-9\s—–-]{2,30}\.?)\s+([A-Z][a-z].*)$/gm,
     '$1\n\n$2'
   );
 

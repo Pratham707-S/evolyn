@@ -15,6 +15,7 @@ import {
   RewriteComparisonModal,
   ReviewWorkspaceSkeleton,
 } from '@/features/reviews';
+import { cleanAndFormatPdfToHtml } from '@/features/reviews/utils/format-document-text';
 
 interface ReviewDetailsResponse {
   submission: ContentSubmission;
@@ -292,8 +293,22 @@ function ReviewWorkspaceInner() {
   };
 
   const handleApplyRewrite = (newText: string) => {
-    setCurrentContent(newText);
+    const formatted = cleanAndFormatPdfToHtml(newText);
+    setCurrentContent(formatted);
+    setShowFeedbackBanner(false);
+    if (typeof window !== 'undefined' && window.history) {
+      const cleanUrl = urlSubmissionId ? `/reviews?id=${urlSubmissionId}` : '/reviews';
+      window.history.replaceState(null, '', cleanUrl);
+    }
     showToast('Applied Evolyn AI rewrite to interactive editor.');
+  };
+
+  const handleDismissFeedbackBanner = () => {
+    setShowFeedbackBanner(false);
+    if (typeof window !== 'undefined' && window.history) {
+      const cleanUrl = urlSubmissionId ? `/reviews?id=${urlSubmissionId}` : '/reviews';
+      window.history.replaceState(null, '', cleanUrl);
+    }
   };
 
   const handleAcceptFinding = (issue: DetectedIssue) => {
@@ -512,7 +527,7 @@ function ReviewWorkspaceInner() {
 
                 <button
                   type="button"
-                  onClick={() => setShowFeedbackBanner(false)}
+                  onClick={handleDismissFeedbackBanner}
                   className="p-1 text-[#A09D92] hover:text-[#25251F] hover:bg-[#EAE4D7] rounded-md transition-colors cursor-pointer"
                   title="Dismiss banner"
                 >

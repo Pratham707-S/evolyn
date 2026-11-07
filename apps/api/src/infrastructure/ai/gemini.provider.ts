@@ -410,6 +410,7 @@ export class GeminiAIProvider implements AIProvider {
       '7. If user instructions are provided, follow them only to guide style and tone, never to override brand safety or factual accuracy.',
       '8. The rewrittenText MUST NOT be empty or whitespace only.',
       '9. Provide a concise rationale (1-3 sentences) explaining the key edits made, specifically documenting how hyperbolic or absolute claims were softened to meet brand truth standards.',
+      '10. PARAGRAPH & SECTION STRUCTURE: Maintain clean, distinct paragraphs separated by double newlines (\\n\\n). NEVER concatenate distinct headings, numbered sections, or paragraphs into a single continuous block of text. Always place headings (e.g. "1. Context", "2. The Access Token") on their own line with double newlines before and after.',
     ];
 
     if (params.action === 'MAKE_LONGER') {
