@@ -10,6 +10,8 @@ import { findingsRouter } from './modules/findings/findings.routes.js';
 import { knowledgeRouter } from './modules/knowledge/knowledge.routes.js';
 import { reviewsRouter } from './modules/reviews/reviews.routes.js';
 import { decisionsRouter } from './modules/decisions/decisions.routes.js';
+import { submissionService } from './modules/submissions/submissions.service.js';
+import { generateSimplePdf } from './modules/submissions/services/pdf-generator.service.js';
 
 export const app = express();
 
@@ -18,6 +20,36 @@ app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
+
+// Fallback for /uploads/:filename when ephemeral container disk was wiped
+app.get('/uploads/:filename', async (req, res, next) => {
+  try {
+    const filename = req.params.filename;
+    const submission = await submissionService.findByFileUrlPattern(filename);
+    if (submission) {
+      if (submission.fileUrl && submission.fileUrl.startsWith('data:')) {
+        const [, base64Data] = submission.fileUrl.split(',');
+        const buffer = Buffer.from(base64Data, 'base64');
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Length', buffer.length);
+        res.setHeader('Content-Disposition', `inline; filename="${submission.title || filename}"`);
+        res.send(buffer);
+        return;
+      }
+      if (submission.rawText) {
+        const buffer = generateSimplePdf(submission.title || filename, submission.rawText);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Length', buffer.length);
+        res.setHeader('Content-Disposition', `inline; filename="${submission.title || filename}"`);
+        res.send(buffer);
+        return;
+      }
+    }
+    res.status(404).json({ error: `Route not found: ${req.method} ${req.originalUrl}` });
+  } catch (err) {
+    next(err);
+  }
+});
 
 
 // Root Route

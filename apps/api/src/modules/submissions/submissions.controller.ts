@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   submissionChannelSchema,
   submissionStatusSchema,
@@ -11,6 +13,7 @@ import { SubmissionService, submissionService } from './submissions.service.js';
 import { localStorageProvider } from '../../infrastructure/storage/local.storage.js';
 import { pdfExtractorService } from './services/pdf-extractor.service.js';
 import { urlExtractorService } from './services/url-extractor.service.js';
+import { generateSimplePdf } from './services/pdf-generator.service.js';
 
 const listSubmissionsQuerySchema = z.object({
   status: submissionStatusSchema.optional(),
@@ -169,12 +172,13 @@ export class SubmissionController {
     try {
       const { id } = submissionParamsSchema.parse(req.params);
       const submission = await this.service.getSubmissionById(id);
-      if (!submission || !submission.fileUrl) {
-        res.status(404).json({ error: 'No PDF file associated with this submission' });
+      if (!submission) {
+        res.status(404).json({ error: 'Submission not found' });
         return;
       }
 
-      if (submission.fileUrl.startsWith('data:')) {
+      // 1. Data URL
+      if (submission.fileUrl && submission.fileUrl.startsWith('data:')) {
         const [header, base64Data] = submission.fileUrl.split(',');
         const mimeMatch = header.match(/:(.*?);/);
         const contentType = mimeMatch ? mimeMatch[1] : 'application/pdf';
@@ -186,7 +190,38 @@ export class SubmissionController {
         return;
       }
 
-      res.redirect(submission.fileUrl);
+      // 2. Physical file on disk
+      if (submission.fileUrl) {
+        const filename = path.basename(submission.fileUrl);
+        const localPath = path.resolve(process.cwd(), 'uploads', filename);
+        if (fs.existsSync(localPath)) {
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', `inline; filename="${submission.title || 'document'}.pdf"`);
+          fs.createReadStream(localPath).pipe(res);
+          return;
+        }
+
+        // External URL redirect (not local /uploads)
+        if (
+          (submission.fileUrl.startsWith('http://') || submission.fileUrl.startsWith('https://')) &&
+          !submission.fileUrl.includes('/uploads/')
+        ) {
+          res.redirect(submission.fileUrl);
+          return;
+        }
+      }
+
+      // 3. Fallback: Generate real PDF stream from extracted rawText so it NEVER 404s
+      if (submission.rawText) {
+        const buffer = generateSimplePdf(submission.title || 'Brand Document', submission.rawText);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Length', buffer.length);
+        res.setHeader('Content-Disposition', `inline; filename="${submission.title || 'document'}.pdf"`);
+        res.send(buffer);
+        return;
+      }
+
+      res.status(404).json({ error: 'No PDF or document content available for this submission' });
     } catch (error) {
       next(error);
     }

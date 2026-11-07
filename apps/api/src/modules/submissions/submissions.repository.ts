@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, ilike, inArray, or } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { contentSubmissions, decisions, reviewRuns } from '../../db/schema.js';
 import type { SubmissionChannel, SubmissionStatus } from '@evolyn/shared';
@@ -65,6 +65,22 @@ export class SubmissionRepository {
     ]);
 
     return { submission, reviewRun, decision };
+  }
+
+  async findByFileUrlPattern(pattern: string): Promise<SubmissionRecord | null> {
+    const [submission] = await db
+      .select()
+      .from(contentSubmissions)
+      .where(
+        or(
+          ilike(contentSubmissions.fileUrl, `%${pattern}%`),
+          ilike(contentSubmissions.title, `%${pattern.replace(/\.pdf$/i, '').replace(/^[0-9]+-/, '')}%`)
+        )
+      )
+      .orderBy(desc(contentSubmissions.createdAt))
+      .limit(1);
+
+    return submission ?? null;
   }
 
   async list(filter: {

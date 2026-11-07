@@ -13,7 +13,12 @@ export class LocalStorageProvider implements StorageProvider {
   ) {
     this.uploadDir = uploadDir;
     this.baseUrl = baseUrl.replace(/\/$/, '');
-    this.isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+    this.isServerless = Boolean(
+      process.env.RENDER ||
+      process.env.VERCEL ||
+      process.env.AWS_LAMBDA_FUNCTION_NAME ||
+      process.env.NODE_ENV === 'production'
+    );
 
     if (!this.isServerless) {
       try {

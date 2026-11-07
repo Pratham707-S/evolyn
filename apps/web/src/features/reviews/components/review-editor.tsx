@@ -32,6 +32,7 @@ import {
   Maximize2,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
+import { getApiBaseUrl } from '@/lib/api/client';
 
 export interface ReviewEditorProps {
   initialTitle?: string;
@@ -142,6 +143,21 @@ export function ReviewEditor({
   const [pdfZoom, setPdfZoom] = useState(100);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(5);
+
+  const effectivePdfUrl = React.useMemo(() => {
+    if (!fileUrl) return null;
+    if (submissionId) {
+      const apiBase = getApiBaseUrl();
+      return `${apiBase}/api/submissions/${submissionId}/file`;
+    }
+    if (fileUrl.startsWith('data:') || fileUrl.startsWith('blob:') || fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
+      return fileUrl;
+    }
+    if (fileUrl.startsWith('/')) {
+      return `${getApiBaseUrl()}${fileUrl}`;
+    }
+    return fileUrl;
+  }, [fileUrl, submissionId]);
 
   const lastSetContentRef = React.useRef('');
 
@@ -579,9 +595,9 @@ export function ReviewEditor({
                   </button>
                 </div>
 
-                {fileUrl && (
+                {effectivePdfUrl && (
                   <a
-                    href={fileUrl}
+                    href={effectivePdfUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-2.5 py-1 text-xs text-[#68745D] hover:text-[#515B48] bg-[#E8EBE1]/60 hover:bg-[#E8EBE1] rounded-lg font-medium transition-colors flex items-center gap-1"
@@ -594,7 +610,7 @@ export function ReviewEditor({
             </div>
 
             {/* PDF Main Content Area */}
-            {fileUrl ? (
+            {effectivePdfUrl ? (
               <div className="flex-1 min-h-0 flex gap-3 overflow-hidden">
                 {/* Left Thumbnail/Page Navigation Drawer */}
                 <div className="hidden sm:flex flex-col w-28 shrink-0 border border-[#E5E1D8] rounded-xl bg-[#FAF9F5] p-2 overflow-y-auto space-y-2 select-none">
@@ -623,8 +639,8 @@ export function ReviewEditor({
                 {/* High-Fidelity PDF Renderer Container */}
                 <div className="flex-1 min-w-0 bg-[#FAF9F5] border border-[#E5E1D8] rounded-xl overflow-hidden flex items-center justify-center relative">
                   <iframe
-                    key={fileUrl || 'pdf-viewer'}
-                    src={`${fileUrl}#page=${currentPage}&zoom=${pdfZoom}`}
+                    key={effectivePdfUrl}
+                    src={`${effectivePdfUrl}#page=${currentPage}&zoom=${pdfZoom}`}
                     title="Original PDF Document"
                     className="w-full h-full border-0 rounded-xl"
                   />

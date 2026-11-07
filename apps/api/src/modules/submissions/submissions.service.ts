@@ -97,6 +97,7 @@ export class SubmissionService implements ISubmissionService {
       update?: SubmissionRepository['update'];
       delete?: SubmissionRepository['delete'];
       deleteMany?: SubmissionRepository['deleteMany'];
+      findByFileUrlPattern?: SubmissionRepository['findByFileUrlPattern'];
     } = submissionRepository
   ) {}
 
@@ -109,6 +110,12 @@ export class SubmissionService implements ISubmissionService {
     const submissionId = uuidSchema.parse(id);
     const record = await this.repository.findById(submissionId);
     return record ? mapSubmissionDetails(record) : null;
+  }
+
+  async findByFileUrlPattern(pattern: string): Promise<ContentSubmission | null> {
+    if (!this.repository.findByFileUrlPattern) return null;
+    const record = await this.repository.findByFileUrlPattern(pattern);
+    return record ? mapSubmission(record) : null;
   }
 
   async listSubmissions(filter: {
