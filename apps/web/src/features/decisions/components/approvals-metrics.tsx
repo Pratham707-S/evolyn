@@ -140,7 +140,7 @@ export function ApprovalsMetrics({
   return (
     <div
       ref={containerRef}
-      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+      className="grid grid-cols-2 lg:grid-cols-4 gap-3"
     >
       {cards.map((card) => {
         const Icon = card.icon;
@@ -155,34 +155,32 @@ export function ApprovalsMetrics({
                 onSelectFilter(isSelected ? null : card.filterValue);
               }
             }}
-            className={`text-left rounded-xl transition-all p-5 border text-[#25251F] group relative focus:outline-none focus-visible:ring-1 focus-visible:ring-[#68745D] flex items-center justify-between opacity-100 ${
+            className={`text-left rounded-xl transition-all p-3.5 sm:p-4 border text-[#25251F] group relative focus:outline-hidden focus-visible:ring-1 focus-visible:ring-[#68745D] flex items-center justify-between cursor-pointer ${
               isSelected
-                ? 'bg-[#FFFEFA] border-[#68745D] shadow-xs ring-1 ring-[#68745D]/20'
-                : 'bg-[#FFFEFA] border-[#E5E1D8] hover:border-[#68745D]/40'
+                ? 'bg-[#FFFEFA] border-[#68745D] shadow-xs ring-1 ring-[#68745D]/30'
+                : 'bg-[#FFFEFA] border-[#E5E1D8] hover:border-[#68745D]/40 hover:bg-[#FAF9F5]'
             }`}
           >
             {/* Left Metrics Details */}
-            <div className="space-y-1">
-              <div className="w-5 h-5 flex items-center justify-center text-[#25251F]">
-                <Icon className="w-5 h-5" />
+            <div className="space-y-0.5 min-w-0">
+              <div className="flex items-center gap-1.5 text-xs text-[#77766E] font-medium">
+                <Icon className="w-3.5 h-3.5 shrink-0 text-[#25251F]" />
+                <span className="truncate">{card.label}</span>
               </div>
 
-              <p className="text-xs text-[#77766E] font-medium pt-1">
-                {card.label}
-              </p>
-
-              {/* Animated number from 0 */}
-              <p className="font-serif text-3xl sm:text-[34px] font-normal text-[#25251F] tracking-tight leading-none">
-                <AnimatedCounter value={card.value} duration={1.2} />
-              </p>
-
-              <p className={`text-[11px] font-medium pt-1 ${card.trendColor}`}>
-                {card.trend}
-              </p>
+              {/* Animated number */}
+              <div className="flex items-baseline gap-2 pt-0.5">
+                <span className="font-serif text-2xl sm:text-[28px] font-normal text-[#25251F] tracking-tight leading-tight">
+                  <AnimatedCounter value={card.value} duration={1.0} />
+                </span>
+                <span className={`text-[10px] font-medium font-mono ${card.trendColor}`}>
+                  {card.trend}
+                </span>
+              </div>
             </div>
 
-            {/* Right Sparkline Graphic with GSAP safe growth */}
-            <div className="w-24 h-12 flex items-end justify-end shrink-0 pl-2">
+            {/* Right Sparkline Graphic */}
+            <div className="w-16 sm:w-20 h-9 flex items-end justify-end shrink-0 pl-1">
               <svg
                 viewBox="0 0 120 32"
                 className="sparkline-svg w-full h-full overflow-visible"

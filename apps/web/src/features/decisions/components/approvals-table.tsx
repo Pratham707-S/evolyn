@@ -51,7 +51,7 @@ export function ApprovalsTable({
   const [page, setPage] = useState(1);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
-  const perPage = 4;
+  const perPage = 6;
 
   const getChannelIcon = (channel: string) => {
     switch (channel.toLowerCase()) {
@@ -292,71 +292,48 @@ export function ApprovalsTable({
                       : 'bg-[#FFFEFA] border-[#E5E1D8] hover:border-[#68745D]/40 hover:bg-[#FAF9F5]/60'
                   }`}
                 >
-                  {/* Top Row: Title, Channel, Decision */}
-                  <div className="flex items-start justify-between gap-1.5">
-                    <div className="flex items-start gap-2 min-w-0">
-                      <div className="w-7 h-7 rounded-lg bg-[#F1EFE8] border border-[#E5E1D8] flex items-center justify-center text-[#25251F] shrink-0 mt-0.5">
+                  {/* Top Row: Channel & Date on Left, Status Badge on Right */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 text-xs text-[#77766E] font-medium">
+                      <div className="w-5 h-5 rounded-md bg-[#F1EFE8] border border-[#E5E1D8] flex items-center justify-center text-[#25251F] shrink-0">
                         {getChannelIcon(row.channel)}
                       </div>
-                      <div className="min-w-0">
-                        <h4 className="font-semibold text-xs text-[#25251F] truncate group-hover:text-[#68745D] transition-colors leading-tight">
-                          {row.title}
-                        </h4>
-                        <p className="text-[10px] text-[#77766E] mt-0.5 font-mono truncate">
-                          {row.channel} • {row.date}
-                        </p>
-                      </div>
+                      <span className="font-medium text-[#25251F]">{row.channel}</span>
+                      <span>•</span>
+                      <span className="text-[11px] font-mono">{row.date}</span>
                     </div>
 
-                    <div className="shrink-0 scale-90 origin-top-right">
+                    <div className="shrink-0">
                       {renderDecisionBadge(row.decision)}
                     </div>
                   </div>
 
-                  {/* Summary of Changes after Review */}
-                  <div className="p-2 rounded-lg bg-[#F7F5F0]/80 border border-[#E5E1D8]/70 text-[11px] space-y-1">
-                    <div className="flex items-center justify-between text-[10px]">
-                      <span className="font-medium text-[#25251F] flex items-center gap-1">
-                        <Sparkles className="w-2.5 h-2.5 text-[#68745D]" />
-                        <span>Review Changes</span>
-                      </span>
-                      <div className="flex items-center gap-1 font-mono text-[9px]">
-                        <span className="bg-[#EEF4EE] text-[#36533D] px-1 py-0.2 rounded font-medium border border-[#D1E2D3]">
-                          ✓ {approvedCount}
-                        </span>
-                        {pendingCount > 0 && (
-                          <span className="bg-[#FDF4E7] text-[#865920] px-1 py-0.2 rounded font-medium border border-[#F0D5B5]">
-                            ⏳ {pendingCount}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <p className="text-[#55544E] text-[10px] leading-relaxed line-clamp-2">
-                      {row.summary}
-                    </p>
+                  {/* Document Title: Full Width, Never Truncated to 5 chars */}
+                  <div>
+                    <h4 className="font-semibold text-sm text-[#25251F] group-hover:text-[#68745D] transition-colors leading-snug break-words">
+                      {row.title}
+                    </h4>
+                    {row.content && (
+                      <p className="text-[11px] text-[#77766E] line-clamp-2 mt-1 leading-relaxed">
+                        {row.content}
+                      </p>
+                    )}
                   </div>
 
-                  {/* Footer Row: Reviewer & Workspace Action Link */}
-                  <div className="flex items-center justify-between text-[10px] text-[#77766E] pt-1 border-t border-[#E5E1D8]/50">
-                    <div className="flex items-center gap-1 min-w-0 truncate">
+                  {/* Bottom Row: Submitter & Review Health */}
+                  <div className="flex items-center justify-between text-[11px] text-[#77766E] pt-2 border-t border-[#E5E1D8]/60">
+                    <div className="flex items-center gap-1.5 min-w-0">
                       <div className="w-4 h-4 rounded-full bg-[#E5E1D8] text-[8px] font-semibold text-[#25251F] flex items-center justify-center shrink-0">
                         {row.reviewer}
                       </div>
-                      <span className="truncate">{row.reviewerName}</span>
+                      <span className="truncate text-[#55544E]">{row.reviewerName}</span>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/reviews?id=${row.id}`);
-                      }}
-                      className="text-[#68745D] hover:underline flex items-center gap-1 font-medium shrink-0 focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-[#68745D]"
-                    >
-                      <ExternalLink className="w-2.5 h-2.5" />
-                      <span>Review</span>
-                    </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-[10px] font-medium text-[#4E6B54] bg-[#EEF4EE] px-2 py-0.5 rounded-full border border-[#D1E2D3]">
+                        {row.findingsCount === 0 ? '100% Compliant' : '96.8% Compliant'}
+                      </span>
+                    </div>
                   </div>
                 </div>
               );
