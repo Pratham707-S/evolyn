@@ -441,7 +441,7 @@ export function DecisionHistoryTimeline({
           </div>
 
           <div className="overflow-x-auto pb-2 scroll-smooth">
-          <div className="min-w-[880px] border border-[#E5E1D8] rounded-xl bg-[#FAF9F5] p-5 relative">
+          <div className="min-w-[1020px] border border-[#E5E1D8] rounded-xl bg-[#FAF9F5] p-5 relative">
             {/* Days Column Header Grid (Non-overlapping, clean layout) */}
             <div className="grid grid-cols-7 gap-3 pb-3 border-b border-[#E5E1D8] text-center text-xs relative z-20">
               {daysOfWeek.map((day) => {
@@ -473,14 +473,14 @@ export function DecisionHistoryTimeline({
             </div>
 
             {/* Timeline Swimlanes Container with Slid-Down Live Marker */}
-            <div className="relative pt-4 space-y-4">
+            <div className="relative pt-6 space-y-4">
               {/* Slid-Down Live Marker: tracks real-time today column */}
               <div
                 style={{ left: liveMarkerLeft }}
-                className="absolute top-1 bottom-1 w-[2px] bg-[#68745D]/80 z-10 pointer-events-none"
+                className="absolute top-0 bottom-0 w-[2px] bg-[#68745D]/70 z-10 pointer-events-none"
               >
-                {/* Live Pill badge positioned inside the track ruler below day headers */}
-                <div className="absolute top-0 -left-9 bg-[#25251F] text-white text-[10px] font-mono px-2 py-0.5 rounded-full shadow-md flex items-center gap-1 z-30 pointer-events-auto">
+                {/* Live Pill badge positioned cleanly in the ruler margin above swimlane tracks */}
+                <div className="absolute -top-3.5 -left-8 bg-[#25251F] text-white text-[10px] font-mono px-2 py-0.5 rounded-full shadow-md flex items-center gap-1 z-30 pointer-events-auto">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#64816A] animate-pulse" />
                   <span>{liveTimeString}</span>
                 </div>
@@ -511,7 +511,7 @@ export function DecisionHistoryTimeline({
                     </div>
 
                     {/* Lane Track Grid */}
-                    <div className="grid grid-cols-7 gap-3 min-h-[66px] bg-[#FFFEFA]/90 border border-[#E5E1D8] rounded-xl p-2.5 items-center relative">
+                    <div className="grid grid-cols-7 gap-3 min-h-[66px] bg-[#FFFEFA]/90 border border-[#E5E1D8] rounded-xl p-2.5 items-start relative">
                       {laneItems.length === 0 ? (
                         <div className="col-span-7 text-center text-xs text-[#A09D92] py-2 italic font-normal">
                           No reviews logged for this category matching current filters
@@ -531,34 +531,37 @@ export function DecisionHistoryTimeline({
                                 gridColumnStart: startCol + 1,
                                 gridColumnEnd: `span ${Math.min(spanCol, 7 - startCol)}`,
                               }}
-                              className={`group text-left py-2 px-3 rounded-xl border transition-all flex items-center justify-between gap-2.5 cursor-pointer shadow-2xs hover:shadow-md hover:scale-[1.01] focus:outline-none focus:ring-2 focus:ring-[#68745D] ${theme.cardBg} ${theme.indicator}`}
+                              className={`group text-left p-2.5 rounded-xl border transition-all flex flex-col justify-between gap-1.5 cursor-pointer shadow-2xs hover:shadow-md hover:scale-[1.01] focus:outline-none focus:ring-2 focus:ring-[#68745D] ${theme.cardBg} ${theme.indicator} w-full min-w-0 overflow-hidden`}
                             >
-                              {/* Left icon / Title */}
-                              <div className="flex items-center gap-2 min-w-0">
+                              {/* Top row: Icon + Title + Chevron */}
+                              <div className="flex items-center gap-1.5 min-w-0 w-full">
                                 <div
-                                  className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 border border-[#E5E1D8]/60 ${theme.iconBg}`}
+                                  className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border border-[#E5E1D8]/60 ${theme.iconBg}`}
                                 >
                                   {getChannelIcon(item.channel)}
                                 </div>
 
-                                <div className="min-w-0 truncate">
-                                  <p className="text-xs font-medium text-[#25251F] group-hover:text-[#68745D] transition-colors truncate leading-tight">
-                                    {item.title}
-                                  </p>
-                                  <p className="text-[11px] text-[#77766E] truncate">
-                                    {item.reviewerName} • {item.timeAgo}
-                                  </p>
-                                </div>
+                                <p
+                                  className="text-xs font-semibold text-[#25251F] group-hover:text-[#68745D] transition-colors truncate leading-tight flex-1 min-w-0"
+                                  title={item.title}
+                                >
+                                  {item.title}
+                                </p>
+
+                                <ChevronRight className="w-3.5 h-3.5 text-[#A09D92] group-hover:text-[#25251F] group-hover:translate-x-0.5 transition-all shrink-0 ml-auto" />
                               </div>
 
-                              {/* Right status badge & chevron */}
-                              <div className="flex items-center gap-1.5 shrink-0">
+                              {/* Bottom row: Time / Reviewer + Status Badge */}
+                              <div className="flex items-center justify-between gap-1.5 w-full pt-1 border-t border-[#E5E1D8]/40">
+                                <span className="text-[10px] text-[#77766E] truncate">
+                                  {item.timeAgo}
+                                </span>
+
                                 <span
-                                  className={`text-[10px] px-2 py-0.5 rounded-full font-medium border hidden sm:inline-block ${theme.badgeBg}`}
+                                  className={`text-[9.5px] px-2 py-0.5 rounded-full font-medium border shrink-0 ${theme.badgeBg}`}
                                 >
                                   {item.decision}
                                 </span>
-                                <ChevronRight className="w-3.5 h-3.5 text-[#77766E] group-hover:text-[#25251F] group-hover:translate-x-0.5 transition-all" />
                               </div>
                             </button>
                           );
