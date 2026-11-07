@@ -396,25 +396,6 @@ function ReviewWorkspaceInner() {
         }
       />
 
-      {/* Changes Requested Notification Banner (if redirected from Approvals) */}
-      {searchParams.get('status') === 'changes_requested' && (
-        <div className="px-4 py-2.5 bg-[#FDF4E7] border border-[#F0D5B5] rounded-xl flex items-center justify-between text-xs text-[#865920] shrink-0 animate-in fade-in duration-200 shadow-2xs">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-[#B78A4A] shrink-0" />
-            <span>
-              <strong>Changes Requested by Governance Approver:</strong> Review suggestions in the interactive editor, apply necessary corrections, and click <strong>Save Revision</strong> to transfer back for final sign-off.
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => router.replace(urlSubmissionId ? `/reviews?id=${urlSubmissionId}` : '/reviews')}
-            className="text-[#865920] hover:text-[#25251F] font-semibold underline text-[11px] ml-3 shrink-0 cursor-pointer"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
       {/* 2. Responsive Mobile / Tablet Tab Switcher */}
       <div className="lg:hidden flex items-center bg-[#FAF9F5] border border-[#E5E1D8] p-1 rounded-xl shrink-0 gap-1 text-xs select-none">
         <button

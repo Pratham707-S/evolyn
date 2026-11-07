@@ -406,31 +406,27 @@ export function ApprovalInspector({
           )}
         </div>
 
-        {item.decision === 'Changes Requested' ? (
-          <div className="p-4 rounded-xl bg-[#FDF9F0] border border-[#F0D5B5] space-y-3">
-            <div className="flex items-start gap-2.5">
+        {item.decision === 'Changes Requested' && (
+          <div className="p-3.5 rounded-xl bg-[#FDF9F0] border border-[#F0D5B5] flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-start gap-2 text-xs text-[#865920]">
               <AlertTriangle className="w-4 h-4 text-[#B78A4A] shrink-0 mt-0.5" />
               <div>
-                <span className="text-xs font-semibold text-[#865920] block">
-                  Changes Have Been Requested For This Draft
-                </span>
-                <p className="text-xs text-[#5C3C1A] mt-0.5 leading-relaxed">
-                  {item.summary || 'A reviewer has requested revisions before final sign-off.'}
-                </p>
+                <span className="font-semibold block">Changes previously requested for this draft</span>
+                <span className="text-[#5C3C1A] text-[11px]">{item.summary || 'Awaiting author revisions or reviewer sign-off.'}</span>
               </div>
             </div>
-            <div className="pt-1">
-              <button
-                type="button"
-                onClick={() => router.push(`/reviews?id=${item.id}&status=changes_requested`)}
-                className="w-full sm:w-auto bg-[#25251F] hover:bg-[#383832] text-white text-xs font-semibold px-4 py-2.5 rounded-xl flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-[#E6C687]" />
-                <span>Open in Review Workspace to Apply Changes & AI Auto-Fix ➔</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => router.push(`/reviews?id=${item.id}&status=changes_requested`)}
+              className="text-xs font-semibold text-[#865920] hover:text-[#25251F] underline flex items-center gap-1 cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-[#B78A4A]" />
+              <span>Open in Review Workspace</span>
+            </button>
           </div>
-        ) : isFinalized ? (
+        )}
+
+        {isFinalized ? (
           <div className="p-3.5 rounded-xl bg-[#EEF4EE]/70 border border-[#C8DEC9] text-xs text-[#2A4530] flex items-center gap-2">
             <CheckCheck className="w-4 h-4 text-[#64816A] shrink-0" />
             <span>
@@ -485,8 +481,8 @@ export function ApprovalInspector({
                 onClick={() => handleAction('Changes Requested')}
                 className="py-2.5 px-4 rounded-xl text-xs font-medium border border-[#B78A4A]/50 bg-[#FDF9F0] hover:bg-[#F9ECCF] text-[#865920] flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-40"
               >
-                <AlertTriangle className="w-3.5 h-3.5" />
-                <span>Request Changes</span>
+                <Sparkles className="w-3.5 h-3.5 text-[#B78A4A]" />
+                <span>Request Changes & Review with AI</span>
               </button>
 
               <button
