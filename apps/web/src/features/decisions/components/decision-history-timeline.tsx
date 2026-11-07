@@ -352,10 +352,10 @@ export function DecisionHistoryTimeline({
         </div>
 
         {/* 3. Interactive Date Strip (Click a date to see that particular day's work) */}
-        <div className="bg-[#FAF9F5] border border-[#E5E1D8] rounded-xl p-2.5 sm:p-3 flex flex-col md:flex-row md:items-center justify-between gap-2.5 text-xs">
+        <div className="bg-[#FAF9F5] dark:bg-[#1E1D19] border border-[#E5E1D8] dark:border-[#2C2B26] rounded-xl p-2.5 sm:p-3 flex flex-col md:flex-row md:items-center justify-between gap-2.5 text-xs">
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 max-w-full">
-            <span className="text-[#77766E] font-medium flex items-center gap-1.5 text-xs mr-1 shrink-0">
-              <Calendar className="w-3.5 h-3.5 text-[#68745D]" />
+            <span className="text-[#77766E] dark:text-[#A09D92] font-medium flex items-center gap-1.5 text-xs mr-1 shrink-0">
+              <Calendar className="w-3.5 h-3.5 text-[#68745D] dark:text-[#8A987D]" />
               Filter by Day:
             </span>
 
@@ -363,10 +363,10 @@ export function DecisionHistoryTimeline({
             <button
               type="button"
               onClick={() => setSelectedDay(null)}
-              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 cursor-pointer ${
                 selectedDay === null
-                  ? 'bg-[#25251F] text-white shadow-2xs font-semibold'
-                  : 'bg-[#FFFEFA] border border-[#E5E1D8] text-[#77766E] hover:text-[#25251F] hover:bg-[#F1EFE8]'
+                  ? 'bg-[#25251F] dark:bg-[#F7F5F0] text-white dark:text-[#18181B] shadow-2xs font-semibold'
+                  : 'bg-[#FFFEFA] dark:bg-[#262520] border border-[#E5E1D8] dark:border-[#2C2B26] text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0] hover:bg-[#F1EFE8] dark:hover:bg-[#33322C]'
               }`}
             >
               All Days ({items.length})

@@ -625,17 +625,17 @@ export function ReviewEditor({
             {/* In-Editor Quick Fix Popover for clicked red squiggly error marks */}
             {activePopover && (
               <div
-                className="evolyn-quick-fix-popover absolute z-30 bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl shadow-xl p-3.5 w-[320px] transition-all animate-in fade-in zoom-in-95 duration-150"
+                className="evolyn-quick-fix-popover absolute z-30 bg-[#FFFEFA] dark:bg-[#1E1D19] border border-[#E5E1D8] dark:border-[#2C2B26] rounded-xl shadow-xl p-3.5 w-[320px] transition-all animate-in fade-in zoom-in-95 duration-150"
                 style={{
                   top: `${activePopover.position.top}px`,
                   left: `${activePopover.position.left}px`,
                 }}
               >
                 {/* Header with Badge & Close */}
-                <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#F1EFE8]">
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#F1EFE8] dark:border-[#2C2B26]">
                   <div className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-red-700">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-red-700 dark:text-red-400">
                       {activePopover.issueType === 'GRAMMAR_ERROR' || activePopover.issueType === 'SPELLING_ERROR'
                         ? 'Spelling / Grammar Error'
                         : 'Brand Guideline Issue'}
@@ -647,7 +647,7 @@ export function ReviewEditor({
                       e.stopPropagation();
                       setActivePopover(null);
                     }}
-                    className="text-[#A09D92] hover:text-[#25251F] text-xs px-1 py-0.5 rounded transition-colors cursor-pointer"
+                    className="text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0] text-xs px-1 py-0.5 rounded transition-colors cursor-pointer"
                   >
                     ✕
                   </button>
@@ -655,19 +655,19 @@ export function ReviewEditor({
 
                 {/* Explanation */}
                 {activePopover.explanation && (
-                  <p className="text-xs text-[#52524C] mb-2.5 leading-relaxed font-normal">
+                  <p className="text-xs text-[#52524C] dark:text-[#E4E2DC] mb-2.5 leading-relaxed font-normal">
                     {activePopover.explanation}
                   </p>
                 )}
 
                 {/* Change Preview */}
-                <div className="bg-[#FAF8F5] border border-[#EFECE6] rounded-lg p-2.5 mb-3 text-xs flex items-center justify-between gap-2">
+                <div className="bg-[#FAF8F5] dark:bg-[#262520] border border-[#EFECE6] dark:border-[#2C2B26] rounded-lg p-2.5 mb-3 text-xs flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5 truncate">
-                    <span className="line-through text-red-600 bg-red-100/70 px-1.5 py-0.5 rounded font-mono text-[11px] truncate max-w-[110px]">
+                    <span className="line-through text-red-600 dark:text-red-300 bg-red-100/70 dark:bg-red-950/60 px-1.5 py-0.5 rounded font-mono text-[11px] truncate max-w-[110px]">
                       {activePopover.flaggedExcerpt}
                     </span>
                     <span className="text-[#A09D92] font-bold">→</span>
-                    <span className="text-emerald-700 font-semibold bg-emerald-100/70 px-1.5 py-0.5 rounded font-mono text-[11px] truncate max-w-[130px]">
+                    <span className="text-emerald-700 dark:text-emerald-300 font-semibold bg-emerald-100/70 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded font-mono text-[11px] truncate max-w-[130px]">
                       {activePopover.suggestedFix || 'Remove'}
                     </span>
                   </div>
@@ -681,7 +681,7 @@ export function ReviewEditor({
                       e.stopPropagation();
                       setActivePopover(null);
                     }}
-                    className="px-2.5 py-1.5 text-xs text-[#77766E] hover:text-[#25251F] hover:bg-[#F1EFE8] rounded-md transition-colors cursor-pointer"
+                    className="px-2.5 py-1.5 text-xs text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0] hover:bg-[#F1EFE8] dark:hover:bg-[#2C2B26] rounded-md transition-colors cursor-pointer"
                   >
                     Dismiss
                   </button>

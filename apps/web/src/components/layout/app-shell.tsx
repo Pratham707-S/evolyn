@@ -88,7 +88,7 @@ export function AppShell({ children, activeItem, noScroll = false }: AppShellPro
       <div
         className={`${
           noScroll ? 'min-h-screen lg:h-screen lg:overflow-hidden' : 'min-h-screen'
-        } bg-[#F7F5F0] text-[#25251F] font-sans antialiased selection:bg-[#68745D] selection:text-white flex`}
+        } bg-[#F7F5F0] dark:bg-[#141412] text-[#25251F] dark:text-[#F7F5F0] font-sans antialiased selection:bg-[#68745D] selection:text-white flex`}
       >
         {/* Toast Notification */}
         {toastMessage && (

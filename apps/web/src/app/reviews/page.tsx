@@ -404,14 +404,14 @@ function ReviewWorkspaceInner() {
       />
 
       {/* 2. Responsive Mobile / Tablet Tab Switcher */}
-      <div className="lg:hidden flex items-center bg-[#FAF9F5] border border-[#E5E1D8] p-1 rounded-xl shrink-0 gap-1 text-xs select-none">
+      <div className="lg:hidden flex items-center bg-[#FAF9F5] dark:bg-[#1E1D19] border border-[#E5E1D8] dark:border-[#2C2B26] p-1 rounded-xl shrink-0 gap-1 text-xs select-none">
         <button
           type="button"
           onClick={() => setMobileTab('editor')}
           className={`flex-1 py-1.5 px-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
             mobileTab === 'editor'
-              ? 'bg-[#25251F] text-white shadow-2xs font-semibold'
-              : 'text-[#77766E] hover:text-[#25251F]'
+              ? 'bg-[#25251F] dark:bg-[#F7F5F0] text-white dark:text-[#18181B] shadow-2xs font-semibold'
+              : 'text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0]'
           }`}
         >
           <Edit3 className="w-3.5 h-3.5" />
@@ -423,8 +423,8 @@ function ReviewWorkspaceInner() {
           onClick={() => setMobileTab('findings')}
           className={`flex-1 py-1.5 px-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
             mobileTab === 'findings'
-              ? 'bg-[#25251F] text-white shadow-2xs font-semibold'
-              : 'text-[#77766E] hover:text-[#25251F]'
+              ? 'bg-[#25251F] dark:bg-[#F7F5F0] text-white dark:text-[#18181B] shadow-2xs font-semibold'
+              : 'text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0]'
           }`}
         >
           <Sparkles className="w-3.5 h-3.5 text-[#B78A4A]" />
@@ -436,8 +436,8 @@ function ReviewWorkspaceInner() {
           onClick={() => setMobileTab('tools')}
           className={`flex-1 py-1.5 px-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
             mobileTab === 'tools'
-              ? 'bg-[#25251F] text-white shadow-2xs font-semibold'
-              : 'text-[#77766E] hover:text-[#25251F]'
+              ? 'bg-[#25251F] dark:bg-[#F7F5F0] text-white dark:text-[#18181B] shadow-2xs font-semibold'
+              : 'text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0]'
           }`}
         >
           <Wand2 className="w-3.5 h-3.5 text-[#68745D]" />
@@ -473,21 +473,21 @@ function ReviewWorkspaceInner() {
         >
           {/* Reviewer Feedback / Change Request Banner */}
           {Boolean(reviewerFeedback) && showFeedbackBanner && (
-            <div className="bg-[#FAF7F0] border border-[#D5A770] rounded-xl px-3.5 py-2.5 mb-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-2xs shrink-0 animate-in fade-in slide-in-from-top-1">
+            <div className="bg-[#FAF7F0] dark:bg-[#2A2318] border border-[#D5A770] dark:border-[#59401F] rounded-xl px-3.5 py-2.5 mb-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-2xs shrink-0 animate-in fade-in slide-in-from-top-1">
               <div className="flex items-start gap-2.5 min-w-0">
-                <div className="w-6 h-6 rounded-md bg-[#F4E8D5] text-[#8A5B28] flex items-center justify-center shrink-0 mt-0.5">
-                  <AlertTriangle className="w-3.5 h-3.5 text-[#9A672E]" />
+                <div className="w-6 h-6 rounded-md bg-[#F4E8D5] dark:bg-[#3D2E1A] text-[#8A5B28] dark:text-[#FCD34D] flex items-center justify-center shrink-0 mt-0.5">
+                  <AlertTriangle className="w-3.5 h-3.5 text-[#9A672E] dark:text-[#FCD34D]" />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[11px] font-semibold text-[#6E481F] uppercase tracking-wider">
+                    <span className="text-[11px] font-semibold text-[#6E481F] dark:text-[#FBBF24] uppercase tracking-wider">
                       Reviewer Requested Changes
                     </span>
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#EBDBC9] text-[#5C3C1A]">
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#EBDBC9] dark:bg-[#4A3720] text-[#5C3C1A] dark:text-[#FDE68A]">
                       Action Required
                     </span>
                   </div>
-                  <p className="text-xs text-[#25251F] mt-0.5 font-medium italic break-words line-clamp-2">
+                  <p className="text-xs text-[#25251F] dark:text-[#F7F5F0] mt-0.5 font-medium italic break-words line-clamp-2">
                     &ldquo;{reviewerFeedback}&rdquo;
                   </p>
                 </div>
@@ -498,7 +498,7 @@ function ReviewWorkspaceInner() {
                   type="button"
                   disabled={rewriteMutation.isPending}
                   onClick={handleAutoFixWithAi}
-                  className="bg-[#25251F] hover:bg-[#3D3C35] text-white text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer disabled:opacity-50 touch-manipulation"
+                  className="bg-[#25251F] dark:bg-[#F7F5F0] hover:bg-[#3D3C35] dark:hover:bg-[#EAE6DF] text-white dark:text-[#18181B] text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer disabled:opacity-50 touch-manipulation"
                 >
                   {rewriteMutation.isPending ? (
                     <>
@@ -507,7 +507,7 @@ function ReviewWorkspaceInner() {
                     </>
                   ) : (
                     <>
-                      <Sparkles className="w-3.5 h-3.5 text-[#E6C687]" />
+                      <Sparkles className="w-3.5 h-3.5 text-[#E6C687] dark:text-[#9A672E]" />
                       <span>Auto-Fix with AI</span>
                     </>
                   )}
@@ -516,7 +516,7 @@ function ReviewWorkspaceInner() {
                 <button
                   type="button"
                   onClick={handleDismissFeedbackBanner}
-                  className="p-1 text-[#A09D92] hover:text-[#25251F] hover:bg-[#EAE4D7] rounded-md transition-colors cursor-pointer"
+                  className="p-1 text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0] hover:bg-[#EAE4D7] dark:hover:bg-[#3D2E1A] rounded-md transition-colors cursor-pointer"
                   title="Dismiss banner"
                 >
                   <X className="w-4 h-4" />

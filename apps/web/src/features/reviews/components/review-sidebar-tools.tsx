@@ -78,16 +78,16 @@ export function ReviewSidebarTools({
       {/* 1. Evolyn AI Writing Tools */}
       <div>
         <div className="mb-2">
-          <h3 className="text-sm font-semibold text-[#25251F] leading-tight flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-[#25251F] dark:text-[#F7F5F0] leading-tight flex items-center justify-between">
             <span>Evolyn AI Writing Tools</span>
             {isExecuting && (
-              <span className="text-[10px] text-[#68745D] font-normal flex items-center gap-1">
+              <span className="text-[10px] text-[#68745D] dark:text-[#8A987D] font-normal flex items-center gap-1">
                 <Loader2 className="w-3 h-3 animate-spin" />
                 <span>Generating...</span>
               </span>
             )}
           </h3>
-          <p className="text-[11px] text-[#77766E] mt-0.5">
+          <p className="text-[11px] text-[#77766E] dark:text-[#A09D92] mt-0.5">
             Grounded AI rewriting with semantic rule alignment and brand safety.
           </p>
         </div>
@@ -105,15 +105,15 @@ export function ReviewSidebarTools({
                 onClick={() => handleToolClick(tool)}
                 className={`w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-lg transition-colors text-left cursor-pointer disabled:opacity-50 ${
                   isCurrentlyRunning
-                    ? 'bg-[#E8EBE1] text-[#25251F] font-semibold border border-[#68745D]/40 shadow-2xs'
-                    : 'text-[#25251F] hover:bg-[#EFECE5] border border-transparent'
+                    ? 'bg-[#E8EBE1] dark:bg-[#202E23] text-[#25251F] dark:text-[#86EFAC] font-semibold border border-[#68745D]/40 dark:border-[#2D4530] shadow-2xs'
+                    : 'text-[#25251F] dark:text-[#E4E2DC] hover:bg-[#EFECE5] dark:hover:bg-[#262520] hover:text-[#25251F] dark:hover:text-[#F7F5F0] border border-transparent'
                 }`}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   {isCurrentlyRunning ? (
-                    <Loader2 className="w-3.5 h-3.5 shrink-0 text-[#68745D] animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 shrink-0 text-[#68745D] dark:text-[#86EFAC] animate-spin" />
                   ) : (
-                    <Icon className="w-3.5 h-3.5 shrink-0 text-[#77766E]" />
+                    <Icon className="w-3.5 h-3.5 shrink-0 text-[#77766E] dark:text-[#A09D92]" />
                   )}
                   <span className="truncate">{tool.label}</span>
                 </div>
@@ -129,16 +129,16 @@ export function ReviewSidebarTools({
       {/* 2. Brand Governance Tools */}
       <div>
         <div className="mb-2">
-          <h3 className="text-sm font-semibold text-[#25251F] leading-tight flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-[#25251F] dark:text-[#F7F5F0] leading-tight flex items-center justify-between">
             <span>Brand Governance</span>
             {isAuditing && (
-              <span className="text-[10px] text-[#68745D] font-normal flex items-center gap-1">
+              <span className="text-[10px] text-[#68745D] dark:text-[#8A987D] font-normal flex items-center gap-1">
                 <Loader2 className="w-3 h-3 animate-spin" />
                 <span>Auditing...</span>
               </span>
             )}
           </h3>
-          <p className="text-[11px] text-[#77766E] mt-0.5">
+          <p className="text-[11px] text-[#77766E] dark:text-[#A09D92] mt-0.5">
             Audit against active guidelines & evidence facts.
           </p>
         </div>
@@ -159,10 +159,10 @@ export function ReviewSidebarTools({
                     showToast(`Filter activated: ${tool.label}`);
                   }
                 }}
-                className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-lg transition-colors text-left text-[#25251F] hover:bg-[#EFECE5] border border-transparent cursor-pointer disabled:opacity-50"
+                className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-lg transition-colors text-left text-[#25251F] dark:text-[#E4E2DC] hover:bg-[#EFECE5] dark:hover:bg-[#262520] hover:text-[#25251F] dark:hover:text-[#F7F5F0] border border-transparent cursor-pointer disabled:opacity-50"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <Icon className="w-3.5 h-3.5 text-[#77766E] shrink-0" />
+                  <Icon className="w-3.5 h-3.5 text-[#77766E] dark:text-[#A09D92] shrink-0" />
                   <span className="truncate">{tool.label}</span>
                 </div>
               </button>

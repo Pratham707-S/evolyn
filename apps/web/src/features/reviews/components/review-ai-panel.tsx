@@ -366,7 +366,7 @@ export function ReviewAiPanel({
                               e.stopPropagation();
                               onAcceptFinding(issue);
                             }}
-                            className="flex-1 py-1.5 px-2 bg-[#25251F] hover:bg-[#383832] text-white rounded-lg text-xs font-medium flex items-center justify-center gap-1 transition-colors shadow-2xs"
+                            className="flex-1 py-1.5 px-2 bg-[#25251F] hover:bg-[#383832] dark:bg-[#F7F5F0] dark:hover:bg-[#EAE6DF] text-white dark:text-[#18181B] rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors shadow-2xs"
                           >
                             <Check className="w-3.5 h-3.5" />
                             <span>Apply Fix</span>
@@ -380,7 +380,7 @@ export function ReviewAiPanel({
                               e.stopPropagation();
                               onDismissFinding(issueId);
                             }}
-                            className="py-1.5 px-2 text-[#77766E] hover:text-[#25251F] hover:bg-[#F1EFE8] border border-[#E5E1D8] rounded-lg text-xs font-medium transition-colors"
+                            className="py-1.5 px-2 text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0] hover:bg-[#F1EFE8] dark:hover:bg-[#262520] border border-[#E5E1D8] dark:border-[#2C2B26] rounded-lg text-xs font-medium transition-colors cursor-pointer"
                           >
                             Dismiss
                           </button>

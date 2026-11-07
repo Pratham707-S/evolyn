@@ -63,7 +63,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="antialiased font-sans bg-[#F7F5F0] text-[#25251F] selection:bg-[#68745D] selection:text-white min-h-screen">
+      <body className="antialiased font-sans bg-[#F7F5F0] dark:bg-[#141412] text-[#25251F] dark:text-[#F7F5F0] selection:bg-[#68745D] selection:text-white min-h-screen">
         <AppProviders>{children}</AppProviders>
       </body>
     </html>
