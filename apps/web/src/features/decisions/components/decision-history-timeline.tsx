@@ -103,7 +103,11 @@ export function DecisionHistoryTimeline({
     // Place marker accurately in the center of the current day column
     // Each column is 100% / 7 ≈ 14.2857%
     const colCenterPct = ((currentDayIdx + 0.5) / 7) * 100;
-    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    const hours = now.getHours();
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const h12 = hours % 12 || 12;
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const timeStr = `${h12}:${minutes} ${ampm}`;
 
     return {
       daysOfWeek: days,
@@ -443,7 +447,7 @@ export function DecisionHistoryTimeline({
           <div className="overflow-x-auto pb-2 scroll-smooth">
           <div className="min-w-[1020px] border border-[#E5E1D8] rounded-xl bg-[#FAF9F5] p-5 relative">
             {/* Days Column Header Grid (Non-overlapping, clean layout) */}
-            <div className="grid grid-cols-7 gap-3 pb-3 border-b border-[#E5E1D8] text-center text-xs relative z-20">
+            <div className="grid grid-cols-7 gap-3 pb-4 mb-4 border-b border-[#E5E1D8] text-center text-xs relative z-20">
               {daysOfWeek.map((day) => {
                 const isDaySelected = selectedDay === day.index;
 
@@ -473,14 +477,14 @@ export function DecisionHistoryTimeline({
             </div>
 
             {/* Timeline Swimlanes Container with Slid-Down Live Marker */}
-            <div className="relative pt-6 space-y-4">
-              {/* Slid-Down Live Marker: tracks real-time today column */}
+            <div className="relative pt-7 space-y-4">
+              {/* Slid-Down Live Marker: tracks real-time today column with clean gap below header box */}
               <div
                 style={{ left: liveMarkerLeft }}
-                className="absolute top-0 bottom-0 w-[2px] bg-[#68745D]/70 z-10 pointer-events-none"
+                className="absolute top-0 bottom-0 w-[2px] bg-[#68745D]/60 z-10 pointer-events-none"
               >
-                {/* Live Pill badge positioned cleanly in the ruler margin above swimlane tracks */}
-                <div className="absolute -top-3.5 -left-8 bg-[#25251F] text-white text-[10px] font-mono px-2 py-0.5 rounded-full shadow-md flex items-center gap-1 z-30 pointer-events-auto">
+                {/* Live Pill badge positioned cleanly in the ruler gap with proper spacing from the day box */}
+                <div className="absolute top-1 -translate-x-1/2 bg-[#25251F] text-white text-[10px] font-sans px-2.5 py-0.5 rounded-full shadow-md flex items-center gap-1.5 z-30 pointer-events-auto whitespace-nowrap">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#64816A] animate-pulse" />
                   <span>{liveTimeString}</span>
                 </div>
