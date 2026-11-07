@@ -696,6 +696,70 @@ describe('ReviewService', () => {
       assert.equal(result.rewrittenText, 'Casual copy');
     });
 
+    it('supports MAKE_LONGER with 5,381, 20,000, and 50,000-character inputs without premature truncation', async () => {
+      for (const charCount of [5381, 20000, 50000]) {
+        let passedContentToAI = '';
+        let passedEmbeddingContent = '';
+        const inputContent = 'A'.repeat(charCount);
+
+        const dependencies = createDependencies({
+          ai: {
+            generateEmbedding: async (text) => {
+              passedEmbeddingContent = text;
+              return Array(768).fill(0.1);
+            },
+            auditContent: async () => ({ issues: [] }),
+            rewriteContent: async (params) => {
+              passedContentToAI = params.content;
+              return {
+                rewrittenText: 'B'.repeat(charCount + 500),
+                rationale: `Expanded content by 500 characters from ${charCount} chars.`,
+              };
+            },
+          },
+          guidelines: {
+            findRelevantRules: async () => [rule],
+          },
+        });
+
+        const service = new ReviewService(dependencies, createRepository());
+        const result = await service.rewrite(submissionId, {
+          action: 'MAKE_LONGER',
+          content: inputContent,
+        });
+
+        assert.equal(
+          passedContentToAI.length,
+          charCount,
+          `AI provider should receive all ${charCount} characters`
+        );
+        assert.equal(
+          result.originalText.length,
+          charCount,
+          `Original text should preserve all ${charCount} characters`
+        );
+        assert.equal(result.rewrittenText.length, charCount + 500);
+        // Embedding should be bounded to 8000 to prevent embedding API limit errors
+        assert.ok(
+          passedEmbeddingContent.length <= 8000,
+          `Embedding input should be bounded to max 8000 chars, got ${passedEmbeddingContent.length}`
+        );
+      }
+    });
+
+    it('rejects MAKE_LONGER inputs exceeding 50,000 characters with schema validation error', async () => {
+      const inputContent = 'C'.repeat(50001);
+
+      const service = new ReviewService(createDependencies(), createRepository());
+      await assert.rejects(
+        service.rewrite(submissionId, {
+          action: 'MAKE_LONGER',
+          content: inputContent,
+        }),
+        /Content must not exceed 50000 characters/
+      );
+    });
+
     it('rejects when submission does not exist', async () => {
       const dependencies = createDependencies({
         submissions: {

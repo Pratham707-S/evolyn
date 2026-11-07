@@ -543,11 +543,18 @@ export class ReviewService implements IReviewService {
       throw new Error('AI provider does not support rewriteContent');
     }
 
-    const MAX_REWRITE_CONTEXT_CHARS = 4000;
+    const MAX_REWRITE_CONTENT_CHARS = 50000;
     const boundedContent =
-      validatedInput.content.length > MAX_REWRITE_CONTEXT_CHARS
-        ? validatedInput.content.slice(0, MAX_REWRITE_CONTEXT_CHARS)
+      validatedInput.content.length > MAX_REWRITE_CONTENT_CHARS
+        ? validatedInput.content.slice(0, MAX_REWRITE_CONTENT_CHARS)
         : validatedInput.content;
+
+    // Context specifically for vector embedding calculation to stay within embedding model input limits
+    const MAX_EMBEDDING_CHARS = 8000;
+    const embeddingContent =
+      boundedContent.length > MAX_EMBEDDING_CHARS
+        ? boundedContent.slice(0, MAX_EMBEDDING_CHARS)
+        : boundedContent;
 
     let rules: GuidelineRule[] = [];
     let facts: ApprovedFact[] = [];
@@ -562,7 +569,7 @@ export class ReviewService implements IReviewService {
       try {
         const embStart = Date.now();
         const embedding = await this.dependencies.ai.generateEmbedding(
-          boundedContent,
+          embeddingContent,
           { dimensions: EMBEDDING_DIMENSIONS }
         );
         embeddingMs = Date.now() - embStart;

@@ -180,6 +180,88 @@ describe('GeminiAIProvider', () => {
     });
   });
 
+  it('includes expansion directive and 8192 token limit for MAKE_LONGER', async () => {
+    let capturedBody: any;
+    const provider = new GeminiAIProvider(
+      'test-key',
+      'test-model',
+      'test-embedding-model',
+      async (_url, options) => {
+        capturedBody = JSON.parse(options.body as string);
+        return createResponse({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({
+                      rewrittenText:
+                        'Detailed, comprehensive, and substantially expanded copy preserving all original facts and structure.',
+                      rationale: 'Elaborated explanations and added supporting context without summarizing.',
+                    }),
+                  },
+                ],
+              },
+            },
+          ],
+        });
+      }
+    );
+
+    const originalText = 'Evolyn automates brand compliance.';
+    const result = await provider.rewriteContent({
+      action: 'MAKE_LONGER',
+      content: originalText,
+      rules: [{ id: ruleId, statement: 'Be truthful.', severity: 'WARNING' }],
+    });
+
+    const promptText = capturedBody.contents[0].parts[0].text;
+    assert.ok(promptText.includes('SPECIAL EXPANSION DIRECTIVES FOR MAKE_LONGER'));
+    assert.ok(promptText.includes('rewrittenText MUST be longer in length'));
+    assert.ok(promptText.includes('NEVER summarize, condense, abbreviate'));
+    assert.equal(capturedBody.generationConfig.maxOutputTokens, 8192);
+
+    assert.ok(result.rewrittenText.length > originalText.length);
+    assert.ok(result.rationale.includes('Elaborated'));
+  });
+
+  it('includes simplification directive for SIMPLIFY', async () => {
+    let capturedBody: any;
+    const provider = new GeminiAIProvider(
+      'test-key',
+      'test-model',
+      'test-embedding-model',
+      async (_url, options) => {
+        capturedBody = JSON.parse(options.body as string);
+        return createResponse({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({
+                      rewrittenText: 'Clear and simple copy.',
+                      rationale: 'Simplified sentence structure.',
+                    }),
+                  },
+                ],
+              },
+            },
+          ],
+        });
+      }
+    );
+
+    await provider.rewriteContent({
+      action: 'SIMPLIFY',
+      content: 'Original complex jargon-filled copy.',
+    });
+
+    const promptText = capturedBody.contents[0].parts[0].text;
+    assert.ok(promptText.includes('SPECIAL CLARITY DIRECTIVES FOR SIMPLIFY'));
+    assert.ok(promptText.includes('Replace complex sentence structures'));
+  });
+
   it('rejects empty rewritten output from Gemini', async () => {
     const provider = new GeminiAIProvider(
       'test-key',
@@ -434,5 +516,167 @@ describe('GeminiAIProvider', () => {
       content: 'Complex text to simplify.',
     });
     assert.ok(capturedRewriteUrl.includes('/models/custom-generation-model:generateContent'));
+  });
+
+  it('rejects rewrite and throws error when finishReason is MAX_TOKENS', async () => {
+    const provider = new GeminiAIProvider(
+      'test-key',
+      'test-model',
+      'test-embedding-model',
+      async () =>
+        createResponse({
+          candidates: [
+            {
+              content: {
+                parts: [{ text: '{"rewrittenText": "Partial...' }],
+              },
+              finishReason: 'MAX_TOKENS',
+            },
+          ],
+        })
+    );
+
+    await assert.rejects(
+      provider.rewriteContent({
+        action: 'MAKE_LONGER',
+        content: 'Original content.',
+      }),
+      /Gemini output was truncated due to maximum token limit/
+    );
+  });
+
+  it('rejects review audit and throws error when finishReason is MAX_TOKENS', async () => {
+    const provider = new GeminiAIProvider(
+      'test-key',
+      'test-model',
+      'test-embedding-model',
+      async () =>
+        createResponse({
+          candidates: [
+            {
+              content: {
+                parts: [{ text: '{"issues": [{' }],
+              },
+              finishReason: 'MAX_TOKENS',
+            },
+          ],
+        })
+    );
+
+    await assert.rejects(
+      provider.auditContent({
+        content: 'Original content to audit.',
+        rules: [],
+        facts: [],
+      }),
+      /Gemini output was truncated due to maximum token limit/
+    );
+  });
+
+  it('rejects incomplete or truncated JSON in rewrite candidate response', async () => {
+    const provider = new GeminiAIProvider(
+      'test-key',
+      'test-model',
+      'test-embedding-model',
+      async () =>
+        createResponse({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: '{"rewrittenText": "This is an unfinished sentence that cuts off mid-st',
+                  },
+                ],
+              },
+            },
+          ],
+        })
+    );
+
+    await assert.rejects(
+      provider.rewriteContent({
+        action: 'MAKE_LONGER',
+        content: 'Original content.',
+      }),
+      /Gemini returned invalid JSON for the rewrite/
+    );
+  });
+
+  it('rejects MAKE_LONGER when generated output is shorter than or equal to original content', async () => {
+    const originalText =
+      'Evolyn is an enterprise AI governance platform that monitors and enforces brand compliance across all generated content and marketing campaigns in real-time.';
+    const provider = new GeminiAIProvider(
+      'test-key',
+      'test-model',
+      'test-embedding-model',
+      async () =>
+        createResponse({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({
+                      rewrittenText: 'Evolyn enforces brand compliance in real time.',
+                      rationale: 'Summarized instead of expanding.',
+                    }),
+                  },
+                ],
+              },
+            },
+          ],
+        })
+    );
+
+    await assert.rejects(
+      provider.rewriteContent({
+        action: 'MAKE_LONGER',
+        content: originalText,
+      }),
+      /Make Longer failed length enforcement: generated output \(46 chars\) is not longer than original content \(157 chars\)/
+    );
+  });
+
+  it('accepts MAKE_LONGER when generated output is strictly longer than original content', async () => {
+    const originalText =
+      'Evolyn is an enterprise AI governance platform that monitors and enforces brand compliance across all generated content and marketing campaigns in real-time.';
+    const expandedText =
+      'Evolyn is a comprehensive, enterprise-grade AI governance and content auditing platform designed to meticulously monitor, evaluate, and enforce brand compliance and voice consistency across all digital marketing campaigns, customer-facing copy, and automated content workflows in real-time, providing actionable evidence-based findings and automated rewriting tools.';
+
+    const provider = new GeminiAIProvider(
+      'test-key',
+      'test-model',
+      'test-embedding-model',
+      async () =>
+        createResponse({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({
+                      rewrittenText: expandedText,
+                      rationale: 'Substantially expanded definitions, context, and capabilities.',
+                    }),
+                  },
+                ],
+              },
+            },
+          ],
+        })
+    );
+
+    const result = await provider.rewriteContent({
+      action: 'MAKE_LONGER',
+      content: originalText,
+    });
+
+    assert.ok(result.rewrittenText.length > originalText.length);
+    assert.equal(result.rewrittenText, expandedText);
+    assert.equal(
+      result.rationale,
+      'Substantially expanded definitions, context, and capabilities.'
+    );
   });
 });

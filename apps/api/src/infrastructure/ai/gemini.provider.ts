@@ -19,7 +19,7 @@ const ACTION_INSTRUCTIONS: Record<RewriteAction, string> = {
   MAKE_SHORTER:
     'Make the copy more concise, eliminating wordiness and fluff while preserving all key facts, claims, and essential details.',
   MAKE_LONGER:
-    'Elaborate and provide smoother transitions and more complete context without fabricating facts, statistics, or unsupported claims.',
+    'Expand and elaborate on the submitted content in detail. The output must be meaningfully longer than the original. Do NOT summarize or condense. Preserve the complete structure, all sections, and all original information while expanding explanations, introducing deeper context, and enriching details naturally, without inventing unsupported facts, statistics, or claims.',
   SIMPLIFY:
     'Simplify vocabulary and sentence complexity so the message is clear, accessible, and free of unnecessary jargon.',
   CHANGE_TONE:
@@ -39,6 +39,7 @@ const geminiCandidateSchema = z.object({
   content: z.object({
     parts: z.array(geminiPartSchema).min(1),
   }),
+  finishReason: z.string().optional(),
 });
 
 const geminiResponseSchema = z.object({
@@ -118,33 +119,26 @@ export function parseJsonFromCandidateText(
     }
   }
 
-  // 5. Robust Regex Extraction for rewrittenText and rationale
+  // 5. Robust Regex Extraction for rewrittenText and rationale (requires closed strings)
   const textMatch =
     trimmed.match(/"rewrittenText"\s*:\s*"((?:\\.|[^"\\])*)"/i) ||
-    trimmed.match(/"rewrittenText"\s*:\s*"([\s\S]*?)(?:"\s*,\s*"rationale"|"\s*\}|"$)/i) ||
-    trimmed.match(/"rewrittenText"\s*:\s*"([\s\S]*)/i);
+    trimmed.match(/"rewrittenText"\s*:\s*"([\s\S]*?)"\s*,\s*"rationale"/i);
 
   const rationaleMatch =
     trimmed.match(/"rationale"\s*:\s*"((?:\\.|[^"\\])*)"/i) ||
-    trimmed.match(/"rationale"\s*:\s*"([\s\S]*?)(?:"\s*,\s*"rewrittenText"|"\s*\}|"$)/i) ||
-    trimmed.match(/"rationale"\s*:\s*"([\s\S]*)/i);
+    trimmed.match(/"rationale"\s*:\s*"([\s\S]*?)"\s*,\s*"rewrittenText"/i);
 
-  if (textMatch && textMatch[1].trim()) {
+  if (textMatch && textMatch[1].trim() && rationaleMatch && rationaleMatch[1].trim()) {
     const unescapedText = textMatch[1]
       .replace(/\\n/g, '\n')
       .replace(/\\"/g, '"')
       .replace(/\\\\/g, '\\')
-      .replace(/"\s*\}?$/, '')
       .trim();
-    const unescapedRationale =
-      rationaleMatch && rationaleMatch[1].trim()
-        ? rationaleMatch[1]
-            .replace(/\\n/g, '\n')
-            .replace(/\\"/g, '"')
-            .replace(/\\\\/g, '\\')
-            .replace(/"\s*\}?$/, '')
-            .trim()
-        : 'Grounded copy revised to conform to brand voice and eliminate hyperbolic claims.';
+    const unescapedRationale = rationaleMatch[1]
+      .replace(/\\n/g, '\n')
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, '\\')
+      .trim();
     return {
       rewrittenText: unescapedText,
       rationale: unescapedRationale,
@@ -375,6 +369,9 @@ export class GeminiAIProvider implements AIProvider {
     });
 
     const parsedCandidate = geminiResponseSchema.parse(payload);
+    if (parsedCandidate.candidates[0].finishReason === 'MAX_TOKENS') {
+      throw new Error('Gemini output was truncated due to maximum token limit');
+    }
     const text = extractCleanTextFromParts(parsedCandidate.candidates[0].content.parts);
     const response = parseJsonFromCandidateText(
       text,
@@ -415,6 +412,27 @@ export class GeminiAIProvider implements AIProvider {
       '9. Provide a concise rationale (1-3 sentences) explaining the key edits made, specifically documenting how hyperbolic or absolute claims were softened to meet brand truth standards.',
     ];
 
+    if (params.action === 'MAKE_LONGER') {
+      promptParts.push(
+        'SPECIAL EXPANSION DIRECTIVES FOR MAKE_LONGER:\n' +
+        '- The rewrittenText MUST be longer in length, word count, and detail than the original content to rewrite.\n' +
+        '- NEVER summarize, condense, abbreviate, or omit any section or key point of the original content.\n' +
+        '- Retain the complete document flow and structure, expanding each paragraph with richer explanations, supporting context, and smoother transitions.\n' +
+        '- Do not use empty filler or repetitive phrases; expand thoughtfully, substantively, and naturally while strictly conforming to all brand guidelines.'
+      );
+    } else if (params.action === 'MAKE_SHORTER') {
+      promptParts.push(
+        'SPECIAL CONCISION DIRECTIVES FOR MAKE_SHORTER:\n' +
+        '- The rewrittenText MUST be more concise than the original content.\n' +
+        '- Eliminate wordiness and redundancies while preserving all core facts, claims, and essential meaning.'
+      );
+    } else if (params.action === 'SIMPLIFY') {
+      promptParts.push(
+        'SPECIAL CLARITY DIRECTIVES FOR SIMPLIFY:\n' +
+        '- Replace complex sentence structures and obscure jargon with plain, direct, accessible language while preserving all facts.'
+      );
+    }
+
     if (params.rules && params.rules.length > 0) {
       promptParts.push(
         `Brand Guidelines:\n${JSON.stringify(
@@ -446,7 +464,8 @@ export class GeminiAIProvider implements AIProvider {
     promptParts.push(`Content to Rewrite (raw data):\n"""\n${params.content}\n"""`);
 
     const prompt = promptParts.join('\n\n');
-    const maxOutputTokens = params.options?.maxOutputTokens ?? 4096;
+    const defaultMaxTokens = params.action === 'MAKE_LONGER' ? 8192 : 4096;
+    const maxOutputTokens = params.options?.maxOutputTokens ?? defaultMaxTokens;
     const temperature = params.options?.temperature ?? 0.3;
 
     const payload = await this.request(
@@ -477,13 +496,28 @@ export class GeminiAIProvider implements AIProvider {
       throw new Error('Gemini response candidate structure was invalid');
     }
 
-    const text = extractCleanTextFromParts(parsedCandidate.candidates[0].content.parts);
+    const candidate = parsedCandidate.candidates[0];
+    if (candidate.finishReason === 'MAX_TOKENS') {
+      throw new Error('Gemini output was truncated due to maximum token limit');
+    }
+
+    const text = extractCleanTextFromParts(candidate.content.parts);
     const parsedJson = parseJsonFromCandidateText(
       text,
       'Gemini returned invalid JSON for the rewrite'
     );
 
     const validated = geminiRewriteOutputSchema.parse(parsedJson);
+
+    if (
+      params.action === 'MAKE_LONGER' &&
+      params.content.trim().length >= 50 &&
+      validated.rewrittenText.trim().length <= params.content.trim().length
+    ) {
+      throw new Error(
+        `Make Longer failed length enforcement: generated output (${validated.rewrittenText.trim().length} chars) is not longer than original content (${params.content.trim().length} chars)`
+      );
+    }
 
     return {
       rewrittenText: validated.rewrittenText.trim(),
