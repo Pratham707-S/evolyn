@@ -1,396 +1,264 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import {
-  Menu,
-  Plus,
-  RefreshCw,
-  Search,
-  ShieldCheck,
-  Trash2,
-  Calendar,
-  X,
-  FileCheck2,
-  Database,
-} from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { Download, Plus, Layers, Eye } from 'lucide-react';
 import { AppShell, useAppShell } from '@/components/layout/app-shell';
-import { apiClient } from '@/lib/api/client';
-import type { ApprovedFact } from '@evolyn/shared';
-
-const FALLBACK_FACTS: ApprovedFact[] = [
-  {
-    id: 'f-sample-1',
-    topic: 'Platform Uptime',
-    claimStatement:
-      'Evolyn achieved 99.98% platform uptime across all production clusters during fiscal year 2025.',
-    approvedProofSource:
-      'SOC 2 Type II Independent Audit Report 2025, Section 4.2',
-    validUntil: '2027-12-31T00:00:00.000Z',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'f-sample-2',
-    topic: 'Client Count',
-    claimStatement:
-      'Evolyn actively secures brand governance for 45 enterprise customers worldwide.',
-    approvedProofSource: 'Q3 2026 Official Shareholder Update, Page 8',
-    validUntil: '2027-06-30T00:00:00.000Z',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'f-sample-3',
-    topic: 'Security Compliance',
-    claimStatement:
-      'All customer data is encrypted in-transit with TLS 1.3 and at-rest using AES-256.',
-    approvedProofSource: 'ISO/IEC 27001:2022 Certification Schedule A',
-    validUntil: '2028-01-01T00:00:00.000Z',
-    createdAt: new Date().toISOString(),
-  },
-];
+import { PageHeader } from '@/components/shared/page-header';
+import { Button } from '@/components/ui/button';
+import {
+  KnowledgeCategoryId,
+  KnowledgeCategoryMetric,
+  KnowledgeItem,
+  INITIAL_KNOWLEDGE_CATEGORIES,
+  INITIAL_KNOWLEDGE_ITEMS,
+  KnowledgeMetrics,
+  KnowledgeTable,
+  KnowledgeInspector,
+  AddKnowledgeModal,
+  ImportKnowledgeModal,
+} from '@/features/knowledge';
 
 export default function KnowledgeLibraryPage() {
-  const { openMobileSidebar, showToast } = useAppShell();
+  const { showToast } = useAppShell();
 
+  // Primary dataset & selection
+  const [items, setItems] = useState<KnowledgeItem[]>(INITIAL_KNOWLEDGE_ITEMS);
+  const [selectedItemId, setSelectedItemId] = useState<string>(INITIAL_KNOWLEDGE_ITEMS[0]?.id || '');
+
+  // Filter states
+  const [selectedCategoryId, setSelectedCategoryId] = useState<KnowledgeCategoryId>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTopic, setSelectedTopic] = useState<string>('ALL');
+  const [selectedType, setSelectedType] = useState('ALL');
+  const [selectedProduct, setSelectedProduct] = useState('ALL');
+  const [selectedStatus, setSelectedStatus] = useState('ALL');
+
+  // Mobile view toggle (between list and detail inspector)
+  const [mobileView, setMobileView] = useState<'list' | 'inspector'>('list');
+
+  // Modals
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
-  // Form state
-  const [topicInput, setTopicInput] = useState('');
-  const [claimInput, setClaimInput] = useState('');
-  const [proofSourceInput, setProofSourceInput] = useState('');
-  const [validUntilInput, setValidUntilInput] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Fetch live approved facts from backend API
-  const {
-    data: backendFacts,
-    isLoading,
-    refetch,
-  } = useQuery({
-    queryKey: ['knowledge', 'facts'],
-    queryFn: async () => {
-      try {
-        const data = await apiClient.get<ApprovedFact[]>('/api/knowledge/facts');
-        return Array.isArray(data) ? data : [];
-      } catch {
-        return [];
+  // Compute live category counts based on current items list
+  const categoriesWithCounts: KnowledgeCategoryMetric[] = useMemo(() => {
+    return INITIAL_KNOWLEDGE_CATEGORIES.map((cat) => {
+      if (cat.id === 'all') {
+        // Base count + any newly added items beyond initial dataset
+        return {
+          ...cat,
+          count: Math.max(cat.count, items.length),
+        };
       }
-    },
-  });
-
-  const facts: ApprovedFact[] = useMemo(() => {
-    if (backendFacts && backendFacts.length > 0) {
-      return backendFacts;
-    }
-    return FALLBACK_FACTS;
-  }, [backendFacts]);
-
-  // Unique topics
-  const topics = useMemo(() => {
-    const set = new Set<string>();
-    facts.forEach((f) => {
-      if (f.topic) set.add(f.topic);
+      const matchCount = items.filter((i) => i.categoryId === cat.id).length;
+      return {
+        ...cat,
+        count: Math.max(cat.count, matchCount),
+      };
     });
-    return Array.from(set);
-  }, [facts]);
+  }, [items]);
 
-  const filteredFacts = useMemo(() => {
-    return facts.filter((f) => {
-      if (selectedTopic !== 'ALL' && f.topic !== selectedTopic) {
+  // Filter items
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      // Category card filter
+      if (selectedCategoryId !== 'all' && item.categoryId !== selectedCategoryId) {
         return false;
       }
+
+      // Type dropdown filter
+      if (selectedType !== 'ALL' && item.type !== selectedType) {
+        return false;
+      }
+
+      // Product dropdown filter
+      if (selectedProduct !== 'ALL' && item.product !== selectedProduct) {
+        return false;
+      }
+
+      // Status dropdown filter
+      if (selectedStatus !== 'ALL' && item.status !== selectedStatus) {
+        return false;
+      }
+
+      // Search input filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const matchesTopic = f.topic.toLowerCase().includes(q);
-        const matchesClaim = f.claimStatement.toLowerCase().includes(q);
-        const matchesSource = f.approvedProofSource.toLowerCase().includes(q);
-        return matchesTopic || matchesClaim || matchesSource;
+        const matchTitle = item.title.toLowerCase().includes(q);
+        const matchSubtitle = item.subtitle.toLowerCase().includes(q);
+        const matchProduct = item.product.toLowerCase().includes(q);
+        const matchSummary = item.summary.toLowerCase().includes(q);
+        return matchTitle || matchSubtitle || matchProduct || matchSummary;
       }
+
       return true;
     });
-  }, [facts, selectedTopic, searchQuery]);
+  }, [items, selectedCategoryId, selectedType, selectedProduct, selectedStatus, searchQuery]);
 
-  const handleCreateFact = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!topicInput.trim() || !claimInput.trim() || !proofSourceInput.trim()) {
-      showToast('Please fill in Topic, Claim Statement, and Approved Proof Source.');
-      return;
-    }
+  // Selected item object
+  const selectedItem = useMemo(() => {
+    return items.find((i) => i.id === selectedItemId) || filteredItems[0] || null;
+  }, [items, selectedItemId, filteredItems]);
 
-    setIsSubmitting(true);
-    try {
-      await apiClient.post('/api/knowledge/facts', {
-        topic: topicInput.trim(),
-        claimStatement: claimInput.trim(),
-        approvedProofSource: proofSourceInput.trim(),
-        validUntil: validUntilInput ? new Date(validUntilInput).toISOString() : null,
-      });
-
-      showToast(`Approved fact added and persisted to database.`);
-      setIsAddModalOpen(false);
-      setTopicInput('');
-      setClaimInput('');
-      setProofSourceInput('');
-      setValidUntilInput('');
-      refetch();
-    } catch (err) {
-      console.error('Failed to create fact:', err);
-      showToast('Failed to save approved fact to database.');
-    } finally {
-      setIsSubmitting(false);
+  // Handlers
+  const handleSelectCategory = (catId: KnowledgeCategoryId) => {
+    setSelectedCategoryId(catId);
+    // If a specific category is selected, align the type dropdown or reset
+    if (catId === 'all') {
+      setSelectedType('ALL');
     }
   };
 
-  const handleDeleteFact = async (id: string, topic: string) => {
-    try {
-      await apiClient.delete(`/api/knowledge/facts/${id}`);
-      showToast(`Removed approved fact from ${topic}.`);
-      refetch();
-    } catch {
-      showToast('Could not delete fact from database.');
+  const handleSelectItem = (item: KnowledgeItem) => {
+    setSelectedItemId(item.id);
+    // On small screens, switch to inspector view automatically when tapping a row
+    setMobileView('inspector');
+  };
+
+  const handleAddItem = (newItem: KnowledgeItem) => {
+    setItems((prev) => [newItem, ...prev]);
+    setSelectedItemId(newItem.id);
+    setMobileView('inspector');
+  };
+
+  const handleDeleteItem = (id: string) => {
+    setItems((prev) => prev.filter((i) => i.id !== id));
+    showToast('Resource deleted successfully');
+    if (selectedItemId === id) {
+      const remaining = items.filter((i) => i.id !== id);
+      if (remaining.length > 0) {
+        setSelectedItemId(remaining[0].id);
+      }
     }
+  };
+
+  const handleImportComplete = (count: number) => {
+    showToast(`Ingested ${count} verified facts from documentation`);
   };
 
   return (
-    <AppShell activeItem="Knowledge Library">
-      <div className="space-y-6 pb-16">
-        {/* Page Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={openMobileSidebar}
-              aria-label="Open sidebar"
-              className="lg:hidden p-2 -ml-2 rounded-lg text-[#73736C] hover:text-[#25251F] hover:bg-[#EAE6DF] cursor-pointer"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="font-serif text-2xl sm:text-3xl text-[#25251F] tracking-tight">
-                  Knowledge Library
-                </h1>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#E8EDE5] text-[#4A5D4E] border border-[#CCD7C8]">
-                  <Database className="w-3 h-3" />
-                  Live Database
-                </span>
-              </div>
-              <p className="text-xs sm:text-sm text-[#77766E] mt-0.5">
-                Verified ground truth statements, audited claims, and authentic proof sources.
-              </p>
-            </div>
-          </div>
+    <AppShell activeItem="Knowledge Library" noScroll={true}>
+      <div className="h-full flex flex-col gap-2.5 sm:gap-3 min-h-0">
+        {/* Page Header (Compact & clean) */}
+        <PageHeader
+          title="Knowledge Library"
+          description="Manage your brand's approved facts, evidence, sources, and reference materials for accurate reviews."
+          showNotificationBell={true}
+          unreadNotificationsCount={1}
+          compact={true}
+          actions={
+            <>
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={() => setIsImportModalOpen(true)}
+                className="bg-white"
+              >
+                <Download className="w-4 h-4 mr-1 text-[#25251F]" />
+                Import
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => setIsAddModalOpen(true)}
+                className="bg-[#18181B] text-white hover:bg-[#27272A]"
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                Add Knowledge
+              </Button>
+            </>
+          }
+        />
 
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={() => refetch()}
-              className="p-2 sm:p-2.5 rounded-xl border border-[#E5E1D8] bg-[#FFFEFA] hover:bg-[#F2EFE8] text-[#25251F] transition-colors cursor-pointer shadow-2xs"
-              title="Refresh Knowledge Facts"
-            >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setIsAddModalOpen(true)}
-              className="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-[#25251F] hover:bg-[#383832] text-xs sm:text-sm font-semibold text-white transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
-            >
-              <Plus className="w-4 h-4 stroke-[2.5]" />
-              <span>Add Approved Fact</span>
-            </button>
-          </div>
+        {/* Top Metric & Category Cards Bar */}
+        <div className="shrink-0">
+          <KnowledgeMetrics
+            categories={categoriesWithCounts}
+            selectedCategoryId={selectedCategoryId}
+            onSelectCategory={handleSelectCategory}
+          />
         </div>
 
-        {/* Filter Controls */}
-        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-[#8C877D] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search facts, topics, or proof sources..."
-              className="w-full pl-9 pr-4 py-2 rounded-xl border border-[#E5E1D8] bg-[#FFFEFA] text-xs sm:text-sm text-[#25251F] placeholder:text-[#A6A29A] focus:outline-none focus:ring-2 focus:ring-[#25251F]/10 focus:border-[#25251F]"
+        {/* Mobile View Toggle Switch (visible on < lg screens) */}
+        <div className="lg:hidden shrink-0 flex items-center bg-[#ECE9E0] p-1 rounded-xl">
+          <button
+            type="button"
+            onClick={() => setMobileView('list')}
+            className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+              mobileView === 'list'
+                ? 'bg-white text-[#25251F] shadow-xs'
+                : 'text-[#77766E] hover:text-[#25251F]'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            Resources List ({filteredItems.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileView('inspector')}
+            className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+              mobileView === 'inspector'
+                ? 'bg-white text-[#25251F] shadow-xs'
+                : 'text-[#77766E] hover:text-[#25251F]'
+            }`}
+          >
+            <Eye className="w-3.5 h-3.5" />
+            Resource Details
+          </button>
+        </div>
+
+        {/* Main Workstation Layout - Fits screen height on desktop with internal scrolling */}
+        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3.5 lg:overflow-hidden items-stretch">
+          {/* Left Column: Knowledge Table (lg:col-span-7 xl:col-span-7) */}
+          <div
+            className={`lg:col-span-7 xl:col-span-7 h-full min-h-0 ${
+              mobileView === 'list' ? 'flex flex-col' : 'hidden lg:flex lg:flex-col'
+            }`}
+          >
+            <KnowledgeTable
+              items={filteredItems}
+              selectedItem={selectedItem}
+              onSelectItem={handleSelectItem}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              selectedType={selectedType}
+              onTypeChange={setSelectedType}
+              selectedProduct={selectedProduct}
+              onProductChange={setSelectedProduct}
+              selectedStatus={selectedStatus}
+              onStatusChange={setSelectedStatus}
+              onDeleteItem={handleDeleteItem}
+              showToast={showToast}
             />
           </div>
 
-          {/* Topic Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-            <button
-              type="button"
-              onClick={() => setSelectedTopic('ALL')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors shrink-0 ${
-                selectedTopic === 'ALL'
-                  ? 'bg-[#25251F] text-white shadow-2xs'
-                  : 'bg-[#FFFEFA] text-[#73736C] border border-[#E5E1D8] hover:bg-[#F2EFE8]'
-              }`}
-            >
-              All Topics ({facts.length})
-            </button>
-            {topics.map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setSelectedTopic(t)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors shrink-0 ${
-                  selectedTopic === t
-                    ? 'bg-[#25251F] text-white shadow-2xs'
-                    : 'bg-[#FFFEFA] text-[#73736C] border border-[#E5E1D8] hover:bg-[#F2EFE8]'
-                }`}
-              >
-                {t}
-              </button>
-            ))}
+          {/* Right Column: Knowledge Inspector (lg:col-span-5 xl:col-span-5) */}
+          <div
+            className={`lg:col-span-5 xl:col-span-5 h-full min-h-0 ${
+              mobileView === 'inspector' ? 'flex flex-col' : 'hidden lg:flex lg:flex-col'
+            }`}
+          >
+            <KnowledgeInspector
+              item={selectedItem}
+              onBackToList={() => setMobileView('list')}
+              showToast={showToast}
+            />
           </div>
         </div>
 
-        {/* Facts List */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredFacts.length === 0 ? (
-            <div className="col-span-full bg-[#FFFEFA] border border-[#E5E1D8] rounded-2xl p-12 text-center space-y-3">
-              <FileCheck2 className="w-10 h-10 text-[#A6A29A] mx-auto" />
-              <p className="text-sm font-medium text-[#25251F]">No verified facts match your query.</p>
-              <p className="text-xs text-[#73736C]">
-                Click "Add Approved Fact" to document verifiable claims and evidence sources.
-              </p>
-            </div>
-          ) : (
-            filteredFacts.map((fact) => (
-              <div
-                key={fact.id}
-                className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-2xl p-5 hover:border-[#CCD7C8] hover:shadow-xs transition-all flex flex-col justify-between space-y-4"
-              >
-                <div className="space-y-2.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold tracking-wide bg-[#F2EFE8] text-[#4A4740] border border-[#E5E1D8]">
-                      {fact.topic}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteFact(fact.id, fact.topic)}
-                      className="p-1.5 rounded-lg text-[#8C877D] hover:text-[#A83232] hover:bg-[#FCE8E8] transition-colors cursor-pointer"
-                      title="Remove Fact"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+        {/* Modals */}
+        <AddKnowledgeModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          onAdd={handleAddItem}
+          showToast={showToast}
+        />
 
-                  <p className="text-sm sm:text-[15px] font-medium text-[#25251F] leading-snug">
-                    "{fact.claimStatement}"
-                  </p>
-                </div>
-
-                <div className="pt-3 border-t border-[#F2EFE8] space-y-2 text-xs">
-                  <div className="flex items-start gap-1.5 text-[#4A5D4E]">
-                    <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5 text-[#5F7864]" />
-                    <div>
-                      <span className="font-semibold text-[#3B483D]">Approved Proof: </span>
-                      <span className="text-[#4A5D4E]">{fact.approvedProofSource}</span>
-                    </div>
-                  </div>
-
-                  {fact.validUntil && (
-                    <div className="flex items-center gap-1.5 text-[#73736C] text-[11px]">
-                      <Calendar className="w-3.5 h-3.5" />
-                      <span>Valid until: {new Date(fact.validUntil).toLocaleDateString()}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Add Fact Modal */}
-        {isAddModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in">
-            <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-5 animate-in zoom-in-95">
-              <div className="flex items-center justify-between border-b border-[#E5E1D8] pb-3">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-[#5F7864]" />
-                  <h3 className="font-serif text-lg text-[#25251F] tracking-tight">
-                    Add Approved Fact
-                  </h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="p-1 rounded-lg text-[#73736C] hover:bg-[#EAE6DF]"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <form onSubmit={handleCreateFact} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#25251F]">Topic *</label>
-                  <input
-                    type="text"
-                    required
-                    value={topicInput}
-                    onChange={(e) => setTopicInput(e.target.value)}
-                    placeholder="e.g. Platform Uptime, Client Count, Revenue"
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#E5E1D8] bg-[#F7F5F0] text-sm text-[#25251F] focus:outline-none focus:border-[#25251F]"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#25251F]">Claim Statement *</label>
-                  <textarea
-                    required
-                    rows={3}
-                    value={claimInput}
-                    onChange={(e) => setClaimInput(e.target.value)}
-                    placeholder="Enter verifiable statement, e.g. 'Evolyn achieved 99.98% uptime in 2025.'"
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#E5E1D8] bg-[#F7F5F0] text-sm text-[#25251F] focus:outline-none focus:border-[#25251F]"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#25251F]">Approved Proof Source *</label>
-                  <input
-                    type="text"
-                    required
-                    value={proofSourceInput}
-                    onChange={(e) => setProofSourceInput(e.target.value)}
-                    placeholder="Audit report, cert URL, filing citation, e.g. SOC 2 Type II 2025"
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#E5E1D8] bg-[#F7F5F0] text-sm text-[#25251F] focus:outline-none focus:border-[#25251F]"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#25251F]">Valid Until (Optional)</label>
-                  <input
-                    type="date"
-                    value={validUntilInput}
-                    onChange={(e) => setValidUntilInput(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#E5E1D8] bg-[#F7F5F0] text-sm text-[#25251F] focus:outline-none focus:border-[#25251F]"
-                  />
-                </div>
-
-                <div className="flex justify-end gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsAddModalOpen(false)}
-                    className="px-4 py-2 rounded-xl border border-[#E5E1D8] bg-[#FFFEFA] hover:bg-[#F2EFE8] text-xs font-medium text-[#25251F]"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="px-4 py-2 rounded-xl bg-[#25251F] hover:bg-[#383832] text-xs font-semibold text-white disabled:opacity-50"
-                  >
-                    {isSubmitting ? 'Saving...' : 'Save & Persist Fact'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+        <ImportKnowledgeModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          onImportComplete={handleImportComplete}
+          showToast={showToast}
+        />
       </div>
     </AppShell>
   );
