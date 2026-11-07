@@ -89,15 +89,16 @@ function ReviewWorkspaceInner() {
       let targetId = urlSubmissionId;
 
       if (!targetId) {
-        // Fetch all submissions and only auto-load items that genuinely need review
+        // Fetch all submissions: prioritize pending items, or fall back to latest active submission
         const subListRes = await apiClient<{ submissions: ContentSubmission[] }>('/api/submissions');
         const activeSubmissions = subListRes.submissions || [];
-        const pendingSub = activeSubmissions.find((s) => s.status === 'PENDING');
+        const targetSub =
+          activeSubmissions.find((s) => s.status === 'PENDING') ||
+          activeSubmissions[0];
 
-        if (pendingSub) {
-          targetId = pendingSub.id;
+        if (targetSub) {
+          targetId = targetSub.id;
         } else {
-          // All submissions are reviewed or queue is empty; show clean review canvas
           return null;
         }
       }
