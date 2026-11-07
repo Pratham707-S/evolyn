@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Copy,
   Check,
@@ -12,9 +12,14 @@ import {
   Globe,
   Clock,
   Calendar,
+  Upload,
+  Trash2,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/lib/theme/theme-context';
+import { useLanguage } from '@/lib/i18n/language-context';
+import { SupportedLanguage } from '@/lib/i18n/translations';
 
 interface BrandColorItem {
   id: string;
@@ -28,6 +33,8 @@ interface GeneralSettingsFormProps {
 
 export function GeneralSettingsForm({ showToast }: GeneralSettingsFormProps) {
   const { theme, setTheme } = useTheme();
+  const { language, setLanguage, t, supportedLanguages } = useLanguage();
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
 
   // Form State
   const [workspaceName, setWorkspaceName] = useState('Evolyn – Brand Workspace');
@@ -40,6 +47,7 @@ export function GeneralSettingsForm({ showToast }: GeneralSettingsFormProps) {
 
   // Logo state
   const [hasLogo, setHasLogo] = useState(true);
+  const [customLogoUrl, setCustomLogoUrl] = useState<string | null>(null);
 
   // Brand colors state
   const [colors, setColors] = useState<BrandColorItem[]>([
@@ -49,7 +57,7 @@ export function GeneralSettingsForm({ showToast }: GeneralSettingsFormProps) {
   ]);
 
   // Language & Regional state
-  const [selectedLanguage, setSelectedLanguage] = useState('en-US');
+  const [selectedLanguage, setSelectedLanguageState] = useState<SupportedLanguage>('en');
   const [dateFormat, setDateFormat] = useState('MM/DD/YYYY');
   const [timezone, setTimezone] = useState('America/Los_Angeles');
 
@@ -61,7 +69,7 @@ export function GeneralSettingsForm({ showToast }: GeneralSettingsFormProps) {
   const maxChars = 250;
 
   // Load from localStorage on mount
-  useEffect(() => {
+  const loadSavedSettings = () => {
     try {
       const saved = localStorage.getItem('evolyn_workspace_settings');
       if (saved) {
@@ -71,14 +79,25 @@ export function GeneralSettingsForm({ showToast }: GeneralSettingsFormProps) {
         if (parsed.selectedBrand) setSelectedBrand(parsed.selectedBrand);
         if (parsed.defaultProduct) setDefaultProduct(parsed.defaultProduct);
         if (parsed.workspaceDescription) setWorkspaceDescription(parsed.workspaceDescription);
-        if (parsed.selectedLanguage) setSelectedLanguage(parsed.selectedLanguage);
+        if (parsed.selectedLanguage) {
+          setSelectedLanguageState(parsed.selectedLanguage);
+          setLanguage(parsed.selectedLanguage);
+        }
         if (parsed.dateFormat) setDateFormat(parsed.dateFormat);
         if (parsed.timezone) setTimezone(parsed.timezone);
+        if (typeof parsed.hasLogo === 'boolean') setHasLogo(parsed.hasLogo);
+        if (parsed.customLogoUrl) setCustomLogoUrl(parsed.customLogoUrl);
         if (Array.isArray(parsed.colors) && parsed.colors.length > 0) setColors(parsed.colors);
+      } else {
+        setSelectedLanguageState(language);
       }
     } catch {
       // ignore
     }
+  };
+
+  useEffect(() => {
+    loadSavedSettings();
   }, []);
 
   const handleCopyUrl = () => {
@@ -90,19 +109,65 @@ export function GeneralSettingsForm({ showToast }: GeneralSettingsFormProps) {
     }
   };
 
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Logo file size exceeds 5 MB limit');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (result) {
+        setCustomLogoUrl(result);
+        setHasLogo(true);
+        showToast('Logo uploaded successfully');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveLogo = () => {
+    setCustomLogoUrl(null);
+    setHasLogo(false);
+    showToast('Logo removed');
+  };
+
   const handleAddColor = () => {
     if (!newColorHex.trim()) return;
+    const formattedHex = newColorHex.startsWith('#') ? newColorHex : `#${newColorHex}`;
     const updated = [
       ...colors,
       {
         id: `c-${Date.now()}`,
-        hex: newColorHex.startsWith('#') ? newColorHex : `#${newColorHex}`,
+        hex: formattedHex,
         name: newColorName.trim() || 'Custom',
       },
     ];
     setColors(updated);
     setIsColorModalOpen(false);
-    showToast(`Added ${newColorHex} to brand palette`);
+    setNewColorName('');
+    showToast(`Added ${formattedHex} to brand palette`);
+  };
+
+  const handleRemoveColor = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (colors.length <= 1) {
+      showToast('Brand palette must contain at least one primary color');
+      return;
+    }
+    const updated = colors.filter((c) => c.id !== id);
+    setColors(updated);
+    showToast('Color removed from palette');
+  };
+
+  const handleLanguageChange = (newLang: SupportedLanguage) => {
+    setSelectedLanguageState(newLang);
+    setLanguage(newLang);
+    showToast(`Language updated to ${supportedLanguages.find((l) => l.code === newLang)?.name || newLang}`);
   };
 
   const handleSave = (e: React.FormEvent) => {
@@ -117,6 +182,8 @@ export function GeneralSettingsForm({ showToast }: GeneralSettingsFormProps) {
         selectedLanguage,
         dateFormat,
         timezone,
+        hasLogo,
+        customLogoUrl,
         colors,
       };
       localStorage.setItem('evolyn_workspace_settings', JSON.stringify(payload));
@@ -127,30 +194,30 @@ export function GeneralSettingsForm({ showToast }: GeneralSettingsFormProps) {
   };
 
   const handleDiscard = () => {
-    setWorkspaceName('Evolyn – Brand Workspace');
-    setWorkspaceUrl('evolyn.app/w/evolyn-brand');
-    setSelectedBrand('Evolyn');
-    setDefaultProduct('Evolyn Platform');
-    setWorkspaceDescription(
-      'Brand compliance and content review workspace for Evolyn marketing, product, and communication content.'
-    );
-    setSelectedLanguage('en-US');
-    setDateFormat('MM/DD/YYYY');
-    setTimezone('America/Los_Angeles');
-    showToast('Changes reverted to saved state');
+    loadSavedSettings();
+    showToast('Changes discarded — reverted to last saved state');
   };
 
   return (
     <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-2xl p-5 sm:p-6 shadow-2xs">
       <form onSubmit={handleSave} className="space-y-6">
+        {/* Hidden file input for logo */}
+        <input
+          type="file"
+          ref={logoInputRef}
+          accept="image/png,image/jpeg,image/svg+xml"
+          onChange={handleLogoUpload}
+          className="hidden"
+        />
+
         {/* Section 1: General Settings */}
         <div className="space-y-4">
           <div>
             <h2 className="font-serif font-bold text-xl sm:text-2xl text-[#25251F] tracking-tight">
-              General Settings
+              {t('general.heading', 'General Settings')}
             </h2>
             <p className="text-xs sm:text-sm text-[#77766E] mt-0.5">
-              Basic workspace and brand configuration.
+              {t('general.subheading', 'Basic workspace and brand configuration.')}
             </p>
           </div>
 
@@ -158,7 +225,7 @@ export function GeneralSettingsForm({ showToast }: GeneralSettingsFormProps) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-[#25251F] mb-1.5">
-                Workspace Name <span className="text-[#B91C1C]">*</span>
+                {t('general.workspaceName', 'Workspace Name')} <span className="text-[#B91C1C]">*</span>
               </label>
               <input
                 type="text"
@@ -172,7 +239,7 @@ export function GeneralSettingsForm({ showToast }: GeneralSettingsFormProps) {
 
             <div>
               <label className="block text-xs font-semibold text-[#25251F] mb-1.5">
-                Workspace URL
+                {t('general.workspaceUrl', 'Workspace URL')}
               </label>
               <div className="relative flex items-center">
                 <input
@@ -207,7 +274,7 @@ export function GeneralSettingsForm({ showToast }: GeneralSettingsFormProps) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-[#25251F] mb-1.5">
-                Default Brand
+                {t('general.defaultBrand', 'Default Brand')}
               </label>
               <select
                 value={selectedBrand}
@@ -222,7 +289,7 @@ export function GeneralSettingsForm({ showToast }: GeneralSettingsFormProps) {
 
             <div>
               <label className="block text-xs font-semibold text-[#25251F] mb-1.5">
-                Default Product Scope
+                {t('general.productScope', 'Default Product Scope')}
               </label>
               <select
                 value={defaultProduct}
@@ -240,7 +307,7 @@ export function GeneralSettingsForm({ showToast }: GeneralSettingsFormProps) {
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-xs font-semibold text-[#25251F]">
-                Workspace Description
+                {t('general.description', 'Workspace Description')}
               </label>
               <span className="text-[11px] text-[#77766E]">
                 {workspaceDescription.length}/{maxChars}
@@ -261,10 +328,10 @@ export function GeneralSettingsForm({ showToast }: GeneralSettingsFormProps) {
         <div className="pt-5 border-t border-[#EFECE6] space-y-4">
           <div>
             <h3 className="font-serif font-bold text-lg text-[#25251F] tracking-tight">
-              Visual Identity & Assets
+              {t('general.visualIdentity', 'Visual Identity & Assets')}
             </h3>
             <p className="text-xs text-[#77766E] mt-0.5">
-              Brand icons, badges, and primary palette tokens.
+              {t('general.visualDesc', 'Brand icons, badges, and primary palette tokens.')}
             </p>
           </div>
 
@@ -272,37 +339,45 @@ export function GeneralSettingsForm({ showToast }: GeneralSettingsFormProps) {
             {/* Left: Workspace Logo (md:col-span-5) */}
             <div className="md:col-span-5 space-y-2">
               <label className="block text-xs font-semibold text-[#25251F]">
-                Workspace Logo
+                {t('general.logo', 'Workspace Logo')}
               </label>
               <div className="flex items-center gap-3">
-                <div className="w-14 h-14 rounded-2xl bg-[#111111] flex items-center justify-center text-white border border-[#E5E1D8] shadow-xs">
+                <div className="w-16 h-16 rounded-2xl bg-[#111111] flex items-center justify-center text-white border border-[#E5E1D8] shadow-xs overflow-hidden relative group">
                   {hasLogo ? (
-                    <Box className="w-7 h-7 stroke-[2.2]" />
+                    customLogoUrl ? (
+                      <img
+                        src={customLogoUrl}
+                        alt="Workspace Logo"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Box className="w-7 h-7 stroke-[2.2]" />
+                    )
                   ) : (
-                    <span className="text-xs text-[#77766E]">No logo</span>
+                    <span className="text-xs text-[#77766E] italic">None</span>
                   )}
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => showToast('Choose file to update logo')}
-                      className="px-3 py-1.5 text-xs font-medium bg-white hover:bg-[#FAF9F5] border border-[#E5E1D8] hover:border-[#25251F] text-[#25251F] rounded-xl transition-colors cursor-pointer"
+                      onClick={() => logoInputRef.current?.click()}
+                      className="px-3 py-1.5 text-xs font-medium bg-white hover:bg-[#FAF9F5] border border-[#E5E1D8] hover:border-[#25251F] text-[#25251F] rounded-xl transition-colors cursor-pointer flex items-center gap-1"
                     >
-                      Change
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{customLogoUrl ? 'Replace' : 'Upload'}</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setHasLogo(!hasLogo);
-                        showToast(hasLogo ? 'Logo removed' : 'Logo restored');
-                      }}
-                      className="px-2.5 py-1.5 text-xs font-medium text-[#77766E] hover:text-[#B91C1C] transition-colors cursor-pointer"
-                    >
-                      {hasLogo ? 'Remove' : 'Restore'}
-                    </button>
+                    {hasLogo && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveLogo}
+                        className="px-2.5 py-1.5 text-xs font-medium text-[#77766E] hover:text-[#B91C1C] transition-colors cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    )}
                   </div>
-                  <p className="text-[10px] text-[#77766E]">PNG, JPG, or SVG (max 5 MB)</p>
+                  <p className="text-[10px] text-[#77766E]">{t('general.logoHelp', 'PNG, JPG or SVG (max 5 MB)')}</p>
                 </div>
               </div>
             </div>
@@ -310,14 +385,14 @@ export function GeneralSettingsForm({ showToast }: GeneralSettingsFormProps) {
             {/* Right: Brand Colors (md:col-span-7) */}
             <div className="md:col-span-7 space-y-2">
               <label className="block text-xs font-semibold text-[#25251F]">
-                Brand Colors
+                {t('general.brandColors', 'Brand Colors')}
               </label>
 
               <div className="flex flex-wrap items-center gap-3">
                 {colors.map((color) => (
-                  <div key={color.id} className="flex flex-col items-center">
+                  <div key={color.id} className="flex flex-col items-center relative group">
                     <div
-                      className="w-14 h-10 rounded-xl border border-[#D5D1C7] shadow-xs transition-transform hover:scale-105 cursor-pointer"
+                      className="w-14 h-10 rounded-xl border border-[#D5D1C7] shadow-xs transition-transform hover:scale-105 cursor-pointer relative"
                       style={{ backgroundColor: color.hex }}
                       title={`Click to copy ${color.hex}`}
                       onClick={() => {
@@ -326,7 +401,17 @@ export function GeneralSettingsForm({ showToast }: GeneralSettingsFormProps) {
                           showToast(`Copied ${color.hex} to clipboard`);
                         }
                       }}
-                    />
+                    >
+                      {/* Delete icon on hover */}
+                      <button
+                        type="button"
+                        onClick={(e) => handleRemoveColor(color.id, e)}
+                        className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-[#18181B] text-white opacity-0 group-hover:opacity-100 flex items-center justify-center text-[10px] shadow-sm transition-opacity hover:bg-[#B91C1C] cursor-pointer"
+                        title="Remove color"
+                      >
+                        ×
+                      </button>
+                    </div>
                     <span className="text-[10px] font-mono font-semibold text-[#25251F] mt-1">
                       {color.hex}
                     </span>
@@ -343,7 +428,7 @@ export function GeneralSettingsForm({ showToast }: GeneralSettingsFormProps) {
                   className="w-14 h-10 rounded-xl border-2 border-dashed border-[#D5D1C7] hover:border-[#25251F] text-[#77766E] hover:text-[#25251F] bg-[#FAF9F5] flex flex-col items-center justify-center gap-0.5 transition-colors group cursor-pointer"
                 >
                   <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                  <span className="text-[9px] font-medium leading-none">Add Color</span>
+                  <span className="text-[9px] font-medium leading-none">{t('general.addColor', 'Add Color')}</span>
                 </button>
               </div>
             </div>
@@ -354,10 +439,10 @@ export function GeneralSettingsForm({ showToast }: GeneralSettingsFormProps) {
         <div className="pt-5 border-t border-[#EFECE6] space-y-3">
           <div>
             <h3 className="font-serif font-bold text-lg text-[#25251F] tracking-tight">
-              Interface Theme & Appearance
+              {t('general.themeHeading', 'Interface Theme & Appearance')}
             </h3>
             <p className="text-xs text-[#77766E] mt-0.5">
-              Customize contrast and color presentation across Evolyn.
+              {t('general.themeDesc', 'Customize contrast and color presentation across Evolyn.')}
             </p>
           </div>
 
@@ -396,10 +481,10 @@ export function GeneralSettingsForm({ showToast }: GeneralSettingsFormProps) {
         <div className="pt-5 border-t border-[#EFECE6] space-y-4">
           <div>
             <h3 className="font-serif font-bold text-lg text-[#25251F] tracking-tight">
-              Language & Regional
+              {t('general.regionalHeading', 'Language & Regional')}
             </h3>
             <p className="text-xs text-[#77766E] mt-0.5">
-              Timezone, currency presentation, and date formatting.
+              {t('general.regionalDesc', 'Application interface language, timezone, and date format.')}
             </p>
           </div>
 
@@ -407,25 +492,28 @@ export function GeneralSettingsForm({ showToast }: GeneralSettingsFormProps) {
             <div>
               <label className="block text-xs font-semibold text-[#25251F] mb-1.5 flex items-center gap-1.5">
                 <Globe className="w-3.5 h-3.5 text-[#77766E]" />
-                Primary Language
+                {t('general.language', 'Application Language')}
               </label>
               <select
                 value={selectedLanguage}
-                onChange={(e) => setSelectedLanguage(e.target.value)}
-                className="w-full px-3 py-2 text-xs sm:text-sm bg-white border border-[#E5E1D8] rounded-xl focus:outline-none focus:border-[#25251F] text-[#25251F]"
+                onChange={(e) => handleLanguageChange(e.target.value as SupportedLanguage)}
+                className="w-full px-3 py-2 text-xs sm:text-sm bg-white border border-[#E5E1D8] rounded-xl focus:outline-none focus:border-[#25251F] text-[#25251F] font-medium"
               >
-                <option value="en-US">English (United States)</option>
-                <option value="en-GB">English (United Kingdom)</option>
-                <option value="de-DE">Deutsch (Germany)</option>
-                <option value="fr-FR">Français (France)</option>
-                <option value="ja-JP">日本語 (Japan)</option>
+                {supportedLanguages.map((lang) => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.name} ({lang.nativeName})
+                  </option>
+                ))}
               </select>
+              <p className="text-[10px] text-[#77766E] mt-1">
+                {supportedLanguages.find((l) => l.code === selectedLanguage)?.description}
+              </p>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-[#25251F] mb-1.5 flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5 text-[#77766E]" />
-                Date Format
+                {t('general.dateFormat', 'Date Format')}
               </label>
               <select
                 value={dateFormat}
@@ -441,7 +529,7 @@ export function GeneralSettingsForm({ showToast }: GeneralSettingsFormProps) {
             <div>
               <label className="block text-xs font-semibold text-[#25251F] mb-1.5 flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5 text-[#77766E]" />
-                Timezone
+                {t('general.timezone', 'Timezone')}
               </label>
               <select
                 value={timezone}
@@ -461,12 +549,12 @@ export function GeneralSettingsForm({ showToast }: GeneralSettingsFormProps) {
 
         {/* Footer Actions */}
         <div className="pt-4 border-t border-[#E5E1D8] flex items-center gap-3">
-          <Button type="submit" variant="primary" size="md" className="bg-[#18181B] text-white">
+          <Button type="submit" variant="primary" size="md" className="bg-[#18181B] text-white cursor-pointer">
             <Check className="w-4 h-4 mr-1.5 stroke-[2.5]" />
-            Save Changes
+            {t('general.save', 'Save Changes')}
           </Button>
-          <Button type="button" variant="secondary" size="md" onClick={handleDiscard} className="bg-white">
-            Discard
+          <Button type="button" variant="secondary" size="md" onClick={handleDiscard} className="bg-white border border-[#E5E1D8] cursor-pointer">
+            {t('general.discard', 'Discard')}
           </Button>
         </div>
       </form>
@@ -517,4 +605,3 @@ export function GeneralSettingsForm({ showToast }: GeneralSettingsFormProps) {
     </div>
   );
 }
-

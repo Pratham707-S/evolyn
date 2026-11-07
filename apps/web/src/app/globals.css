@@ -22,12 +22,63 @@
     --status-info: #71869A;
   }
 
+  .dark {
+    --background: #141412;
+    --surface: #1E1D19;
+    --sidebar: #181714;
+    --text-primary: #F7F5F0;
+    --text-secondary: #A09D92;
+    --text-muted: #77766E;
+    --border-subtle: #2C2B26;
+    --accent-olive: #8A987D;
+    --accent-olive-soft: #272B23;
+  }
+
   body {
     background-color: #F7F5F0;
     color: #25251F;
     font-family: var(--font-sans), 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  .dark body {
+    background-color: #141412;
+    color: #F7F5F0;
+  }
+
+  /* Universal Dark Theme Overrides */
+  .dark .bg-\[\#F7F5F0\] {
+    background-color: #141412 !important;
+  }
+  .dark .bg-\[\#FFFEFA\],
+  .dark .bg-white {
+    background-color: #1E1D19 !important;
+  }
+  .dark .bg-\[\#F1EFE8\],
+  .dark .bg-\[\#FAF9F5\],
+  .dark .bg-\[\#FAF8F5\],
+  .dark .bg-\[\#FDFBF7\] {
+    background-color: #262520 !important;
+  }
+  .dark .border-\[\#E5E1D8\],
+  .dark .border-\[\#EFECE6\],
+  .dark .border-\[\#D5D1C7\] {
+    border-color: #2C2B26 !important;
+  }
+  .dark .text-\[\#25251F\] {
+    color: #F7F5F0 !important;
+  }
+  .dark .text-\[\#77766E\],
+  .dark .text-\[\#52524E\] {
+    color: #A09D92 !important;
+  }
+  .dark input,
+  .dark textarea,
+  .dark select {
+    background-color: #262520 !important;
+    border-color: #383630 !important;
+    color: #F7F5F0 !important;
   }
 
   .font-serif {

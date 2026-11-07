@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@/lib/theme/theme-context';
+import { LanguageProvider } from '@/lib/i18n/language-context';
 
 export interface AppProvidersProps {
   children: React.ReactNode;
@@ -10,7 +11,7 @@ export interface AppProvidersProps {
 
 /**
  * Global App Providers
- * Wraps root components with TanStack Query, ThemeProvider, and application context providers
+ * Wraps root components with TanStack Query, ThemeProvider, LanguageProvider, and application context providers
  */
 export function AppProviders({ children }: AppProvidersProps) {
   // Ensure QueryClient is instantiated once per client session to prevent SSR state leaks
@@ -31,7 +32,9 @@ export function AppProviders({ children }: AppProvidersProps) {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        {children}
+        <LanguageProvider>
+          {children}
+        </LanguageProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );
