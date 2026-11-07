@@ -26,25 +26,6 @@ export function ContentStatusChart({ data, isLoading = false }: ContentStatusCha
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  if (isLoading) {
-    return (
-      <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-6 h-[278px] flex flex-col justify-between animate-pulse">
-        <div className="flex items-center justify-between">
-          <div className="space-y-1.5">
-            <div className="w-40 h-4 bg-[#E5E1D8]/60 rounded" />
-            <div className="w-52 h-3 bg-[#E5E1D8]/40 rounded" />
-          </div>
-          <div className="w-20 h-6 bg-[#E5E1D8]/40 rounded-lg" />
-        </div>
-        <div className="w-full h-36 bg-[#E5E1D8]/20 rounded-lg mt-auto flex items-end justify-around p-4 gap-4">
-          {[40, 70, 55, 80, 60].map((h, i) => (
-            <div key={i} className="w-8 bg-[#E5E1D8]/50 rounded-t" style={{ height: `${h}%` }} />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   const periods = ['This week', 'Last week', 'This month', 'This quarter'];
 
   const channels: ChannelStatusData[] = data || [
@@ -57,9 +38,11 @@ export function ContentStatusChart({ data, isLoading = false }: ContentStatusCha
 
   const yTicks = ['100%', '75%', '50%', '25%', '0%'];
 
-  // GSAP Entrance Animation - Smooth & Fluid
+  // GSAP Entrance Animation - Unconditionally called at top level per React Rules of Hooks
   useGSAP(
     () => {
+      if (isLoading) return;
+
       // Respect prefers-reduced-motion: if reduced motion is requested, render immediately in final state
       if (
         typeof window !== 'undefined' &&
@@ -132,8 +115,27 @@ export function ContentStatusChart({ data, isLoading = false }: ContentStatusCha
         0.8
       );
     },
-    { scope: containerRef, dependencies: [channels] }
+    { scope: containerRef, dependencies: [channels, isLoading] }
   );
+
+  if (isLoading) {
+    return (
+      <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-6 h-[278px] flex flex-col justify-between animate-pulse">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1.5">
+            <div className="w-40 h-4 bg-[#E5E1D8]/60 rounded" />
+            <div className="w-52 h-3 bg-[#E5E1D8]/40 rounded" />
+          </div>
+          <div className="w-20 h-6 bg-[#E5E1D8]/40 rounded-lg" />
+        </div>
+        <div className="w-full h-36 bg-[#E5E1D8]/20 rounded-lg mt-auto flex items-end justify-around p-4 gap-4">
+          {[40, 70, 55, 80, 60].map((h, i) => (
+            <div key={i} className="w-8 bg-[#E5E1D8]/50 rounded-t" style={{ height: `${h}%` }} />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

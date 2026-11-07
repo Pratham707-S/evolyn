@@ -26,22 +26,6 @@ export function ComplianceOverview({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const pathRef = useRef<SVGPathElement | null>(null);
 
-  if (isLoading) {
-    return (
-      <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-6 h-[278px] flex flex-col justify-between animate-pulse">
-        <div className="flex items-center justify-between">
-          <div className="space-y-1.5">
-            <div className="w-36 h-4 bg-[#E5E1D8]/60 rounded" />
-            <div className="w-48 h-3 bg-[#E5E1D8]/40 rounded" />
-          </div>
-          <div className="w-24 h-6 bg-[#E5E1D8]/40 rounded-lg" />
-        </div>
-        <div className="w-28 h-10 bg-[#E5E1D8]/70 rounded mt-4" />
-        <div className="w-full h-24 bg-[#E5E1D8]/30 rounded-lg mt-auto" />
-      </div>
-    );
-  }
-
   const periods = ['Last 30 days', 'Last 6 months', 'Last year', 'All time'];
 
   // Month labels
@@ -58,9 +42,11 @@ export function ComplianceOverview({
     88, 93, 98, 104, 110, 115, // Jun
   ];
 
-  // GSAP Entrance Animation
+  // GSAP Entrance Animation - Unconditionally called at top level per React Rules of Hooks
   useGSAP(
     () => {
+      if (isLoading) return;
+
       // Respect prefers-reduced-motion: if reduced motion is requested, render immediately in final state
       if (
         typeof window !== 'undefined' &&
@@ -131,8 +117,24 @@ export function ComplianceOverview({
         0.75
       );
     },
-    { scope: containerRef, dependencies: [score, delta] }
+    { scope: containerRef, dependencies: [score, delta, isLoading] }
   );
+
+  if (isLoading) {
+    return (
+      <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-6 h-[278px] flex flex-col justify-between animate-pulse">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1.5">
+            <div className="w-36 h-4 bg-[#E5E1D8]/60 rounded" />
+            <div className="w-48 h-3 bg-[#E5E1D8]/40 rounded" />
+          </div>
+          <div className="w-24 h-6 bg-[#E5E1D8]/40 rounded-lg" />
+        </div>
+        <div className="w-28 h-10 bg-[#E5E1D8]/70 rounded mt-4" />
+        <div className="w-full h-24 bg-[#E5E1D8]/30 rounded-lg mt-auto" />
+      </div>
+    );
+  }
 
   return (
     <div
