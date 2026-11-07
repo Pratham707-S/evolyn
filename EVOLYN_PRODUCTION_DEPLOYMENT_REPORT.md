@@ -248,3 +248,4 @@ If a production regression occurs:
 - [x] **Frontend API Integration:** Decoupled hardcoded local ports with dynamic `getApiBaseUrl()` and Next.js rewrites proxy.
 - [x] **Production Builds:** Verified clean passes for `next build`, `tsc`, and 287 backend automated unit and integration tests.
 - [x] **Deployment Documentation:** Documented in `EVOLYN_PRODUCTION_DEPLOYMENT_REPORT.md`.
+
