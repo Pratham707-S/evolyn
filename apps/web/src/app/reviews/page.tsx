@@ -89,17 +89,15 @@ function ReviewWorkspaceInner() {
       let targetId = urlSubmissionId;
 
       if (!targetId) {
-        // Fetch all submissions and prioritize pending items requiring review
+        // Fetch all submissions and only auto-load items that genuinely need review
         const subListRes = await apiClient<{ submissions: ContentSubmission[] }>('/api/submissions');
         const activeSubmissions = subListRes.submissions || [];
-        const pendingSub =
-          activeSubmissions.find((s) => s.status === 'PENDING') ||
-          activeSubmissions.find((s) => s.status !== 'APPROVED') ||
-          activeSubmissions[0];
+        const pendingSub = activeSubmissions.find((s) => s.status === 'PENDING');
 
         if (pendingSub) {
           targetId = pendingSub.id;
         } else {
+          // All submissions are reviewed or queue is empty; show clean review canvas
           return null;
         }
       }
@@ -480,16 +478,25 @@ function ReviewWorkspaceInner() {
   const issues = Array.isArray(reviewData?.issues) ? reviewData.issues : [];
 
   if (isError || !submission) {
+    const isAllCaughtUp = !urlSubmissionId && !isError;
     return (
       <div className="h-full flex items-center justify-center p-8 select-none">
-        <div className="max-w-md w-full bg-[#FFFEFA] border border-[#E5E1D8] rounded-2xl p-6 text-center space-y-4 shadow-2xs">
-          <div className="w-10 h-10 rounded-xl bg-[#FDF4E7] border border-[#F0D5B5] text-[#B78A4A] mx-auto flex items-center justify-center">
-            <AlertTriangle className="w-5 h-5 stroke-[2]" />
+        <div className="max-w-md w-full bg-[#FFFEFA] dark:bg-[#1E1D19] border border-[#E5E1D8] dark:border-[#2C2B26] rounded-2xl p-7 text-center space-y-4 shadow-2xs animate-in fade-in">
+          <div className="w-12 h-12 rounded-2xl bg-[#EEF4EE] dark:bg-[#1A261C] border border-[#CDE0CF] dark:border-[#2D4530] text-[#2D5A3A] dark:text-[#86EFAC] mx-auto flex items-center justify-center">
+            {isAllCaughtUp ? (
+              <Sparkles className="w-6 h-6 stroke-[2]" />
+            ) : (
+              <AlertTriangle className="w-6 h-6 stroke-[2]" />
+            )}
           </div>
           <div className="space-y-1">
-            <h3 className="font-serif text-lg text-[#25251F]">Submission Not Found</h3>
-            <p className="text-xs text-[#77766E] leading-relaxed">
-              {urlSubmissionId
+            <h3 className="font-serif text-lg text-[#25251F] dark:text-[#F7F5F0] font-semibold">
+              {isAllCaughtUp ? 'Review Queue Clear' : 'Submission Not Found'}
+            </h3>
+            <p className="text-xs text-[#77766E] dark:text-[#A09D92] leading-relaxed">
+              {isAllCaughtUp
+                ? 'All existing submissions have been reviewed and approved! Create a new marketing asset to evaluate with your latest Brand Setup.'
+                : urlSubmissionId
                 ? `Could not load review records for submission "${urlSubmissionId}".`
                 : 'No submissions are currently awaiting review.'}
             </p>
@@ -497,17 +504,18 @@ function ReviewWorkspaceInner() {
           <div className="flex items-center justify-center gap-3 pt-2">
             <button
               type="button"
-              onClick={() => refetch()}
-              className="px-3.5 py-1.5 bg-[#25251F] hover:bg-[#383832] text-white rounded-xl text-xs font-medium transition-colors cursor-pointer shadow-xs"
+              onClick={openNewSubmission}
+              className="px-4 py-2 bg-[#25251F] dark:bg-[#F7F5F0] hover:bg-[#383832] dark:hover:bg-[#EAE6DF] text-white dark:text-[#18181B] rounded-xl text-xs font-semibold transition-colors cursor-pointer shadow-xs flex items-center gap-1.5"
             >
-              Retry Sync
+              <Plus className="w-4 h-4" />
+              <span>Create New Review</span>
             </button>
             <button
               type="button"
-              onClick={openNewSubmission}
-              className="px-3.5 py-1.5 bg-[#68745D] hover:bg-[#57624d] text-white rounded-xl text-xs font-medium transition-colors cursor-pointer shadow-xs"
+              onClick={() => router.push('/submissions')}
+              className="px-4 py-2 border border-[#E5E1D8] dark:border-[#2C2B26] hover:bg-[#FAF9F5] dark:hover:bg-[#252520] text-[#25251F] dark:text-[#F7F5F0] rounded-xl text-xs font-medium transition-colors cursor-pointer"
             >
-              New Submission
+              View Submissions
             </button>
           </div>
         </div>
