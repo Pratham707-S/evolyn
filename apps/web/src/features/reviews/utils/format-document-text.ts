@@ -65,7 +65,8 @@ export function cleanAndFormatPdfToHtml(raw: string, issues?: DetectedIssue[]): 
   // Check if raw is already cleanly structured HTML (multiple paragraphs AND headings without run-on text)
   const pMatches = raw.match(/<p[^>]*>([\s\S]*?)<\/p>/gi) || [];
   const hMatches = raw.match(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/gi) || [];
-  const hasRunOnNumberedSections = /\b\d+[\.\)]\s+[A-Z][a-zA-Z\s]{2,25}(?:\.|\s+[A-Z])/i.test(raw);
+  // Only check for run-on numbered sections when glued inside a single <p> tag with preceding text
+  const hasRunOnNumberedSections = /<p[^>]*>[^<]*?[a-zA-Z]{2,}[.!?][^\S\r\n]+\d+[\.\)][^\S\r\n]+[A-Z]/i.test(raw);
   const isWellStructuredHtml = pMatches.length >= 3 && hMatches.length >= 2 && !hasRunOnNumberedSections;
 
   if (isWellStructuredHtml) {
@@ -95,51 +96,77 @@ export function cleanAndFormatPdfToHtml(raw: string, issues?: DetectedIssue[]): 
   // 2. Normalize numbered headings without spaces (e.g. "1.Context" -> "1. Context", "2.The Access Token" -> "2. The Access Token")
   preprocessed = preprocessed.replace(/(\d+)[\.]([A-Za-z])/g, '$1. $2');
 
-  // 3. Separate inline numbered headings concatenated anywhere in a paragraph
+  // 3. Separate inline numbered headings concatenated with previous sentence on the same line
+  // ONLY match when preceded by end of a sentence word ([a-zA-Z]{2,}[.!?]), using horizontal whitespace [^\S\r\n]+
   // e.g. "every page. 1. Context. Web applications" -> "every page.\n\n1. Context\n\nWeb applications"
   preprocessed = preprocessed.replace(
-    /([.!?])\s*(\d+[\.\)]\s+[A-Za-z0-9\s—–-]{2,35}\.?)\s+([A-Z])/g,
+    /([a-zA-Z]{2,}[.!?])[^\S\r\n]+(\d+[\.\)][^\S\r\n]+(?:Context|The Access Token|The Refresh Token|Storage|[A-Za-z0-9—–-]+(?:\s+[A-Za-z0-9—–-]+){0,4})\.?)[^\S\r\n]+([A-Z](?:[a-z]+)?(?:\s+[a-zA-Z0-9,;—–-]+){2,})/g,
     '$1\n\n$2\n\n$3'
   );
 
-  // 4. Separate inline conceptual headings anywhere in a paragraph
+  // 4. Separate inline conceptual headings concatenated with previous sentence on the same line
   preprocessed = preprocessed.replace(
-    /([.!?])\s*((?:Balancing Security and Usability|A Small Problem|The Solution|To recap:?|In [Ss]hort:?|Summary|Conclusion|The Access Token|The Refresh Token|Storage)\.?)\s+([A-Z])/g,
+    /([a-zA-Z]{2,}[.!?])[^\S\r\n]+((?:Balancing Security and Usability|Potential Usability Challenges|A Small Problem|The Solution|To recap:?|In [Ss]hort:?|Summary|Conclusion|Storage)\.?)[^\S\r\n]+([A-Z](?:[a-z]+)?(?:\s+[a-zA-Z0-9,;—–-]+){2,})/g,
     '$1\n\n$2\n\n$3'
   );
 
-  // 5. Separate inline headings concatenated with paragraph body on the start of a line
+  // 5. Separate inline numbered heading starting a line concatenated with its paragraph body
   // e.g. "1. Context Ever wondered how websites keep..." -> "1. Context\n\nEver wondered how websites keep..."
   // e.g. "2. The Access Token An access token is the equivalent..." -> "2. The Access Token\n\nAn access token is the equivalent..."
   preprocessed = preprocessed.replace(
-    /^(\d+[\.\)]\s+[A-Za-z0-9\s—–-]{2,30}\.?)\s+([A-Z][a-z].*)$/gm,
+    /^(\d+[\.\)][^\S\r\n]+(?:Context|The Access Token|The Refresh Token|Storage|[A-Za-z0-9—–-]+(?:\s+[A-Za-z0-9—–-]+){0,4})\.?)[^\S\r\n]+([A-Z](?:[a-z]+)?(?:\s+[a-zA-Z0-9,;—–-]+){3,}.*)$/gm,
     '$1\n\n$2'
   );
 
-  // 4. Split document into coherent paragraph/section blocks by double newlines (\n\n)
+  // 6. Split document into coherent paragraph/section blocks by double newlines (\n\n)
   const rawBlocks = preprocessed
     .split(/\n\s*\n+/)
     .map((b) => b.trim())
     .filter(Boolean);
 
+  // Heal any accidentally orphaned numbers (e.g. solitary "1.", "2.", "3.") by re-attaching them to the next block
+  for (let i = 0; i < rawBlocks.length - 1; i++) {
+    if (/^\d+[\.\)]\s*$/.test(rawBlocks[i])) {
+      rawBlocks[i + 1] = rawBlocks[i] + ' ' + rawBlocks[i + 1];
+      rawBlocks.splice(i, 1);
+      i--;
+    }
+  }
+
+  // Heal broken multi-word headings where the last word was wrapped onto a separate line (e.g. "3. The Refresh" + "Token")
+  for (let i = 0; i < rawBlocks.length - 1; i++) {
+    if (
+      /^\d+[\.\)]\s+[A-Za-z0-9\s—–-]{1,20}$/.test(rawBlocks[i]) &&
+      /^(Token|Storage|Process|Policy|Standard|Requirements|Guide)\b/i.test(rawBlocks[i + 1])
+    ) {
+      rawBlocks[i] = rawBlocks[i] + ' ' + rawBlocks[i + 1];
+      rawBlocks.splice(i + 1, 1);
+    }
+  }
+
   const finalHtmlBlocks: string[] = [];
 
   const isHeadingLine = (line: string): boolean => {
-    // Numbered sections: "1. Context", "2. The Access Token", "Rule 1.1", etc.
-    if (/^\d+[\.\)]\s+[A-Z]/.test(line)) return true;
-    if (/^[IVXLCDM]+[\.\)]\s+[A-Z]/.test(line)) return true;
-    if (line.startsWith('#')) return true;
+    const trimmed = line.trim();
+    if (!trimmed) return false;
+    // Solitary number like "2." or "3." is NEVER a heading
+    if (/^\d+[\.\)]\s*$/.test(trimmed)) return false;
+
+    // Numbered sections: "1. Context", "2. The Access Token", "3. The Refresh Token", "Rule 1.1", etc.
+    if (/^\d+[\.\)]\s+[A-Z]/.test(trimmed)) return true;
+    if (/^[IVXLCDM]+[\.\)]\s+[A-Z]/.test(trimmed)) return true;
+    if (trimmed.startsWith('#')) return true;
     if (
       /^(Brand promise|Document purpose|Personality principles|Logo and visual usage|Voice, claims & evidence|Approved examples|Claims requiring review|Required review process|Sample campaign copy|Campaign headline|Campaign body|Reviewer test checklist|Suggested compliant direction|Approval requirements|Decision definitions|Test document metadata)$/i.test(
-        line
+        trimmed
       )
     ) {
       return true;
     }
     // Specific standard article sub-headings (short, title-case, no period at end)
     if (
-      /^(Context|The Access Token|The Refresh Token|Storage|A Small Problem|In short:|In Short:|Summary|Conclusion|Overview|Background|Next Steps)$/i.test(
-        line.trim()
+      /^(Context|The Access Token|The Refresh Token|Potential Usability Challenges|Balancing Security and Usability|Storage|A Small Problem|In short:|In Short:|Summary|Conclusion|Overview|Background|Next Steps)$/i.test(
+        trimmed
       )
     ) {
       return true;
@@ -176,6 +203,15 @@ export function cleanAndFormatPdfToHtml(raw: string, issues?: DetectedIssue[]): 
       .filter(Boolean);
 
     if (lines.length === 0) continue;
+
+    // Heal solitary orphaned numbers inside a block (e.g. ["2.", "The Access Token"])
+    for (let i = 0; i < lines.length - 1; i++) {
+      if (/^\d+[\.\)]\s*$/.test(lines[i])) {
+        lines[i + 1] = lines[i] + ' ' + lines[i + 1];
+        lines.splice(i, 1);
+        i--;
+      }
+    }
 
     // Single line block check
     if (lines.length === 1) {

@@ -107,5 +107,24 @@ Paragraph three.`;
     // Accepted issue-3 should NOT be marked
     assert.ok(!html.includes('data-issue-id="issue-3"'));
   });
+
+  it('keeps multi-word numbered headings together and heals orphaned numbers', () => {
+    const input = `The solution involves combining access tokens with refresh tokens.
+
+3. The Refresh Token
+A refresh token is a long-lived credential stored securely on the client machine.
+
+2.
+
+The Access Token
+An access token is the equivalent of the day-pass I mentioned earlier.`;
+
+    const html = cleanAndFormatPdfToHtml(input);
+
+    assert.ok(html.includes('<h2>3. The Refresh Token</h2>'), 'Should contain <h2>3. The Refresh Token</h2>');
+    assert.ok(html.includes('<h2>2. The Access Token</h2>'), 'Should heal orphaned 2. into <h2>2. The Access Token</h2>');
+    assert.ok(!html.includes('<p>3.</p>'), 'Should never create isolated <p>3.</p>');
+    assert.ok(!html.includes('<p>2.</p>'), 'Should never create isolated <p>2.</p>');
+  });
 });
 
