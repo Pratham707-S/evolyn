@@ -47,34 +47,7 @@ export function exportStyledPdf({
   <style>
     @page {
       size: A4 portrait;
-      margin: 20mm 18mm 20mm 18mm;
-      @top-left {
-        content: "${cleanTitle}";
-        font-family: ${theme.bodyFont};
-        font-size: 7.5pt;
-        color: ${theme.textMuted};
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-      }
-      @top-right {
-        content: "Evolyn Brand Governance";
-        font-family: ${theme.bodyFont};
-        font-size: 7.5pt;
-        color: ${theme.textMuted};
-      }
-      @bottom-left {
-        content: "Confidential • Approved Copy";
-        font-family: ${theme.bodyFont};
-        font-size: 7.5pt;
-        color: ${theme.textMuted};
-      }
-      @bottom-right {
-        content: "Page " counter(page);
-        font-family: ${theme.bodyFont};
-        font-size: 7.5pt;
-        font-weight: 600;
-        color: ${theme.textMuted};
-      }
+      margin: 0mm;
     }
     *, *::before, *::after {
       box-sizing: border-box;
@@ -82,20 +55,34 @@ export function exportStyledPdf({
       print-color-adjust: exact !important;
       color-adjust: exact !important;
     }
-    html, body {
+    html {
       margin: 0;
       padding: 0;
-      background-color: ${theme.paperBg};
+      background-color: ${theme.paperBg} !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: ${theme.paperBg} !important;
       color: ${theme.textPrimary};
       font-family: ${theme.bodyFont};
       font-size: 10pt;
       line-height: 1.7;
       text-rendering: optimizeLegibility;
       -webkit-font-smoothing: antialiased;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
     .document-wrapper {
-      max-width: 100%;
-      margin: 0 auto;
+      box-sizing: border-box;
+      width: 100%;
+      min-height: 100vh;
+      padding: 20mm 18mm 20mm 18mm;
+      background-color: ${theme.paperBg} !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
     .document-header {
       padding-bottom: 16px;

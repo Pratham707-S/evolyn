@@ -216,6 +216,14 @@ export function ExportPdfModal({
               </label>
             </div>
           </div>
+
+          {/* Full Page Color Instruction Callout */}
+          <div className="p-3 bg-[#E8EBE1]/60 border border-[#68745D]/30 rounded-xl flex items-start gap-2.5">
+            <Sparkles className="w-4 h-4 text-[#4E6B54] shrink-0 mt-0.5" />
+            <p className="text-[11px] text-[#25251F] leading-relaxed">
+              <strong className="font-semibold text-[#4E6B54]">Edge-to-Edge Color Tip:</strong> In the browser print dialog, ensure <span className="underline font-semibold">Background graphics</span> is checked so the full theme background covers every page seamlessly without white margins.
+            </p>
+          </div>
         </div>
 
         {/* Modal Footer */}
