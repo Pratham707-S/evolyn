@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { RewriteAction } from '@evolyn/shared';
 import { env } from '../../config/env.js';
+import { defaultEmbeddingCache, type EmbeddingCache } from './embedding-cache.js';
 import type {
   AIEmbeddingOptions,
   AIProvider,
@@ -207,12 +208,38 @@ const auditResponseSchema = z.object({
 
 type FetchLike = typeof fetch;
 
+export function parseRetryAfterHeader(
+  headerVal: string | null | undefined
+): number | null {
+  if (!headerVal) return null;
+  const trimmed = headerVal.trim();
+  if (!trimmed) return null;
+
+  // 1. Try integer seconds (RFC 9110 delay-seconds)
+  if (/^\d+$/.test(trimmed)) {
+    const seconds = parseInt(trimmed, 10);
+    if (!Number.isNaN(seconds) && seconds >= 0) {
+      return seconds * 1000;
+    }
+  }
+
+  // 2. Try HTTP-date (RFC 9110 HTTP-date)
+  const parsedDate = Date.parse(trimmed);
+  if (!Number.isNaN(parsedDate)) {
+    const delayMs = parsedDate - Date.now();
+    return delayMs > 0 ? delayMs : 0;
+  }
+
+  return null;
+}
+
 export class GeminiAIProvider implements AIProvider {
   constructor(
     private readonly apiKey = env.GEMINI_API_KEY,
     private readonly model = env.GEMINI_MODEL,
     private readonly embeddingModel = env.GEMINI_EMBEDDING_MODEL,
-    private readonly fetcher: FetchLike = fetch
+    private readonly fetcher: FetchLike = fetch,
+    private readonly cache: EmbeddingCache = defaultEmbeddingCache
   ) {}
 
   async generateEmbedding(
@@ -224,6 +251,20 @@ export class GeminiAIProvider implements AIProvider {
     }
 
     const dimensions = options.dimensions ?? EMBEDDING_DIMENSIONS;
+
+    // Check bounded cryptographic cache first
+    const cached = this.cache.get(this.embeddingModel, dimensions, text);
+    if (cached) {
+      console.log(
+        JSON.stringify({
+          type: 'EMBEDDING_CACHE_HIT',
+          model: this.embeddingModel,
+          dimensions,
+        })
+      );
+      return cached;
+    }
+
     const payload = await this.request(
       `${this.embeddingModel}:embedContent`,
       {
@@ -240,6 +281,7 @@ export class GeminiAIProvider implements AIProvider {
       })
       .parse(payload).embedding.values;
 
+    this.cache.set(this.embeddingModel, dimensions, text, values);
     return values;
   }
 
@@ -425,6 +467,11 @@ export class GeminiAIProvider implements AIProvider {
     };
   }
 
+  private static readonly VERIFIED_FALLBACK_MODELS = [
+    'gemini-flash-lite-latest',
+    'gemini-3.5-flash-lite',
+  ];
+
   private async request(
     method: string,
     body: Record<string, unknown>,
@@ -437,9 +484,10 @@ export class GeminiAIProvider implements AIProvider {
     const isGenerate = method.includes(':generateContent');
     const actionPart = isGenerate ? ':generateContent' : '';
     const requestedModel = isGenerate ? method.replace(':generateContent', '') : null;
-    const modelsToTry = isGenerate && requestedModel
-      ? [requestedModel, 'gemini-3-flash-preview', 'gemini-3.1-flash-lite']
-      : [method];
+    const modelsToTry =
+      isGenerate && requestedModel
+        ? Array.from(new Set([requestedModel, ...GeminiAIProvider.VERIFIED_FALLBACK_MODELS]))
+        : [method];
 
     let lastError: Error | null = null;
     for (const currentModel of modelsToTry) {
@@ -466,24 +514,115 @@ export class GeminiAIProvider implements AIProvider {
             }
           );
           clearTimeout(timeoutId);
-          const duration = Date.now() - startTime;
+          const durationMs = Date.now() - startTime;
 
           if (!response.ok) {
-            // Immediate failure on client / auth errors
+            // Immediate rejection for auth / client bad request
             if ([400, 401, 403].includes(response.status)) {
+              console.error(
+                JSON.stringify({
+                  type: 'GEMINI_CLIENT_ERROR',
+                  model: currentModel,
+                  status: response.status,
+                  durationMs,
+                })
+              );
               throw new Error(`Gemini authentication or client error: HTTP ${response.status}`);
             }
 
-            // High demand, rate limits (429), or temporary server errors
-            if (response.status === 503 || response.status === 429 || response.status === 500) {
-              lastError = new Error(`Gemini request failed with HTTP ${response.status}`);
-              if (response.status === 429) {
-                // If quota exhausted on primary model, immediately switch to backup model
-                break;
-              }
+            // If a model is not found (404), do not retry it; switch model immediately
+            if (response.status === 404) {
+              console.warn(
+                JSON.stringify({
+                  type: 'GEMINI_MODEL_UNAVAILABLE',
+                  model: currentModel,
+                  status: 404,
+                  durationMs,
+                })
+              );
+              lastError = new Error(`Gemini model ${currentModel} not found (HTTP 404)`);
+              break;
+            }
+
+            // Inspect error response safely for quota exhaustion vs transient errors
+            let errorText = '';
+            try {
+              const errJson = (await response.json()) as { error?: { message?: string } };
+              errorText = errJson?.error?.message || '';
+            } catch {
+              // Ignore json read errors
+            }
+
+            const isDailyQuotaExhausted =
+              response.status === 429 &&
+              (errorText.includes('per day limit exceeded') ||
+                errorText.includes('Free Tier') ||
+                errorText.includes('Quota exceeded for metric'));
+
+            if (isDailyQuotaExhausted) {
+              console.warn(
+                JSON.stringify({
+                  type: 'GEMINI_DAILY_QUOTA_EXHAUSTED',
+                  model: currentModel,
+                  status: 429,
+                  durationMs,
+                })
+              );
+              lastError = new Error(
+                `Gemini daily quota exhausted for model ${currentModel}. Switching to fallback.`
+              );
+              // Break retry loop immediately; do not retry model with exhausted daily quota
+              break;
+            }
+
+            // Transient errors (temporary rate limit 429, service high demand 503, server 500)
+            if ([429, 500, 503].includes(response.status)) {
+              lastError = new Error(
+                errorText || `Gemini request failed with HTTP ${response.status}`
+              );
+
               if (attempt <= maxRetries) {
-                const backoff = Math.min(2000, 500 * Math.pow(1.5, attempt) + Math.random() * 200);
-                await new Promise((r) => setTimeout(r, backoff));
+                // Respect Retry-After header if provided (RFC 9110 integer seconds or HTTP-date)
+                let backoffMs = Math.min(
+                  2000,
+                  350 * Math.pow(1.5, attempt) + Math.random() * 150
+                );
+                const retryAfterHeader =
+                  typeof response.headers?.get === 'function'
+                    ? response.headers.get('retry-after')
+                    : null;
+                const parsedRetryDelay = parseRetryAfterHeader(retryAfterHeader);
+
+                if (parsedRetryDelay !== null) {
+                  const MAX_SINGLE_MODEL_WAIT_MS = 10000;
+                  if (parsedRetryDelay > MAX_SINGLE_MODEL_WAIT_MS) {
+                    // Server requested cooldown longer than 10s: switch model immediately to avoid request starvation
+                    console.warn(
+                      JSON.stringify({
+                        type: 'GEMINI_RETRY_AFTER_EXCEEDED_THRESHOLD',
+                        model: currentModel,
+                        status: response.status,
+                        requestedDelayMs: parsedRetryDelay,
+                        thresholdMs: MAX_SINGLE_MODEL_WAIT_MS,
+                      })
+                    );
+                    break;
+                  }
+                  // Never retry earlier than server requested delay
+                  backoffMs = parsedRetryDelay;
+                }
+
+                console.warn(
+                  JSON.stringify({
+                    type: 'GEMINI_TRANSIENT_RETRY',
+                    model: currentModel,
+                    attempt,
+                    status: response.status,
+                    backoffMs,
+                    durationMs,
+                  })
+                );
+                await new Promise((r) => setTimeout(r, backoffMs));
                 continue;
               }
               break;
@@ -492,17 +631,32 @@ export class GeminiAIProvider implements AIProvider {
             throw new Error(`Gemini request failed with HTTP ${response.status}`);
           }
 
-          return await response.json();
+          const responseData = await response.json();
+          console.log(
+            JSON.stringify({
+              type: 'GEMINI_API_REQUEST',
+              model: currentModel,
+              operation: isGenerate ? 'generateContent' : 'embedContent',
+              attempt,
+              durationMs,
+              status: response.status,
+              outcome: 'SUCCESS',
+            })
+          );
+          return responseData;
         } catch (error) {
           clearTimeout(timeoutId);
           if (error instanceof Error) {
             lastError = error;
-            if (error.message.includes('GEMINI_API_KEY') || error.message.includes('authentication')) {
+            if (
+              error.message.includes('GEMINI_API_KEY') ||
+              error.message.includes('authentication')
+            ) {
               throw error;
             }
           }
           if (attempt <= maxRetries) {
-            const backoff = Math.min(2000, 400 * Math.pow(2, attempt) + Math.random() * 200);
+            const backoff = Math.min(2000, 300 * Math.pow(1.5, attempt) + Math.random() * 150);
             await new Promise((r) => setTimeout(r, backoff));
             continue;
           }

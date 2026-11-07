@@ -51,11 +51,33 @@ export function errorHandler(
     });
   }
 
+  // Handle Brand Governance Retrieval & Runtime Verification Failures
+  if (
+    err !== null &&
+    typeof err === 'object' &&
+    'code' in err &&
+    err.code === 'BRAND_GOVERNANCE_RETRIEVAL_FAILED'
+  ) {
+    console.error(`[API Error] Brand governance failure:`, err);
+    return res.status(503).json({
+      error:
+        'Brand governance verification failed: context could not be verified or output violated critical brand guardrails.',
+      code: 'BRAND_GOVERNANCE_RETRIEVAL_FAILED',
+    });
+  }
+
   // Handle Standard Errors
   if (err instanceof Error) {
     console.error(`[API Error] ${err.message}`, err.stack);
+    const isSensitiveLeak =
+      err.message.includes('ECONNREFUSED') ||
+      err.message.includes('password') ||
+      err.message.includes('postgres://') ||
+      err.message.includes('SELECT ') ||
+      err.message.includes('INSERT ') ||
+      err.message.includes('UPDATE ');
     return res.status(500).json({
-      error: err.message || 'Internal server error',
+      error: isSensitiveLeak ? 'Internal server error' : err.message || 'Internal server error',
     });
   }
 

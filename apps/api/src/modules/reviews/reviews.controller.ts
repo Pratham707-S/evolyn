@@ -5,6 +5,28 @@ import { env } from '../../config/env.js';
 import type { ISubmissionService } from '../submissions/index.js';
 import type { IReviewService } from './index.js';
 
+export function sanitizeRequestId(rawHeader: unknown): string {
+  if (!rawHeader) {
+    return randomUUID();
+  }
+
+  const candidate = Array.isArray(rawHeader) ? rawHeader[0] : rawHeader;
+
+  if (typeof candidate !== 'string') {
+    return randomUUID();
+  }
+
+  const trimmed = candidate.trim();
+  // Safe token format: 1-64 chars of alphanumeric, hyphen, or underscore
+  // Rejects CRLF newlines, control characters, spaces, HTML, and excessively long strings
+  const SAFE_ID_REGEX = /^[a-zA-Z0-9_-]{1,64}$/;
+  if (!SAFE_ID_REGEX.test(trimmed)) {
+    return randomUUID();
+  }
+
+  return trimmed;
+}
+
 export class ReviewsController {
   constructor(
     private readonly reviews: IReviewService,
@@ -16,13 +38,21 @@ export class ReviewsController {
     res: Response,
     next: NextFunction
   ): Promise<void> => {
+    const requestId = sanitizeRequestId(
+      req.headers ? req.headers['x-request-id'] : undefined
+    );
+    if (typeof res.setHeader === 'function') {
+      res.setHeader('x-request-id', requestId);
+    }
+
     try {
       const submissionId = uuidSchema.parse(req.params.id);
       const content =
         typeof req.body?.content === 'string' && req.body.content.trim().length > 0
           ? req.body.content.trim()
           : undefined;
-      const result = await this.reviews.executeReview(submissionId, { content });
+      const reviewOptions = content ? { content } : undefined;
+      const result = await this.reviews.executeReview(submissionId, reviewOptions, requestId);
       res.status(200).json({
         reviewRunId: result.reviewRun.id,
         submissionId: result.reviewRun.submissionId,
@@ -107,8 +137,9 @@ export class ReviewsController {
     res: Response,
     next: NextFunction
   ): Promise<void> => {
-    const requestId =
-      (req.headers && (req.headers['x-request-id'] as string)) || randomUUID();
+    const requestId = sanitizeRequestId(
+      req.headers ? req.headers['x-request-id'] : undefined
+    );
     if (typeof res.setHeader === 'function') {
       res.setHeader('x-request-id', requestId);
     }
@@ -124,7 +155,7 @@ export class ReviewsController {
       }
 
       const rewriteStartMs = Date.now();
-      const result = await this.reviews.rewrite(submissionId, input);
+      const result = await this.reviews.rewrite(submissionId, input, requestId);
       const serviceMs = Date.now() - rewriteStartMs;
       const totalMs = Date.now() - startMs;
 

@@ -20,6 +20,7 @@ export interface ReviewExecutionResult {
 export interface ReviewExecutionOptions {
   content?: string;
   force?: boolean;
+  requestId?: string;
 }
 
 export interface ReviewDependencies {

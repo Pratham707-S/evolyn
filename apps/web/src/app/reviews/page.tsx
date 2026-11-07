@@ -191,18 +191,31 @@ function ReviewWorkspaceInner() {
   const auditedSubmissionsRef = React.useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    const subId = reviewData?.submission?.id;
+    const submission = reviewData?.submission;
+    const subId = submission?.id;
+    const hasReviewRun = Boolean(reviewData?.reviewRun);
+
+    // Only automatically trigger the very first audit for genuinely un-audited (PENDING) submissions
+    // that have no existing reviewRun record and are not currently being analyzed.
+    // Existing reviews, page refreshes, and finalized submissions are never auto-re-audited.
     if (
       subId &&
+      submission.status === 'PENDING' &&
+      !hasReviewRun &&
       !auditedSubmissionsRef.current.has(subId) &&
-      !reviewData.reviewRun &&
       !isLoading &&
       !analyzeMutation.isPending
     ) {
       auditedSubmissionsRef.current.add(subId);
       analyzeMutation.mutate();
     }
-  }, [reviewData, isLoading, analyzeMutation]);
+  }, [
+    reviewData?.submission?.id,
+    reviewData?.submission?.status,
+    reviewData?.reviewRun,
+    isLoading,
+    analyzeMutation.isPending,
+  ]);
 
   // 4. Update Finding Status Mutation (Accept / Dismiss)
   const patchFindingMutation = useMutation({

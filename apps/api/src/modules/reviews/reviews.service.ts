@@ -8,6 +8,7 @@ import type {
   DetectedIssue,
   GuidelineRule,
   ReviewRun,
+  RewriteAction,
   RewriteContentInput,
   RewriteResponse,
 } from '@evolyn/shared';
@@ -26,6 +27,23 @@ import type { RawFindingInput } from '../findings/findings.types.js';
 const EMBEDDING_DIMENSIONS = 768;
 const RULE_SEARCH_LIMIT = 20;
 const FACT_SEARCH_LIMIT = 10;
+
+export class BrandGovernanceRetrievalError extends Error {
+  readonly code = 'BRAND_GOVERNANCE_RETRIEVAL_FAILED';
+  constructor(action: string, cause: unknown) {
+    const reason = cause instanceof Error ? cause.message : String(cause);
+    super(`Brand context retrieval failed for ${action}: ${reason}`);
+    this.name = 'BrandGovernanceRetrievalError';
+  }
+}
+
+const BRAND_SENSITIVE_ACTIONS: ReadonlySet<RewriteAction> = new Set([
+  'IMPROVE_WRITING',
+  'CHANGE_TONE',
+  'HUMANIZE',
+  'MAKE_LONGER',
+  'SUMMARIZE',
+]);
 
 const reviewSummarySchema = z.object({
   passedChecksCount: z.number().int().nonnegative(),
@@ -190,8 +208,14 @@ function buildCreateReviewRunInput(
   };
 }
 
+interface InFlightExecution {
+  promise: Promise<ReviewExecutionResult>;
+  primaryRequestId: string;
+  correlatedRequestIds: Set<string>;
+}
+
 export class ReviewService implements IReviewService {
-  private readonly inFlightReviews = new Map<string, Promise<ReviewExecutionResult>>();
+  private readonly inFlightReviews = new Map<string, InFlightExecution>();
 
   constructor(
     private readonly dependencies: ReviewDependencies,
@@ -205,29 +229,55 @@ export class ReviewService implements IReviewService {
 
   executeReview(
     submissionId: string,
-    options?: ReviewExecutionOptions
+    options?: ReviewExecutionOptions,
+    requestId?: string
   ): Promise<ReviewExecutionResult> {
     const id = uuidSchema.parse(submissionId);
     const key = options?.content ? `${id}:${options.content}` : id;
+    const effectiveRequestId =
+      requestId || options?.requestId || `rev-${id.slice(0, 8)}`;
+
     const inFlight = this.inFlightReviews.get(key);
     if (inFlight) {
-      return inFlight;
+      inFlight.correlatedRequestIds.add(effectiveRequestId);
+      console.log(
+        JSON.stringify({
+          type: 'REVIEW_PIPELINE_COALESCED',
+          requestId: effectiveRequestId,
+          coalescedWithRequestId: inFlight.primaryRequestId,
+          submissionId: id,
+          action: 'ATTACHED_TO_IN_FLIGHT_EXECUTION',
+        })
+      );
+      return inFlight.promise;
     }
 
-    const review = this.executeReviewOnce(id, options);
-    this.inFlightReviews.set(key, review);
-    void review.then(
+    const reviewPromise = this.executeReviewOnce(id, options, effectiveRequestId);
+    const executionRecord: InFlightExecution = {
+      promise: reviewPromise,
+      primaryRequestId: effectiveRequestId,
+      correlatedRequestIds: new Set([effectiveRequestId]),
+    };
+    this.inFlightReviews.set(key, executionRecord);
+    void reviewPromise.then(
       () => this.inFlightReviews.delete(key),
       () => this.inFlightReviews.delete(key)
     );
-    return review;
+    return reviewPromise;
   }
 
   private async executeReviewOnce(
     id: string,
-    options?: ReviewExecutionOptions
+    options?: ReviewExecutionOptions,
+    explicitRequestId?: string
   ): Promise<ReviewExecutionResult> {
+    const totalStartMs = Date.now();
+    const requestId =
+      explicitRequestId || options?.requestId || `rev-${id.slice(0, 8)}`;
+
+    const subFetchStart = Date.now();
     const submission = await this.dependencies.submissions.getSubmissionById(id);
+    const submissionRetrievalMs = Date.now() - subFetchStart;
     if (!submission) {
       throw new Error(`Submission not found: ${id}`);
     }
@@ -263,10 +313,12 @@ export class ReviewService implements IReviewService {
     let createdReviewRun: ReviewRunRecord | undefined;
 
     try {
+      const embStart = Date.now();
       const embedding = await this.dependencies.ai.generateEmbedding(
         contentToAudit,
         { dimensions: EMBEDDING_DIMENSIONS }
       );
+      const embeddingMs = Date.now() - embStart;
       if (
         embedding.length !== EMBEDDING_DIMENSIONS ||
         !embedding.every((value) => Number.isFinite(value))
@@ -280,10 +332,14 @@ export class ReviewService implements IReviewService {
         : (vector: number[], limit?: number) =>
             this.dependencies.guidelines.findSimilarRules!(vector, limit);
 
+      const vectorStart = Date.now();
       const [rules, facts] = await Promise.all([
         ruleSearch(embedding, RULE_SEARCH_LIMIT),
         this.dependencies.knowledge.findRelevantFacts(embedding, FACT_SEARCH_LIMIT),
       ]);
+      const vectorRetrievalMs = Date.now() - vectorStart;
+
+      const auditStart = Date.now();
       const audit = await this.dependencies.ai.auditContent({
         content: contentToAudit,
         rules: rules.map((rule) => ({
@@ -297,6 +353,8 @@ export class ReviewService implements IReviewService {
           source: fact.approvedProofSource,
         })),
       });
+      const geminiAuditMs = Date.now() - auditStart;
+
       const grounded = mapGroundedAIResults(
         audit.issues,
         rules,
@@ -330,6 +388,7 @@ export class ReviewService implements IReviewService {
         };
       }
 
+      const dbWriteStart = Date.now();
       createdReviewRun = await this.repository.create(reviewRunInput);
       const persistedFindings = await this.dependencies.findings.recordFindings(
         createdReviewRun.id,
@@ -337,6 +396,32 @@ export class ReviewService implements IReviewService {
         contentToAudit
       );
       await this.dependencies.submissions.updateSubmissionStatus(id, 'REVIEWED');
+      const dbPersistenceMs = Date.now() - dbWriteStart;
+      const totalMs = Date.now() - totalStartMs;
+      const executionKey = options?.content ? `${id}:${options.content}` : id;
+      const inFlightRecord = this.inFlightReviews.get(executionKey);
+      const correlatedRequestIds = inFlightRecord
+        ? Array.from(inFlightRecord.correlatedRequestIds)
+        : [requestId];
+
+      console.log(
+        JSON.stringify({
+          type: 'REVIEW_PIPELINE_TIMING',
+          operation: 'AUDIT',
+          requestId,
+          correlatedRequestIds,
+          submissionId: id,
+          durations: {
+            submissionRetrievalMs,
+            embeddingMs,
+            vectorRetrievalMs,
+            geminiAuditMs,
+            dbPersistenceMs,
+            totalMs,
+          },
+          outcome: 'SUCCESS',
+        })
+      );
 
       return {
         reviewRun: mapReviewRun(createdReviewRun),
@@ -400,12 +485,18 @@ export class ReviewService implements IReviewService {
 
   async rewrite(
     submissionId: string,
-    input: RewriteContentInput
+    input: RewriteContentInput,
+    requestId?: string
   ): Promise<RewriteResponse> {
+    const totalStartMs = Date.now();
+    const traceId = requestId || `rew-${submissionId.slice(0, 8)}`;
+
     const id = uuidSchema.parse(submissionId);
     const validatedInput = rewriteContentSchema.parse(input);
 
+    const subFetchStart = Date.now();
     const submission = await this.dependencies.submissions.getSubmissionById(id);
+    const submissionRetrievalMs = Date.now() - subFetchStart;
     if (!submission) {
       throw new Error(`Submission not found: ${id}`);
     }
@@ -415,42 +506,73 @@ export class ReviewService implements IReviewService {
     }
 
     const MAX_REWRITE_CONTEXT_CHARS = 4000;
-    const boundedContent = validatedInput.content.length > MAX_REWRITE_CONTEXT_CHARS
-      ? validatedInput.content.slice(0, MAX_REWRITE_CONTEXT_CHARS)
-      : validatedInput.content;
+    const boundedContent =
+      validatedInput.content.length > MAX_REWRITE_CONTEXT_CHARS
+        ? validatedInput.content.slice(0, MAX_REWRITE_CONTEXT_CHARS)
+        : validatedInput.content;
 
     let rules: GuidelineRule[] = [];
     let facts: ApprovedFact[] = [];
+    let embeddingMs = 0;
+    let vectorRetrievalMs = 0;
 
-    try {
-      const embedding = await this.dependencies.ai.generateEmbedding(
-        boundedContent,
-        { dimensions: EMBEDDING_DIMENSIONS }
-      );
+    // Selective RAG: Actions like GRAMMAR_SPELLING, SIMPLIFY, MAKE_SHORTER, SUMMARIZE
+    // do not require brand guideline/fact vector retrieval, saving significant latency.
+    const isBrandContextRequired = BRAND_SENSITIVE_ACTIONS.has(validatedInput.action);
 
-      if (
-        embedding.length === EMBEDDING_DIMENSIONS &&
-        embedding.every((value) => Number.isFinite(value))
-      ) {
+    if (isBrandContextRequired) {
+      try {
+        const embStart = Date.now();
+        const embedding = await this.dependencies.ai.generateEmbedding(
+          boundedContent,
+          { dimensions: EMBEDDING_DIMENSIONS }
+        );
+        embeddingMs = Date.now() - embStart;
+
+        if (
+          !Array.isArray(embedding) ||
+          embedding.length !== EMBEDDING_DIMENSIONS ||
+          !embedding.every((value) => Number.isFinite(value))
+        ) {
+          throw new Error('Invalid embedding vector: incorrect dimensions or non-finite numbers');
+        }
+
         const ruleSearch = this.dependencies.guidelines.findRelevantRules
           ? (vector: number[], limit?: number) =>
               this.dependencies.guidelines.findRelevantRules!(vector, limit)
           : (vector: number[], limit?: number) =>
               this.dependencies.guidelines.findSimilarRules!(vector, limit);
 
+        if (!ruleSearch) {
+          throw new Error('Guideline rule search service unavailable');
+        }
+
+        const vecStart = Date.now();
         const [retrievedRules, retrievedFacts] = await Promise.all([
-          ruleSearch ? ruleSearch(embedding, RULE_SEARCH_LIMIT) : [],
+          ruleSearch(embedding, RULE_SEARCH_LIMIT),
           this.dependencies.knowledge.findRelevantFacts(embedding, FACT_SEARCH_LIMIT),
         ]);
+        vectorRetrievalMs = Date.now() - vecStart;
 
         rules = retrievedRules;
         facts = retrievedFacts;
+
+        // Minimum Governance Context Policy:
+        // Brand-sensitive actions (IMPROVE_WRITING, CHANGE_TONE, HUMANIZE, MAKE_LONGER, SUMMARIZE)
+        // require at least one grounding anchor: >=1 guideline rule OR >=1 verified brand fact.
+        // If BOTH are empty, an ungrounded rewrite cannot guarantee brand safety and is rejected.
+        if (rules.length === 0 && facts.length === 0) {
+          throw new Error(
+            `Minimum governance context not met: zero relevant guideline rules or approved facts found for ${validatedInput.action}. Ungrounded rewrite rejected.`
+          );
+        }
+      } catch (error) {
+        // Fail-closed brand governance: do NOT generate an ungrounded rewrite for brand-sensitive actions
+        throw new BrandGovernanceRetrievalError(validatedInput.action, error);
       }
-    } catch {
-      rules = [];
-      facts = [];
     }
 
+    const aiStart = Date.now();
     const aiResult = await this.dependencies.ai.rewriteContent({
       action: validatedInput.action,
       content: boundedContent,
@@ -466,9 +588,108 @@ export class ReviewService implements IReviewService {
         source: f.approvedProofSource,
       })),
     });
+    const geminiRewriteMs = Date.now() - aiStart;
+    const totalMs = Date.now() - totalStartMs;
+
+    console.log(
+      JSON.stringify({
+        type: 'REVIEW_PIPELINE_TIMING',
+        operation: 'REWRITE',
+        action: validatedInput.action,
+        brandContextUsed: isBrandContextRequired,
+        requestId: traceId,
+        submissionId: id,
+        durations: {
+          submissionRetrievalMs,
+          embeddingMs,
+          vectorRetrievalMs,
+          geminiRewriteMs,
+          totalMs,
+        },
+        outcome: 'SUCCESS',
+      })
+    );
 
     if (!aiResult.rewrittenText || !aiResult.rewrittenText.trim()) {
       throw new Error('Gemini returned empty rewritten text');
+    }
+
+    // Runtime Brand Governance & Output Safety Verification
+    if (isBrandContextRequired) {
+      const lowerContent = boundedContent.toLowerCase();
+      const lowerRewritten = aiResult.rewrittenText.toLowerCase();
+
+      // 1. Mandatory Disclaimer & Restriction Preservation Check
+      for (const rule of rules) {
+        if (rule.severity === 'CRITICAL') {
+          if (
+            rule.ruleStatement.toLowerCase().includes('disclaimer') &&
+            lowerContent.includes('past performance does not guarantee future results') &&
+            !lowerRewritten.includes('past performance does not guarantee future results')
+          ) {
+            throw new BrandGovernanceRetrievalError(
+              validatedInput.action,
+              new Error(
+                'Runtime safety verification failed: mandatory regulatory disclaimer was omitted from rewritten text.'
+              )
+            );
+          }
+
+          if (
+            rule.ruleStatement.toLowerCase().includes('restriction') &&
+            lowerContent.includes('restricted to accredited us investors over 21') &&
+            !lowerRewritten.includes('restricted to accredited us investors over 21')
+          ) {
+            throw new BrandGovernanceRetrievalError(
+              validatedInput.action,
+              new Error(
+                'Runtime safety verification failed: mandatory eligibility restriction was omitted from rewritten text.'
+              )
+            );
+          }
+        }
+      }
+
+      // 2. Prohibited Absolute Claim Guard
+      const hasProhibitionRule = rules.some(
+        (r) =>
+          r.severity === 'CRITICAL' &&
+          (r.ruleStatement.includes('100%') || r.ruleStatement.toLowerCase().includes('guarantee'))
+      );
+      if (hasProhibitionRule) {
+        const PROHIBITED_HYPERBOLES = [
+          '100% infallible',
+          'perfection guaranteed',
+          '100% guaranteed',
+        ];
+        for (const phrase of PROHIBITED_HYPERBOLES) {
+          if (lowerRewritten.includes(phrase)) {
+            throw new BrandGovernanceRetrievalError(
+              validatedInput.action,
+              new Error(
+                `Runtime safety verification failed: prohibited hyperbolic claim "${phrase}" was retained or introduced in rewritten text.`
+              )
+            );
+          }
+        }
+      }
+
+      // 3. Approved Fact Grounding & Mutation Guard
+      for (const fact of facts) {
+        if (fact.claimStatement.includes('SOC-2 Type II')) {
+          if (
+            aiResult.rewrittenText.includes('SOC-3') ||
+            aiResult.rewrittenText.includes('SOC 3')
+          ) {
+            throw new BrandGovernanceRetrievalError(
+              validatedInput.action,
+              new Error(
+                'Runtime safety verification failed: approved brand fact was distorted into unverified certification (SOC-3).'
+              )
+            );
+          }
+        }
+      }
     }
 
     // Step 6 Immutability Guarantee:

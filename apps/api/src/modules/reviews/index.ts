@@ -26,17 +26,19 @@ import type { ReviewExecutionOptions, ReviewExecutionResult } from './reviews.ty
 export interface IReviewService {
   executeReview(
     submissionId: string,
-    options?: ReviewExecutionOptions
+    options?: ReviewExecutionOptions,
+    requestId?: string
   ): Promise<ReviewExecutionResult>;
   getReviewBySubmissionId(submissionId: string): Promise<ReviewExecutionResult | null>;
   getReviewHistory?(submissionId: string): Promise<ReviewExecutionResult[]>;
   rewrite?(
     submissionId: string,
-    input: RewriteContentInput
+    input: RewriteContentInput,
+    requestId?: string
   ): Promise<RewriteResponse>;
 }
 
-export { ReviewService } from './reviews.service.js';
+export { ReviewService, BrandGovernanceRetrievalError } from './reviews.service.js';
 export { ReviewsController } from './reviews.controller.js';
 export { createReviewsRouter, reviewsRouter, reviewService, defaultGuidelineRuleSearch } from './reviews.routes.js';
 export * from './reviews.types.js';
