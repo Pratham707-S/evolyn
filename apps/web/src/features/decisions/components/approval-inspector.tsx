@@ -85,38 +85,9 @@ export function ApprovalInspector({
   const currentComment = controlledComment !== undefined ? controlledComment : internalComment;
   const setComment = onReviewerCommentChange || setInternalComment;
 
-  const defaultChanges: AuditChangeItem[] = [
-    {
-      id: 'ch-1',
-      title: 'Softened absolute performance guarantee',
-      description:
-        'Replaced unqualified promise ("eliminates 100% of risk") with verified enterprise evidence citation.',
-      before: 'eliminates 100% of brand compliance risk and guarantees zero defect marketing',
-      after: 'helps marketing teams prevent compliance risks with verified audit citations',
-      isApproved: true,
-      rule: 'Rule 1.4: Grounded Performance',
-    },
-    {
-      id: 'ch-2',
-      title: 'Registered trademark notice added',
-      description:
-        'Inserted mandatory trademark indicator on primary platform product introduction.',
-      before: 'Evolyn',
-      after: 'Evolyn™ Brand Governance',
-      isApproved: true,
-      rule: 'Rule 3.2: Nomenclature Standard',
-    },
-    {
-      id: 'ch-3',
-      title: 'Speed assertion without benchmark link',
-      description:
-        'Phrase "in seconds" lacks empirical platform citation. Reviewer sign-off required to accept or flag.',
-      before: 'in seconds',
-      after: 'in real time with automated citation checks',
-      isApproved: false,
-      rule: 'Rule 2.1: Tone & Claims',
-    },
-  ];
+  // Real review findings only — no demo diffs. Empty until the server returns
+  // the submission's review details.
+  const defaultChanges: AuditChangeItem[] = [];
 
   // Local state for changes so reviewer can toggle/sign-off on individual items
   const [localChanges, setLocalChanges] = useState<AuditChangeItem[]>(
@@ -425,6 +396,15 @@ export function ApprovalInspector({
           </div>
 
           {/* List of Changes */}
+          {localChanges.length === 0 ? (
+            <div className="py-10 text-center text-xs text-[#77766E] space-y-1">
+              <FileCheck className="w-5 h-5 mx-auto text-[#A09D92]" />
+              <p>No review findings recorded for this submission yet.</p>
+              <p className="text-[11px]">
+                Findings appear here once the AI review run completes for this submission.
+              </p>
+            </div>
+          ) : (
           <div className="space-y-3">
             {filteredChanges.map((change) => {
               return (
@@ -524,6 +504,7 @@ export function ApprovalInspector({
               );
             })}
           </div>
+          )}
         </div>
       )}
 

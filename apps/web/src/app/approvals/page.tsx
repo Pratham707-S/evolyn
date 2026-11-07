@@ -16,127 +16,29 @@ import { useQuery } from '@tanstack/react-query';
 import { AppShell, useAppShell } from '@/components/layout/app-shell';
 import { PageHeader } from '@/components/shared/page-header';
 import { Button } from '@/components/ui/button';
-import type { ContentSubmission } from '@evolyn/shared';
 import {
   ApprovalsMetrics,
   ApprovalsTabs,
   ApprovalsTable,
   ApprovalInspector,
-  DecisionItem,
-  fetchAllSubmissions,
+  type DecisionItem,
+  fetchApprovalQueue,
+  fetchSubmissionReview,
   submitHumanDecision,
 } from '@/features/decisions';
-
-const initialDecisionsData: DecisionItem[] = [
-  {
-    id: 'dec-1',
-    title: 'Q3 Product Campaign',
-    snippet: 'Introducing our new AI-powered...',
-    content:
-      'Introducing our new AI-powered brand governance platform that helps marketing teams stay compliant, consistent, and on-brand across every channel. Built with grounded AI and zero-hallucination guardrails.',
-    channel: 'LinkedIn',
-    decision: 'Approved',
-    reviewer: 'MK',
-    reviewerName: 'Mann K.',
-    date: '2h ago',
-    reviewId: 'Review #RV-1043',
-    summary:
-      '2 AI suggestions accepted by submitter in Review Workspace. 1 speed assertion pending final sign-off.',
-    findingsCount: 3,
-    changes: [
-      {
-        id: 'c1',
-        title: 'Softened absolute performance guarantee',
-        description:
-          'Replaced unqualified absolute promise ("eliminates 100% of risk") with verified enterprise evidence wording.',
-        before: 'eliminates 100% of brand compliance risk and guarantees zero defect marketing',
-        after: 'helps marketing teams prevent compliance risks with verified audit citations',
-        isApproved: true,
-        rule: 'Rule 1.4: Grounded Performance',
-      },
-      {
-        id: 'c2',
-        title: 'Registered trademark notice added',
-        description:
-          'Inserted trademark symbol on primary platform product introduction.',
-        before: 'Evolyn',
-        after: 'Evolyn™ Brand Governance',
-        isApproved: true,
-        rule: 'Rule 3.2: Nomenclature Standard',
-      },
-      {
-        id: 'c3',
-        title: 'Speed assertion without benchmark link',
-        description:
-          'Phrase "in seconds" lacks empirical platform citation. Reviewer sign-off required to accept or flag.',
-        before: 'in seconds',
-        after: 'in real time with automated citation checks',
-        isApproved: false,
-        rule: 'Rule 2.1: Tone & Claims',
-      },
-    ],
-  },
-  {
-    id: 'dec-2',
-    title: 'Website Hero Update',
-    snippet: 'Evolyn helps enterprise teams...',
-    content:
-      'Evolyn helps enterprise teams keep every piece of content aligned with verified brand truth. Built with grounded AI and zero-hallucination guardrails.',
-    channel: 'Website',
-    decision: 'Changes Requested',
-    reviewer: 'AK',
-    reviewerName: 'Ayan K.',
-    date: '4h ago',
-    reviewId: 'Review #RV-1042',
-    summary:
-      'Flagged missing registered trademark symbol on primary headline before production push.',
-    findingsCount: 1,
-    changes: [
-      {
-        id: 'c4',
-        title: 'Trademark symbol required on lead H1 headline',
-        description:
-          'First headline introduction must include the ™ symbol to satisfy trademark legal policy.',
-        before: 'Evolyn Enterprise',
-        after: 'Evolyn™ Enterprise Brand Suite',
-        isApproved: false,
-        rule: 'Rule 3.2: Trademark Policy',
-      },
-    ],
-  },
-  {
-    id: 'dec-3',
-    title: 'Product Launch Email',
-    snippet: 'Be the first to explore Evolyn...',
-    content:
-      'Be the first to explore Evolyn — a smarter way to verify claims, enforce tone of voice, and streamline creative approvals in real time.',
-    channel: 'Email',
-    decision: 'Approved',
-    reviewer: 'PK',
-    reviewerName: 'Pratham K.',
-    date: '6h ago',
-    reviewId: 'Review #RV-1041',
-    summary:
-      'All product claims conform to corporate voice guidelines and approved knowledge proof sources.',
-    findingsCount: 0,
-    changes: [
-      {
-        id: 'c5',
-        title: 'Tone checked against corporate voice dimensions',
-        description: 'Verified authoritative and grounded attributes.',
-        before: 'Be the first to explore Evolyn',
-        after: 'Be the first to explore Evolyn',
-        isApproved: true,
-        rule: 'Voice Guideline: Confident Clarity',
-      },
-    ],
-  },
-];
+import {
+  applyDecisionToItems,
+  configuredReviewerName,
+  decisionPayload,
+  filterApprovalQueue,
+  mapIssuesToChanges,
+  mapQueueSubmission,
+} from '@/features/decisions/lib/queue-mapping';
 
 function ApprovalsContent() {
   const { showToast } = useAppShell();
-  const [decisions, setDecisions] = useState<DecisionItem[]>(initialDecisionsData);
-  const [selectedId, setSelectedId] = useState<string>('dec-1');
+  const [decisions, setDecisions] = useState<DecisionItem[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [statusTab, setStatusTab] = useState<string>('ALL');
   const [reviewerComment, setReviewerComment] = useState('');
   const [isSubmittingDecision, setIsSubmittingDecision] = useState(false);
@@ -147,76 +49,65 @@ function ApprovalsContent() {
   } | null>(null);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
 
-  // TanStack Query: Fetch live submissions
+  // TanStack Query: fetch the live approval queue (submissions awaiting a
+  // human decision, i.e. status=REVIEWED). No demo data is ever merged in.
   const {
     data: queueData,
     isLoading: isQueueLoading,
+    error: queueError,
     refetch: refetchQueue,
   } = useQuery({
-    queryKey: ['approvals', 'submissions'],
-    queryFn: () => fetchAllSubmissions(),
+    queryKey: ['approvals', 'queue', 'REVIEWED'],
+    queryFn: () => fetchApprovalQueue('REVIEWED'),
   });
 
-  // Sync live backend submissions into decision workstation items
+  // Sync live backend submissions into decision workstation items. The queue
+  // is the only source of rows; with an empty database this stays empty.
   useEffect(() => {
-    if (queueData?.submissions && queueData.submissions.length > 0) {
-      const liveItems: DecisionItem[] = queueData.submissions.map((sub: ContentSubmission) => {
-        const isApproved = sub.status === 'APPROVED';
-        const isRejected = sub.status === 'REJECTED';
-        const isChanges = sub.status === 'REVIEWED';
-
-        const decisionText: 'Approved' | 'Changes Requested' | 'Rejected' | 'Pending' =
-          isApproved
-            ? 'Approved'
-            : isRejected
-            ? 'Rejected'
-            : isChanges
-            ? 'Changes Requested'
-            : 'Pending';
-
-        return {
-          id: sub.id,
-          title: sub.title,
-          snippet: sub.rawText.slice(0, 40) + '...',
-          content: sub.rawText,
-          channel: sub.channel || 'Website',
-          decision: decisionText as DecisionItem['decision'],
-          reviewer: sub.submittedBy ? sub.submittedBy.slice(0, 2).toUpperCase() : 'OP',
-          reviewerName: sub.submittedBy || 'Reviewer Team',
-          date: new Date(sub.createdAt).toLocaleDateString(),
-          reviewId: `Sub #${sub.id.slice(0, 8)}`,
-          summary: `Status: ${sub.status}. Submitted by ${sub.submittedBy || 'marketing team'}.`,
-          findingsCount: sub.status === 'REVIEWED' ? 2 : 0,
-          changes: [
-            {
-              id: `chg-${sub.id}-1`,
-              title: 'Brand Tone and Claim Verification',
-              description: 'Grounding review conducted against active brand guidelines and verified facts.',
-              before: sub.rawText.slice(0, 80),
-              after: sub.rawText.slice(0, 80) + ' [Audited for Brand Compliance]',
-              isApproved: isApproved,
-              rule: 'Rule 1.1: Grounded Integrity',
-            },
-          ],
-        };
-      });
-
-      const liveIds = new Set(liveItems.map((it) => it.id));
-      const remainingInitial = initialDecisionsData.filter((init) => !liveIds.has(init.id));
-      const merged = [...liveItems, ...remainingInitial];
-
-      setDecisions(merged);
-      if (liveItems.length > 0 && selectedId === 'dec-1') {
-        setSelectedId(liveItems[0].id);
-      }
-    }
+    if (!queueData) return;
+    const liveItems: DecisionItem[] = filterApprovalQueue(queueData.submissions).map((sub) =>
+      mapQueueSubmission(sub)
+    );
+    setDecisions(liveItems);
+    setSelectedId((prev) =>
+      prev && liveItems.some((it) => it.id === prev) ? prev : liveItems[0]?.id ?? null
+    );
   }, [queueData]);
 
   const selectedItem = decisions.find((d) => d.id === selectedId) || decisions[0];
+
+  // Load the real review run and detected issues for the selected submission.
+  // Findings and diffs always come from the server, never from rawText.
+  const { data: reviewDetails } = useQuery({
+    queryKey: ['approvals', 'review', selectedItem?.id],
+    enabled: Boolean(selectedItem?.id),
+    queryFn: () => fetchSubmissionReview(selectedItem!.id),
+  });
+
+  useEffect(() => {
+    if (!reviewDetails || !selectedItem) return;
+    const changes = mapIssuesToChanges(reviewDetails.issues ?? []);
+    setDecisions((prev) =>
+      prev.map((d) =>
+        d.id === selectedItem.id
+          ? {
+              ...d,
+              findingsCount: reviewDetails.reviewRun?.totalIssuesCount ?? d.findingsCount,
+              changes: changes.length > 0 ? changes : d.changes,
+              summary: reviewDetails.reviewRun?.summary?.notes || d.summary,
+            }
+          : d
+      )
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reviewDetails]);
+
   const isFinalized = selectedItem?.decision === 'Approved' || selectedItem?.decision === 'Rejected';
 
   const handleInitiateDecision = (decision: 'Approved' | 'Changes Requested' | 'Rejected') => {
     setNotesError(null);
+
+    if (!selectedItem) return;
 
     if ((decision === 'Changes Requested' || decision === 'Rejected') && !reviewerComment.trim()) {
       setNotesError('Reviewer notes explaining the reason are required for rejection or change requests.');
@@ -239,57 +130,34 @@ function ApprovalsContent() {
     decision: 'Approved' | 'Changes Requested' | 'Rejected',
     notes: string
   ) => {
+    if (!itemId) return;
     setIsSubmittingDecision(true);
     setNotesError(null);
     setConfirmationModal(null);
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(itemId);
 
-    if (isUuid) {
-      const decisionType =
-        decision === 'Approved'
-          ? 'APPROVED'
-          : decision === 'Rejected'
-          ? 'REJECTED'
-          : 'CHANGES_REQUESTED';
-
-      try {
-        await submitHumanDecision(itemId, {
-          decision: decisionType,
-          reviewerName: 'Chief Brand Guardian',
-          comments: notes || `Reviewed and recorded as ${decision}`,
-        });
-        await refetchQueue();
-        showToast(`Persisted decision: "${decision}" in PostgreSQL.`);
-      } catch (err) {
-        console.error('Failed to submit decision to server:', err);
-        showToast(
-          err instanceof Error
-            ? err.message
-            : 'Server error while persisting decision. Updated locally.'
-        );
-      } finally {
-        setIsSubmittingDecision(false);
-      }
-    } else {
-      showToast(`Updated "${selectedItem?.title}" to "${decision}" (local session).`);
+    try {
+      // Every queue row is a server record, so the decision always goes to the
+      // API. Local state changes ONLY after the server confirms it — a failed
+      // POST leaves the row's decision, reviewer and date untouched, and the
+      // reviewer notes are kept so the decision can be retried.
+      await submitHumanDecision(itemId, decisionPayload(decision, notes, configuredReviewerName()));
+      setDecisions((prev) =>
+        applyDecisionToItems(prev, itemId, decision, configuredReviewerName(), 'Just now', notes)
+      );
+      await refetchQueue();
+      showToast(`Decision recorded: "${decision}".`);
+      setReviewerComment('');
+      setIsMobileDrawerOpen(false);
+    } catch (err) {
+      console.error('Failed to submit decision to server:', err);
+      showToast(
+        err instanceof Error
+          ? err.message
+          : 'Could not record the decision. Please try again.'
+      );
+    } finally {
       setIsSubmittingDecision(false);
     }
-
-    setDecisions((prev) =>
-      prev.map((d) =>
-        d.id === itemId
-          ? {
-              ...d,
-              decision,
-              summary: notes || d.summary,
-              reviewerName: 'You (Reviewer)',
-              date: 'Just now',
-            }
-          : d
-      )
-    );
-    setReviewerComment('');
-    setIsMobileDrawerOpen(false);
   };
 
   const handleExport = () => {
@@ -544,7 +412,7 @@ function ApprovalsContent() {
           </div>
           <ApprovalsTable
             items={decisions}
-            selectedId={selectedId}
+            selectedId={selectedId ?? ''}
             onSelect={(item) => setSelectedId(item.id)}
             statusTab={statusTab}
             compact={true}
@@ -556,7 +424,28 @@ function ApprovalsContent() {
           id="approval-inspector-pane"
           className="lg:col-span-8 xl:col-span-6 min-w-0 bg-[#FFFEFA] border border-[#E5E1D8] rounded-2xl p-5 sm:p-6 shadow-2xs"
         >
-          {selectedItem ? (
+          {isQueueLoading ? (
+            <div className="py-16 flex flex-col items-center justify-center gap-2 text-xs text-[#77766E]">
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              <span>Loading the approval queue from the server...</span>
+            </div>
+          ) : queueError ? (
+            <div className="py-16 flex flex-col items-center justify-center gap-3 text-xs text-[#8A332B] text-center">
+              <AlertTriangle className="w-5 h-5" />
+              <p>
+                Could not load the approval queue:{' '}
+                {queueError instanceof Error ? queueError.message : 'unknown error'}
+              </p>
+              <Button variant="outline" size="sm" onClick={() => refetchQueue()}>
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Retry</span>
+              </Button>
+            </div>
+          ) : !selectedItem ? (
+            <div className="py-16 text-center text-xs text-[#77766E]">
+              The approval queue is empty. Submissions appear here once they complete AI review.
+            </div>
+          ) : (
             <ApprovalInspector
               item={selectedItem}
               onDecisionSubmit={handleDecisionSubmit}
@@ -566,10 +455,6 @@ function ApprovalsContent() {
               onQuickAction={handleInitiateDecision}
               embedded={true}
             />
-          ) : (
-            <div className="py-16 text-center text-xs text-[#77766E]">
-              Select a submission from the queue to inspect diffs and record decisions.
-            </div>
           )}
         </div>
 
