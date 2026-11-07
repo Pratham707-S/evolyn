@@ -19,12 +19,29 @@
     --status-info: #71869A;
   }
 
+  .dark {
+    --background: #141311;
+    --surface: #1C1B18;
+    --sidebar: #171614;
+    --text-primary: #EDECE6;
+    --text-secondary: #9E9C93;
+    --text-muted: #76746C;
+    --border-subtle: #2D2C27;
+    --accent-olive: #8A9A7B;
+    --accent-olive-soft: #252B20;
+    --status-success: #789B7E;
+    --status-warning: #CBA262;
+    --status-danger: #C57D72;
+    --status-info: #859DB3;
+  }
+
   body {
-    background-color: #F7F5F0;
-    color: #25251F;
+    background-color: var(--background);
+    color: var(--text-primary);
     font-family: var(--font-sans), 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 
   h1, h2, h3, .font-serif {
@@ -48,3 +65,322 @@
   background: #A09D92;
 }
 
+/* ==========================================================================
+   Evolyn Midnight Charcoal Dark Theme
+   Seamlessly adapts the UI into a warm, refined executive dark palette
+   ========================================================================== */
+
+.dark {
+  color-scheme: dark;
+}
+
+/* 1. Base App Surfaces & Cards */
+.dark .bg-\[\#F7F5F0\] {
+  background-color: #141311 !important;
+}
+.dark .bg-\[\#FFFEFA\],
+.dark .bg-white {
+  background-color: #1C1B18 !important;
+}
+
+/* 2. Elevated Panels, Inset Boxes, Previews & Stepper Bars */
+.dark .bg-\[\#F8F6F1\],
+.dark .bg-\[\#F8F6F0\],
+.dark .bg-\[\#F8F5EE\],
+.dark .bg-\[\#F9F7F2\],
+.dark .bg-\[\#F9F8F5\],
+.dark .bg-\[\#FAF8F5\],
+.dark .bg-\[\#FAF8F3\],
+.dark .bg-\[\#FAF9F5\],
+.dark .bg-\[\#FDFBF7\],
+.dark .bg-\[\#F4F1EA\],
+.dark .bg-\[\#F1EFE8\],
+.dark .bg-\[\#F2EFE8\],
+.dark .bg-\[\#E8E5DD\],
+.dark .bg-\[\#EDE7DE\],
+.dark .bg-\[\#EDE8DE\],
+.dark .bg-\[\#EDE9E0\] {
+  background-color: #23221E !important;
+}
+
+.dark .bg-\[\#ECE9E0\],
+.dark .bg-\[\#ECE8DF\],
+.dark .bg-\[\#EFECE6\],
+.dark .bg-\[\#EAE6DD\],
+.dark .bg-\[\#EAE6DC\] {
+  background-color: #2C2B26 !important;
+}
+
+/* 3. Hairline Borders & Dividers */
+.dark .border-\[\#E5E1D8\],
+.dark .border-\[\#E8E4DA\],
+.dark .border-\[\#EFECE6\],
+.dark .border-\[\#D5D1C7\],
+.dark .border-\[\#D8D2C5\],
+.dark .border-\[\#ECE8DF\],
+.dark .border-\[\#E5E1D8\]\/70,
+.dark .border-\[\#E5E1D8\]\/60 {
+  border-color: #2D2C27 !important;
+}
+
+.dark .divide-\[\#EFECE6\] > * + *,
+.dark .divide-\[\#E5E1D8\] > * + *,
+.dark .divide-\[\#E5E1D8\]\/60 > * + * {
+  border-color: #2D2C27 !important;
+}
+
+/* 4. High-Contrast Typography */
+.dark .text-\[\#25251F\] {
+  color: #EDECE6 !important;
+}
+.dark .text-\[\#111111\],
+.dark .text-black {
+  color: #F7F6F2 !important;
+}
+.dark .text-\[\#52524E\] {
+  color: #C4C2B8 !important;
+}
+.dark .text-\[\#77766E\],
+.dark .text-\[\#73736C\] {
+  color: #9E9C93 !important;
+}
+.dark .text-\[\#A09D92\] {
+  color: #76746C !important;
+}
+
+/* 5. Hover & Active Row Highlights */
+.dark .hover\:bg-\[\#FAF9F5\]:hover,
+.dark .hover\:bg-\[\#F1EFE8\]:hover,
+.dark .hover\:bg-\[\#E8E5DD\]:hover,
+.dark .hover\:bg-\[\#EFECE6\]:hover,
+.dark .hover\:bg-\[\#F2EFE8\]:hover {
+  background-color: #2B2A25 !important;
+}
+
+.dark .bg-\[\#FAF7EE\],
+.dark .hover\:bg-\[\#F6F2E5\]:hover {
+  background-color: #2D2A22 !important;
+}
+
+/* 6. Form Inputs & Select Controls */
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+.dark select,
+.dark textarea {
+  background-color: #1C1B18 !important;
+  color: #EDECE6 !important;
+  border-color: #33322C !important;
+}
+
+.dark input:focus,
+.dark select:focus,
+.dark textarea:focus {
+  border-color: #EDECE6 !important;
+  outline: none !important;
+}
+
+.dark select option {
+  background-color: #1C1B18 !important;
+  color: #EDECE6 !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #76746C !important;
+}
+
+/* 7. Status Badges & Resource Type Pills (Balanced luminous dark styling) */
+
+/* Green: Approved, Active, Passed */
+.dark .bg-\[\#ECFDF5\],
+.dark .bg-\[\#EEF4EE\],
+.dark .bg-\[\#F6F8F5\],
+.dark .bg-\[\#E8EBE1\] {
+  background-color: rgba(16, 185, 129, 0.14) !important;
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+.dark .text-\[\#065F46\],
+.dark .text-\[\#4E6B54\],
+.dark .text-\[\#48634B\],
+.dark .text-\[\#2A4530\],
+.dark .text-\[\#4E7D55\] {
+  color: #6EE7B7 !important;
+}
+.dark .border-\[\#A7F3D0\],
+.dark .border-\[\#D4DBC9\],
+.dark .border-\[\#C8DEC9\] {
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+
+/* Amber/Yellow: Changes Requested, Needs Review, Terminology */
+.dark .bg-\[\#FFFBEB\],
+.dark .bg-\[\#FDF4E7\],
+.dark .bg-\[\#FDF6E2\],
+.dark .bg-\[\#FEF7EC\],
+.dark .bg-\[\#FDF9F0\],
+.dark .bg-\[\#FDF2EC\] {
+  background-color: rgba(245, 158, 11, 0.14) !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+}
+.dark .text-\[\#B45309\],
+.dark .text-\[\#865920\],
+.dark .text-\[\#8A6B3D\],
+.dark .text-\[\#B78A4A\] {
+  color: #FCD34D !important;
+}
+.dark .border-\[\#FDE68A\],
+.dark .border-\[\#F0D5B5\] {
+  border-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+/* Red/Rose: Rejected, Critical, Reference Docs */
+.dark .bg-\[\#FFF1F2\],
+.dark .bg-\[\#FDEAEA\],
+.dark .bg-\[\#FEE2E2\],
+.dark .bg-\[\#FBEBE8\],
+.dark .bg-\[\#F7EBEA\],
+.dark .bg-\[\#FDF7F5\] {
+  background-color: rgba(239, 68, 68, 0.14) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+.dark .text-\[\#BE123C\],
+.dark .text-\[\#8A332B\],
+.dark .text-\[\#B91C1C\],
+.dark .text-\[\#B56E63\],
+.dark .text-\[\#9A4C42\],
+.dark .text-\[\#A05244\] {
+  color: #FCA5A5 !important;
+}
+.dark .border-\[\#FECDD3\],
+.dark .border-\[\#F4BFB9\] {
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+/* Blue: Product Facts, Linked Evidence */
+.dark .bg-\[\#EFF6FF\],
+.dark .bg-\[\#EBF0F5\] {
+  background-color: rgba(59, 130, 246, 0.14) !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+.dark .text-\[\#1D4ED8\],
+.dark .text-\[\#0e8ce9\],
+.dark .text-\[\#0A66C2\] {
+  color: #93C5FD !important;
+}
+.dark .border-\[\#BFDBFE\] {
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+/* Purple/Indigo: Evidence & Studies */
+.dark .bg-\[\#EEF2FF\],
+.dark .bg-\[\#EAE6FF\] {
+  background-color: rgba(99, 102, 241, 0.14) !important;
+  border-color: rgba(99, 102, 241, 0.3) !important;
+}
+.dark .text-\[\#4338CA\],
+.dark .text-\[\#6C5CE7\],
+.dark .text-\[\#7E60F3\] {
+  color: #C7D2FE !important;
+}
+.dark .border-\[\#C7D2FE\] {
+  border-color: rgba(99, 102, 241, 0.3) !important;
+}
+
+/* 8. Primary Buttons in Dark Mode: High-contrast ivory with dark text */
+.dark button.bg-\[\#25251F\],
+.dark button.bg-\[\#18181B\],
+.dark button.bg-\[\#111111\],
+.dark a.bg-\[\#25251F\],
+.dark a.bg-\[\#18181B\],
+.dark a.bg-\[\#111111\] {
+  background-color: #EDECE6 !important;
+  color: #141311 !important;
+  border-color: #EDECE6 !important;
+}
+
+.dark button.bg-\[\#25251F\]:hover,
+.dark button.bg-\[\#18181B\]:hover,
+.dark button.bg-\[\#111111\]:hover,
+.dark a.bg-\[\#25251F\]:hover,
+.dark a.bg-\[\#18181B\]:hover,
+.dark a.bg-\[\#111111\]:hover {
+  background-color: #FFFFFF !important;
+  color: #121210 !important;
+}
+
+.dark button.bg-\[\#25251F\] svg,
+.dark button.bg-\[\#18181B\] svg,
+.dark button.bg-\[\#111111\] svg {
+  color: #141311 !important;
+}
+
+/* 9. Sidebar Active Nav in Dark Mode */
+.dark aside {
+  background-color: #171614 !important;
+  border-color: #2D2C27 !important;
+}
+
+.dark aside button.bg-\[\#25251F\] {
+  background-color: #2B2A25 !important;
+  color: #EDECE6 !important;
+}
+.dark aside button.bg-\[\#25251F\] svg {
+  color: #EDECE6 !important;
+}
+
+/* 10. Brand Setup Stepper, Pills & Active Indicators */
+.dark .bg-\[\#FAF9F5\] {
+  background-color: #1C1B18 !important;
+}
+
+.dark span.bg-\[\#25251F\],
+.dark div.w-6.h-6.bg-\[\#25251F\] {
+  background-color: #EDECE6 !important;
+  color: #141311 !important;
+}
+
+.dark .border-\[\#25251F\] {
+  border-color: #EDECE6 !important;
+}
+
+.dark .ring-\[\#25251F\] {
+  --tw-ring-color: rgba(237, 236, 230, 0.4) !important;
+}
+
+.dark .ring-\[\#25251F\]\/10,
+.dark .ring-\[\#25251F\]\/15 {
+  --tw-ring-color: rgba(237, 236, 230, 0.25) !important;
+}
+
+.dark .border-black\/10 {
+  border-color: rgba(255, 255, 255, 0.22) !important;
+}
+
+/* Secondary Action Buttons in Dark Mode */
+.dark button.bg-\[\#FFFEFA\],
+.dark button.bg-white:not([role="switch"]) {
+  background-color: #23221E !important;
+  color: #EDECE6 !important;
+  border-color: #33322C !important;
+}
+
+.dark button.bg-\[\#FFFEFA\]:hover,
+.dark button.bg-white:not([role="switch"]):hover {
+  background-color: #2B2A25 !important;
+  border-color: #44423A !important;
+}
+
+/* Accent sliders & checkboxes */
+.dark input[type="range"] {
+  accent-color: #8A9A7B;
+}
+.dark input[type="checkbox"] {
+  accent-color: #8A9A7B;
+}
+
+/* 11. Dark Mode Scrollbars */
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #383731;
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #4A4841;
+}

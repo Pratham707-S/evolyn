@@ -3,12 +3,14 @@
 import React from 'react';
 import { Menu, Bell } from 'lucide-react';
 import { useAppShell } from '../layout/app-shell';
+import { ThemeToggle } from './theme-toggle';
 
 export interface PageHeaderProps {
   title: string;
   description?: string;
   actions?: React.ReactNode;
   showNotificationBell?: boolean;
+  showThemeToggle?: boolean;
   unreadNotificationsCount?: number;
   compact?: boolean;
 }
@@ -18,6 +20,7 @@ export function PageHeader({
   description,
   actions,
   showNotificationBell = true,
+  showThemeToggle = true,
   unreadNotificationsCount = 0,
   compact = false,
 }: PageHeaderProps) {
@@ -62,6 +65,7 @@ export function PageHeader({
 
       {/* Action buttons */}
       <div className="flex items-center gap-2.5 self-start sm:self-center flex-wrap">
+        {showThemeToggle && <ThemeToggle />}
         {showNotificationBell && (
           <button
             type="button"

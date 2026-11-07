@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Bell, Plus, Menu } from 'lucide-react';
+import { ThemeToggle } from '../shared/theme-toggle';
 
 interface DashboardHeaderProps {
   onNewSubmission: () => void;
@@ -40,7 +41,10 @@ export function DashboardHeader({
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-3 self-start sm:self-center">
+      <div className="flex items-center gap-2.5 self-start sm:self-center flex-wrap">
+        {/* Dark Mode Switcher */}
+        <ThemeToggle />
+
         {/* Notification Bell */}
         <button
           type="button"

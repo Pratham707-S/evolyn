@@ -18,6 +18,7 @@ import {
   ChevronDown,
   X,
 } from 'lucide-react';
+import { ThemeToggle } from '../shared/theme-toggle';
 
 interface SidebarProps {
   mobileOpen?: boolean;
@@ -215,9 +216,9 @@ export function DashboardSidebar({
         </div>
       </div>
 
-      {/* Workspace Footer Profile */}
+      {/* Workspace Footer Profile & Quick Theme Switcher */}
       <div className="pt-3 border-t border-[#E5E1D8] mt-2">
-        <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-[#E8E5DD] transition-colors cursor-pointer">
+        <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-[#E8E5DD] transition-colors">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-7 h-7 rounded bg-[#E5E1D8] flex items-center justify-center font-medium text-xs text-[#25251F] flex-shrink-0">
               E
@@ -231,7 +232,7 @@ export function DashboardSidebar({
               </p>
             </div>
           </div>
-          <ChevronDown className="w-3.5 h-3.5 text-[#77766E] flex-shrink-0 ml-1" />
+          <ThemeToggle className="w-7 h-7 rounded-md ml-1 shrink-0" />
         </div>
       </div>
     </div>
