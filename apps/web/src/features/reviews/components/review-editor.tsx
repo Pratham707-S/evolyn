@@ -65,7 +65,7 @@ export function ReviewEditor({
 }: ReviewEditorProps) {
   const [activeTab, setActiveTab] = useState<'editor' | 'pdf' | 'history'>('editor');
   const [copied, setCopied] = useState(false);
-  const [pdfZoom, setPdfZoom] = useState(100);
+  const [pdfZoom, setPdfZoom] = useState<number | 'fit'>(50);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(5);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -84,6 +84,12 @@ export function ReviewEditor({
     }
     return fileUrl;
   }, [fileUrl, submissionId]);
+
+  const pdfViewerSrc = React.useMemo(() => {
+    if (!effectivePdfUrl) return '';
+    const zoomParam = pdfZoom === 'fit' ? 'view=FitH' : `zoom=${pdfZoom}`;
+    return `${effectivePdfUrl}#page=${currentPage}&${zoomParam}`;
+  }, [effectivePdfUrl, currentPage, pdfZoom]);
 
   const lastSetContentRef = React.useRef('');
 
@@ -496,36 +502,48 @@ export function ReviewEditor({
                 <div className="flex items-center gap-1 bg-[#F1EFE8] rounded-lg p-0.5 border border-[#E5E1D8] text-xs">
                   <button
                     type="button"
-                    onClick={() => setPdfZoom((z) => Math.max(50, z - 25))}
-                    className="p-1 text-[#77766E] hover:text-[#25251F] rounded-md transition-colors"
+                    onClick={() =>
+                      setPdfZoom((z) => Math.max(25, (typeof z === 'number' ? z : 50) - 25))
+                    }
+                    className="p-1 text-[#77766E] hover:text-[#25251F] rounded-md transition-colors cursor-pointer"
                     title="Zoom out"
                   >
                     <ZoomOut className="w-3.5 h-3.5" />
                   </button>
                   <span className="px-1 text-[11px] font-mono text-[#77766E] min-w-[38px] text-center">
-                    {pdfZoom}%
+                    {typeof pdfZoom === 'number' ? `${pdfZoom}%` : 'Fit'}
                   </span>
                   <button
                     type="button"
-                    onClick={() => setPdfZoom((z) => Math.min(200, z + 25))}
-                    className="p-1 text-[#77766E] hover:text-[#25251F] rounded-md transition-colors"
+                    onClick={() =>
+                      setPdfZoom((z) => Math.min(200, (typeof z === 'number' ? z : 50) + 25))
+                    }
+                    className="p-1 text-[#77766E] hover:text-[#25251F] rounded-md transition-colors cursor-pointer"
                     title="Zoom in"
                   >
                     <ZoomIn className="w-3.5 h-3.5" />
                   </button>
                   <button
                     type="button"
-                    onClick={() => setPdfZoom(100)}
-                    className="px-1.5 py-0.5 text-[10px] font-medium text-[#77766E] hover:text-[#25251F] rounded hover:bg-[#E5E1D8] transition-colors"
-                    title="Reset Zoom"
+                    onClick={() => setPdfZoom(50)}
+                    className={`px-1.5 py-0.5 text-[10px] font-medium rounded transition-colors cursor-pointer ${
+                      pdfZoom === 50
+                        ? 'bg-[#E8EBE1] text-[#25251F] font-semibold'
+                        : 'text-[#77766E] hover:text-[#25251F] hover:bg-[#E5E1D8]'
+                    }`}
+                    title="Reset to 50%"
                   >
-                    Reset
+                    Reset (50%)
                   </button>
                   <button
                     type="button"
-                    onClick={() => setPdfZoom(125)}
-                    className="px-1.5 py-0.5 text-[10px] font-medium text-[#77766E] hover:text-[#25251F] rounded hover:bg-[#E5E1D8] transition-colors"
-                    title="Fit to width"
+                    onClick={() => setPdfZoom('fit')}
+                    className={`px-1.5 py-0.5 text-[10px] font-medium rounded transition-colors cursor-pointer ${
+                      pdfZoom === 'fit'
+                        ? 'bg-[#E8EBE1] text-[#25251F] font-semibold'
+                        : 'text-[#77766E] hover:text-[#25251F] hover:bg-[#E5E1D8]'
+                    }`}
+                    title="Fit page width"
                   >
                     Fit
                   </button>
@@ -585,8 +603,8 @@ export function ReviewEditor({
                 {/* High-Fidelity PDF Renderer Container */}
                 <div className="flex-1 min-w-0 bg-[#FAF9F5] border border-[#E5E1D8] rounded-xl overflow-hidden flex items-center justify-center relative">
                   <iframe
-                    key={effectivePdfUrl}
-                    src={`${effectivePdfUrl}#page=${currentPage}&zoom=${pdfZoom}`}
+                    key={`${effectivePdfUrl}-p${currentPage}-z${pdfZoom}`}
+                    src={pdfViewerSrc}
                     title="Original PDF Document"
                     className="w-full h-full border-0 rounded-xl"
                   />
