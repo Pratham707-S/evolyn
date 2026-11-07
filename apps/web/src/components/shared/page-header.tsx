@@ -20,7 +20,7 @@ export function PageHeader({
   description,
   actions,
   showNotificationBell = true,
-  showThemeToggle = false,
+  showThemeToggle = true,
   unreadNotificationsCount = 0,
   compact = false,
 }: PageHeaderProps) {
@@ -30,14 +30,14 @@ export function PageHeader({
     <header
       className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
         compact ? 'pb-3 mb-1 shrink-0' : 'pb-6'
-      } border-b border-[#E5E1D8]/70`}
+      } border-b border-[#E5E1D8]/70 dark:border-[#2C2B26]`}
     >
       <div className="flex items-start gap-3">
         {/* Mobile menu trigger */}
         <button
           type="button"
           onClick={openMobileSidebar}
-          className="lg:hidden mt-1 p-1.5 rounded-lg border border-[#E5E1D8] text-[#25251F] hover:bg-[#F1EFE8] transition-colors"
+          className="lg:hidden mt-1 p-1.5 rounded-lg border border-[#E5E1D8] dark:border-[#2C2B26] text-[#25251F] dark:text-[#F7F5F0] hover:bg-[#F1EFE8] dark:hover:bg-[#262520] transition-colors"
           aria-label="Open sidebar navigation"
         >
           <Menu className="w-5 h-5" />
@@ -47,7 +47,7 @@ export function PageHeader({
           <h1
             className={`font-serif ${
               compact ? 'text-2xl sm:text-[26px]' : 'text-3xl sm:text-[34px]'
-            } font-normal tracking-tight text-[#25251F] leading-tight`}
+            } font-normal tracking-tight text-[#25251F] dark:text-[#F7F5F0] leading-tight`}
           >
             {title}
           </h1>
@@ -55,7 +55,7 @@ export function PageHeader({
             <p
               className={`${
                 compact ? 'text-xs' : 'text-xs sm:text-sm'
-              } text-[#77766E] mt-0.5 font-sans`}
+              } text-[#77766E] dark:text-[#A09D92] mt-0.5 font-sans`}
             >
               {description}
             </p>
@@ -70,10 +70,10 @@ export function PageHeader({
           <button
             type="button"
             onClick={() => showToast('No new notifications')}
-            className="relative w-9 h-9 rounded-lg border border-[#E5E1D8] bg-[#FFFEFA] flex items-center justify-center text-[#25251F] hover:bg-[#F1EFE8] transition-colors shadow-xs"
+            className="relative w-9 h-9 rounded-lg border border-[#E5E1D8] dark:border-[#2C2B26] bg-[#FFFEFA] dark:bg-[#1E1D19] flex items-center justify-center text-[#25251F] dark:text-[#F7F5F0] hover:bg-[#F1EFE8] dark:hover:bg-[#262520] transition-colors shadow-xs"
             aria-label="Notifications"
           >
-            <Bell className="w-4 h-4 text-[#25251F]" />
+            <Bell className="w-4 h-4 text-[#25251F] dark:text-[#F7F5F0]" />
             {unreadNotificationsCount > 0 && (
               <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#B56E63]" />
             )}

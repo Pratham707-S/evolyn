@@ -47,7 +47,7 @@ export function ThemeToggle({ className, variant = 'button' }: ThemeToggleProps)
       type="button"
       onClick={toggleTheme}
       className={cn(
-        'w-9 h-9 rounded-lg border border-[#E5E1D8] bg-[#FFFEFA] flex items-center justify-center text-[#25251F] hover:bg-[#F1EFE8] transition-all shadow-xs cursor-pointer select-none active:scale-95 group',
+        'w-9 h-9 rounded-lg border border-[#E5E1D8] dark:border-[#2C2B26] bg-[#FFFEFA] dark:bg-[#1E1D19] flex items-center justify-center text-[#25251F] dark:text-[#F7F5F0] hover:bg-[#F1EFE8] dark:hover:bg-[#262520] transition-all shadow-xs cursor-pointer select-none active:scale-95 group shrink-0',
         className
       )}
       aria-label={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
