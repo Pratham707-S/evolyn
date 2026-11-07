@@ -27,6 +27,7 @@ import {
   brandGovernanceFindingSchema,
   brandGovernanceEvaluationResponseSchema,
   brandGovernanceEvaluateRequestSchema,
+  brandGovernanceContextSchema,
 } from './schemas.js';
 
 export type GuidelineCategory = z.infer<typeof guidelineCategorySchema>;
@@ -143,3 +144,4 @@ export type UpdateGuidelineInput = z.infer<typeof updateGuidelineSchema>;
 export type BrandGovernanceFinding = z.infer<typeof brandGovernanceFindingSchema>;
 export type BrandGovernanceEvaluation = z.infer<typeof brandGovernanceEvaluationResponseSchema>;
 export type BrandGovernanceEvaluateRequest = z.infer<typeof brandGovernanceEvaluateRequestSchema>;
+export type BrandGovernanceContext = z.infer<typeof brandGovernanceContextSchema>;

@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Bell, Check, Menu } from 'lucide-react';
 import { AppShell, useAppShell } from '@/components/layout/app-shell';
 import { apiClient } from '@/lib/api/client';
-import type { BrandSetup } from '@evolyn/shared';
+import type { BrandSetup, BrandGovernanceContext } from '@evolyn/shared';
+import { SetupStepperBanner } from '@/components/shared/setup-stepper-banner';
 import {
   BrandSetupStepper,
   StepItem,
@@ -48,6 +50,7 @@ const STEPS: StepItem[] = [
 ];
 
 function BrandSetupContent() {
+  const router = useRouter();
   const { openMobileSidebar, showToast } = useAppShell();
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -190,6 +193,26 @@ function BrandSetupContent() {
           ? `Brand Setup published and synced with Brand Governance AI.`
           : `Brand Setup draft persisted to database.`
       );
+
+      if (isPublish) {
+        try {
+          const ctx = await apiClient.get<BrandGovernanceContext>('/api/brand-governance/context');
+          const isGuidelinesDone = Boolean(ctx.rules && ctx.rules.length > 0);
+          const isKnowledgeDone = Boolean(ctx.facts && ctx.facts.length > 0);
+
+          setTimeout(() => {
+            if (!isGuidelinesDone) {
+              router.push('/guidelines');
+            } else if (!isKnowledgeDone) {
+              router.push('/knowledge-library');
+            } else {
+              router.push('/reviews');
+            }
+          }, 600);
+        } catch {
+          setTimeout(() => router.push('/guidelines'), 600);
+        }
+      }
     } catch (err) {
       console.error('Failed to persist brand setup:', err);
       showToast(
@@ -266,6 +289,9 @@ function BrandSetupContent() {
           </button>
         </div>
       </div>
+
+      {/* Governance Stepper Banner */}
+      <SetupStepperBanner currentModule="brand-setup" />
 
       {/* 2. Stepper Wizard */}
       <BrandSetupStepper

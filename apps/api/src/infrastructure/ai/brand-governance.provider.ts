@@ -47,6 +47,13 @@ export interface BrandGovernanceContext {
     claimStatement: string;
     approvedProofSource: string;
   }>;
+  setupProgress?: {
+    isBrandSetupComplete: boolean;
+    isGuidelinesComplete: boolean;
+    isKnowledgeLibraryComplete: boolean;
+    isFullyConfigured: boolean;
+    nextIncompleteStep: 'brand-setup' | 'guidelines' | 'knowledge-library' | 'ready';
+  };
 }
 
 export interface BrandGovernanceEvaluateParams {
@@ -184,30 +191,60 @@ Audit this content against the brand setup, rules, and verified facts. Return st
       },
     };
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
-      this.model
-    )}:generateContent`;
+    const candidateModels = [
+      this.model,
+      'gemini-flash-lite-latest',
+      'gemini-2.5-flash',
+    ].filter((m, idx, arr) => arr.indexOf(m) === idx);
 
-    const response = await this.fetcher(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': this.apiKey,
-      },
-      body: JSON.stringify(requestBody),
-    });
+    let response: Response | null = null;
+    let lastError = '';
 
-    if (!response.ok) {
-      let errorBody = '';
+    for (const modelToTry of candidateModels) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+        modelToTry
+      )}:generateContent`;
+
       try {
-        errorBody = await response.text();
-      } catch {
-        // ignore
+        const res = await this.fetcher(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': this.apiKey,
+          },
+          body: JSON.stringify(requestBody),
+        });
+
+        if (res.ok) {
+          response = res;
+          break;
+        }
+
+        let errorBody = '';
+        try {
+          errorBody = await res.text();
+        } catch {
+          // ignore
+        }
+        lastError = errorBody.replace(this.apiKey, '[REDACTED_API_KEY]');
+
+        // If client error or authentication issue, model fallback won't help
+        if (res.status === 401 || res.status === 403 || res.status === 400) {
+          throw new Error(
+            `Brand Governance AI Gemini request failed with HTTP ${res.status}: ${lastError}`
+          );
+        }
+      } catch (err: any) {
+        if (err.message && err.message.includes('Brand Governance AI Gemini request failed')) {
+          throw err;
+        }
+        lastError = String(err?.message || err);
       }
-      // Never expose the API key in error messages
-      const safeError = errorBody.replace(this.apiKey, '[REDACTED_API_KEY]');
+    }
+
+    if (!response) {
       throw new Error(
-        `Brand Governance AI Gemini request failed with HTTP ${response.status}: ${safeError}`
+        `Brand Governance AI Gemini request failed across models: ${lastError}`
       );
     }
 
@@ -239,9 +276,20 @@ Audit this content against the brand setup, rules, and verified facts. Return st
       }
     }
 
-    // Enforce requiresHumanApproval and timestamp
+    // Enforce requiresHumanApproval, timestamp, and robust finding defaults
+    const rawRecord = (parsedJson as Record<string, unknown>) || {};
+    const rawFindings = Array.isArray(rawRecord.findings) ? rawRecord.findings : [];
+    const formattedFindings = rawFindings.map((f: any, idx: number) => ({
+      ...f,
+      id: f.id || `bg-finding-${idx + 1}`,
+      statement: String(f.statement || f.excerpt || f.text || '').trim(),
+      sourceEvidence: String(f.sourceEvidence || f.evidence || f.proof || 'Verified brand governance context').trim(),
+      suggestedImprovement: String(f.suggestedImprovement || f.suggestion || f.fix || '').trim(),
+    }));
+
     const payload = {
-      ...(parsedJson as Record<string, unknown>),
+      ...rawRecord,
+      findings: formattedFindings,
       requiresHumanApproval: true,
       evaluatedAt: new Date().toISOString(),
     };

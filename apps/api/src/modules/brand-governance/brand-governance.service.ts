@@ -45,13 +45,15 @@ export class BrandGovernanceService implements IBrandGovernanceService {
     const setupRecord = await this.brandSetupRepo.findActiveSetup();
     const brandSetup = setupRecord || DEFAULT_BRAND_SETUP;
 
-    // 2. Guidelines rules from live database
+    // 2. Guidelines rules from live database (bounded to top active rules)
     const rules: BrandGovernanceContext['rules'] = [];
     try {
       const allGuidelines = await this.guidelinesRepo.findMany();
       for (const g of allGuidelines) {
+        if (rules.length >= 30) break;
         const gRules = await this.guidelinesRepo.findRulesByGuidelineId(g.id);
         for (const r of gRules) {
+          if (rules.length >= 30) break;
           rules.push({
             id: r.id,
             ruleType: r.ruleType,
@@ -65,11 +67,12 @@ export class BrandGovernanceService implements IBrandGovernanceService {
       // Offline fallback: keep rules empty
     }
 
-    // 3. Approved facts from live database
+    // 3. Approved facts from live database (bounded to top verified facts)
     const facts: BrandGovernanceContext['facts'] = [];
     try {
       const allFacts = await this.knowledgeRepo.findMany();
       for (const f of allFacts) {
+        if (facts.length >= 25) break;
         facts.push({
           id: f.id,
           topic: f.topic,
@@ -79,6 +82,27 @@ export class BrandGovernanceService implements IBrandGovernanceService {
       }
     } catch {
       // Offline fallback: keep facts empty
+    }
+
+    const isBrandSetupComplete = Boolean(
+      setupRecord && setupRecord.brandName && setupRecord.brandName.trim()
+    );
+    const isGuidelinesComplete = rules.length > 0;
+    const isKnowledgeLibraryComplete = facts.length > 0;
+    const isFullyConfigured =
+      isBrandSetupComplete && isGuidelinesComplete && isKnowledgeLibraryComplete;
+
+    let nextIncompleteStep:
+      | 'brand-setup'
+      | 'guidelines'
+      | 'knowledge-library'
+      | 'ready' = 'ready';
+    if (!isBrandSetupComplete) {
+      nextIncompleteStep = 'brand-setup';
+    } else if (!isGuidelinesComplete) {
+      nextIncompleteStep = 'guidelines';
+    } else if (!isKnowledgeLibraryComplete) {
+      nextIncompleteStep = 'knowledge-library';
     }
 
     return {
@@ -91,6 +115,13 @@ export class BrandGovernanceService implements IBrandGovernanceService {
       },
       rules,
       facts,
+      setupProgress: {
+        isBrandSetupComplete,
+        isGuidelinesComplete,
+        isKnowledgeLibraryComplete,
+        isFullyConfigured,
+        nextIncompleteStep,
+      },
     };
   }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   AlertTriangle,
   AlertCircle,
@@ -16,11 +16,15 @@ import {
   Scale,
   Loader2,
   RotateCcw,
+  ShieldCheck,
+  ShieldAlert,
+  Info,
 } from 'lucide-react';
-import type { DetectedIssue } from '@evolyn/shared';
+import type { DetectedIssue, BrandGovernanceEvaluation } from '@evolyn/shared';
 
 export interface ReviewAiPanelProps {
   issues?: DetectedIssue[];
+  governanceEvaluation?: BrandGovernanceEvaluation | null;
   selectedFindingId?: string | null;
   onSelectFinding?: (findingId: string, excerpt?: string) => void;
   onAcceptFinding?: (issue: DetectedIssue) => void;
@@ -37,6 +41,7 @@ type FilterCategory = 'ALL' | 'GRAMMAR' | 'BRAND' | 'EVIDENCE' | 'RECO';
 
 export function ReviewAiPanel({
   issues = [],
+  governanceEvaluation = null,
   selectedFindingId,
   onSelectFinding,
   onAcceptFinding,
@@ -58,7 +63,38 @@ export function ReviewAiPanel({
     }));
   };
 
-  const safeIssues = Array.isArray(issues) ? issues.filter(Boolean) : [];
+  // Merge Brand Governance findings if available
+  const combinedIssues = useMemo(() => {
+    const list: DetectedIssue[] = [...(Array.isArray(issues) ? issues.filter(Boolean) : [])];
+
+    if (governanceEvaluation?.findings && governanceEvaluation.findings.length > 0) {
+      const existingExcerpts = new Set(list.map((i) => i.flaggedExcerpt?.toLowerCase()));
+      for (const [idx, f] of governanceEvaluation.findings.entries()) {
+        if (!existingExcerpts.has(f.statement?.toLowerCase())) {
+          list.push({
+            id: f.id || `bg-${idx}`,
+            reviewRunId: 'brand-gov',
+            issueType:
+              f.category === 'BRAND_VOICE'
+                ? 'TONE_MISMATCH'
+                : f.category === 'FACT_VERIFICATION'
+                ? 'UNSUBSTANTIATED_CLAIM'
+                : 'PROHIBITED_PHRASE',
+            flaggedExcerpt: f.statement,
+            explanation: f.explanation || f.statement,
+            suggestedFix: f.suggestedImprovement,
+            sourceQuote: f.sourceEvidence,
+            confidenceScore: 0.95,
+            evidenceStrengthScore: f.category === 'FACT_VERIFICATION' ? 0.9 : 0.8,
+            status: 'OPEN',
+          });
+        }
+      }
+    }
+    return list;
+  }, [issues, governanceEvaluation]);
+
+  const safeIssues = combinedIssues;
 
   const getIssueCategory = (issueType?: string): FilterCategory => {
     const t = (issueType || '').toUpperCase();
@@ -92,16 +128,80 @@ export function ReviewAiPanel({
     <div className="flex flex-col h-full overflow-hidden select-none">
       {/* 1. Header */}
       <div className="mb-2 shrink-0">
-        <h3 className="text-sm font-semibold text-[#25251F] leading-tight flex items-center justify-between">
-          <span>AI Findings & Suggestions</span>
-          <span className="text-[11px] font-mono text-[#68745D] bg-[#E8EBE1] px-1.5 py-0.5 rounded-full">
+        <h3 className="text-sm font-semibold text-[#25251F] dark:text-[#F7F5F0] leading-tight flex items-center justify-between">
+          <span>Brand Governance AI Audit</span>
+          <span className="text-[11px] font-mono text-[#68745D] dark:text-[#86EFAC] bg-[#E8EBE1] dark:bg-[#1A261C] px-1.5 py-0.5 rounded-full">
             {safeIssues.length} active
           </span>
         </h3>
-        <p className="text-[11px] text-[#77766E] mt-0.5">
+        <p className="text-[11px] text-[#77766E] dark:text-[#A09D92] mt-0.5">
           Grounded anti-hallucination citations and brand rule checks.
         </p>
       </div>
+
+      {/* Brand Governance Decision & 4-Pillar Score Dashboard */}
+      {governanceEvaluation && (
+        <div className="mb-2.5 p-2.5 rounded-xl border border-[#E5E1D8] dark:border-[#2C2B26] bg-[#FFFEFA] dark:bg-[#1C1B17] shadow-2xs space-y-2">
+          {/* Decision Pill */}
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#77766E] dark:text-[#A09D92]">
+              AI Decision
+            </span>
+            <span
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                governanceEvaluation.governanceDecision === 'COMPLIANT'
+                  ? 'bg-[#EEF4EE] dark:bg-[#162719] text-[#2F6139] dark:text-[#86EFAC] border-[#C2D6C5] dark:border-[#274E2E]'
+                  : governanceEvaluation.governanceDecision === 'NEEDS_REVISION'
+                  ? 'bg-[#FAF5EA] dark:bg-[#2B2313] text-[#8C5D19] dark:text-[#FDE047] border-[#ECDAB8] dark:border-[#523F1C]'
+                  : 'bg-[#FDF2F2] dark:bg-[#331818] text-[#B91C1C] dark:text-[#FCA5A5] border-[#FECACA] dark:border-[#572222]'
+              }`}
+            >
+              {governanceEvaluation.governanceDecision.replace('_', ' ')}
+            </span>
+          </div>
+
+          {/* 4 Score Metrics */}
+          <div className="grid grid-cols-4 gap-1 text-center">
+            <div className="p-1 rounded-lg bg-[#FAF9F5] dark:bg-[#25241F] border border-[#E5E1D8]/60 dark:border-[#2C2B26]">
+              <div className="text-[9px] text-[#77766E] dark:text-[#A09D92] truncate">Overall</div>
+              <div className="text-xs font-bold text-[#25251F] dark:text-[#F7F5F0]">
+                {governanceEvaluation.overallGovernanceScore}%
+              </div>
+            </div>
+            <div className="p-1 rounded-lg bg-[#FAF9F5] dark:bg-[#25241F] border border-[#E5E1D8]/60 dark:border-[#2C2B26]">
+              <div className="text-[9px] text-[#77766E] dark:text-[#A09D92] truncate">Voice</div>
+              <div className="text-xs font-bold text-[#25251F] dark:text-[#F7F5F0]">
+                {governanceEvaluation.brandVoiceScore}%
+              </div>
+            </div>
+            <div className="p-1 rounded-lg bg-[#FAF9F5] dark:bg-[#25241F] border border-[#E5E1D8]/60 dark:border-[#2C2B26]">
+              <div className="text-[9px] text-[#77766E] dark:text-[#A09D92] truncate">Rules</div>
+              <div className="text-xs font-bold text-[#25251F] dark:text-[#F7F5F0]">
+                {governanceEvaluation.rulesComplianceScore}%
+              </div>
+            </div>
+            <div className="p-1 rounded-lg bg-[#FAF9F5] dark:bg-[#25241F] border border-[#E5E1D8]/60 dark:border-[#2C2B26]">
+              <div className="text-[9px] text-[#77766E] dark:text-[#A09D92] truncate">Facts</div>
+              <div className="text-xs font-bold text-[#25251F] dark:text-[#F7F5F0]">
+                {governanceEvaluation.factGroundingScore}%
+              </div>
+            </div>
+          </div>
+
+          {/* Summary */}
+          {governanceEvaluation.summary && (
+            <p className="text-[10px] text-[#55544D] dark:text-[#C5C2BA] leading-tight italic bg-[#F7F5F0] dark:bg-[#24231E] p-1.5 rounded-lg border border-[#E5E1D8]/40 dark:border-[#2C2B26]">
+              &ldquo;{governanceEvaluation.summary}&rdquo;
+            </p>
+          )}
+
+          {/* Human Decision Notice */}
+          <div className="flex items-center gap-1 text-[9px] font-medium text-[#77766E] dark:text-[#A09D92]">
+            <Info className="w-3 h-3 text-[#68745D] shrink-0" />
+            <span>Human Review Required — AI does not auto-publish.</span>
+          </div>
+        </div>
+      )}
 
       {/* 2. Filter Tabs */}
       <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 mb-2.5 shrink-0 max-w-full">

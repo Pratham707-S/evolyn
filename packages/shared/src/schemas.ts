@@ -209,11 +209,73 @@ export const updateGuidelineSchema = z.object({
 // Dedicated Brand Governance AI Schemas
 // ----------------------------------------
 export const brandGovernanceFindingSchema = z.object({
+  id: z.string().optional(),
   category: z.enum(['BRAND_VOICE', 'BRAND_RULE', 'FACT_VERIFICATION']),
   severity: z.enum(['CRITICAL', 'WARNING', 'SUGGESTION']),
   statement: z.string().min(1),
   sourceEvidence: z.string().min(1),
   suggestedImprovement: z.string().min(1),
+  explanation: z.string().optional(),
+  relatedRule: z.string().optional(),
+});
+
+export const brandGovernanceContextSchema = z.object({
+  brandSetup: z
+    .object({
+      brandName: z.string(),
+      description: z.string().optional(),
+      industry: z.string().optional(),
+      voiceTone: z
+        .object({
+          formality: z.number().optional(),
+          boldness: z.number().optional(),
+          accessibility: z.number().optional(),
+          toneDescriptors: z.array(z.string()).optional(),
+          dos: z.array(z.string()).optional(),
+          donts: z.array(z.string()).optional(),
+        })
+        .optional(),
+      governance: z
+        .object({
+          minComplianceScore: z.number().optional(),
+          requireEvidence: z.boolean().optional(),
+          blockCompetitors: z.boolean().optional(),
+          brandGuardianEmail: z.string().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
+  rules: z.array(
+    z.object({
+      id: z.string(),
+      ruleType: z.string(),
+      ruleStatement: z.string(),
+      severity: z.string(),
+      explanation: z.string().optional(),
+    })
+  ),
+  facts: z.array(
+    z.object({
+      id: z.string(),
+      topic: z.string(),
+      claimStatement: z.string(),
+      approvedProofSource: z.string(),
+    })
+  ),
+  setupProgress: z
+    .object({
+      isBrandSetupComplete: z.boolean(),
+      isGuidelinesComplete: z.boolean(),
+      isKnowledgeLibraryComplete: z.boolean(),
+      isFullyConfigured: z.boolean(),
+      nextIncompleteStep: z.enum([
+        'brand-setup',
+        'guidelines',
+        'knowledge-library',
+        'ready',
+      ]),
+    })
+    .optional(),
 });
 
 export const brandGovernanceEvaluationResponseSchema = z.object({

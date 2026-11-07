@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Bell, Download, Plus, Menu, RefreshCw } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { AppShell, useAppShell } from '@/components/layout/app-shell';
+import { SetupStepperBanner } from '@/components/shared/setup-stepper-banner';
 import {
   INITIAL_CATEGORIES,
   INITIAL_GUIDELINES,
@@ -24,6 +26,7 @@ import {
 } from '@/features/guidelines';
 
 function GuidelinesContent() {
+  const router = useRouter();
   const { openMobileSidebar, showToast } = useAppShell();
 
   // Categories & Guidelines state
@@ -298,6 +301,9 @@ function GuidelinesContent() {
           </button>
         </div>
       </div>
+
+      {/* Governance Stepper Banner */}
+      <SetupStepperBanner currentModule="guidelines" />
 
       {/* 2. Horizontal Category Pills (Quick-filter) */}
       <CategoryPills

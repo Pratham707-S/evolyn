@@ -2,13 +2,30 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Plus, Edit3, Sparkles, Wand2, Loader2, AlertCircle, AlertTriangle, X } from 'lucide-react';
+import {
+  Plus,
+  Edit3,
+  Sparkles,
+  Wand2,
+  Loader2,
+  AlertCircle,
+  AlertTriangle,
+  X,
+  CheckCircle2,
+  XCircle,
+  ShieldCheck,
+} from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AppShell, useAppShell } from '@/components/layout/app-shell';
 import { PageHeader } from '@/components/shared/page-header';
 import { useLanguage } from '@/lib/i18n/language-context';
 import { apiClient } from '@/lib/api/client';
-import type { DetectedIssue, ContentSubmission, ReviewRun } from '@evolyn/shared';
+import type {
+  DetectedIssue,
+  ContentSubmission,
+  ReviewRun,
+  BrandGovernanceEvaluation,
+} from '@evolyn/shared';
 import {
   ReviewSidebarTools,
   ReviewEditor,
@@ -215,6 +232,81 @@ function ReviewWorkspaceInner() {
   });
 
   // 3b. Trigger Fresh AI Governance Audit
+  const [governanceEvaluation, setGovernanceEvaluation] = useState<BrandGovernanceEvaluation | null>(null);
+
+  const brandGovMutation = useMutation({
+    mutationFn: async (textToAudit?: string) => {
+      const text = textToAudit || currentContent || reviewData?.submission?.rawText;
+      if (!text || !text.trim()) {
+        throw new Error('No content available to evaluate');
+      }
+      return apiClient.post<BrandGovernanceEvaluation>(
+        '/api/brand-governance/evaluate',
+        { content: text },
+        { timeoutMs: 60000 }
+      );
+    },
+    onSuccess: (data) => {
+      setGovernanceEvaluation(data);
+      showToast(
+        `Brand Governance AI: ${data.governanceDecision} (${data.overallGovernanceScore}% score).`
+      );
+    },
+    onError: (err: any) => {
+      console.warn('Brand governance AI evaluation notice:', err);
+    },
+  });
+
+  // Human Reviewer Decision Mutation (persists in PostgreSQL decisions table)
+  const [isDecisionModalOpen, setIsDecisionModalOpen] = useState(false);
+  const [decisionModalType, setDecisionModalType] = useState<
+    'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED'
+  >('APPROVED');
+  const [decisionComment, setDecisionComment] = useState('');
+
+  const humanDecisionMutation = useMutation({
+    mutationFn: async ({
+      decision,
+      comments,
+    }: {
+      decision: 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
+      comments: string;
+    }) => {
+      const subId = reviewData?.submission?.id;
+      if (!subId) throw new Error('No active submission to record decision for.');
+
+      return apiClient.post<{ decision: any }>(
+        `/api/submissions/${subId}/decision`,
+        {
+          submissionId: subId,
+          decision,
+          reviewerName: 'Chief Brand Guardian',
+          comments: comments || `Recorded as ${decision} via Review Workspace`,
+        }
+      );
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['review'] });
+      queryClient.invalidateQueries({ queryKey: ['submissions'] });
+      queryClient.invalidateQueries({ queryKey: ['approvals'] });
+      setIsDecisionModalOpen(false);
+
+      if (vars.decision === 'APPROVED') {
+        showToast('Approved & Signed Off! Redirecting to Decision History...');
+        setTimeout(() => router.push('/decision-history'), 600);
+      } else if (vars.decision === 'REJECTED') {
+        showToast('Submission Rejected. Redirecting to Decision History...');
+        setTimeout(() => router.push('/decision-history'), 600);
+      } else {
+        showToast('Changes Requested! Revisions flagged in editor.');
+        refetch();
+      }
+    },
+    onError: (err: any) => {
+      showToast(`Decision error: ${err.message || 'Could not persist decision'}`);
+    },
+  });
+
   const analyzeMutation = useMutation({
     mutationFn: async () => {
       const subId = reviewData?.submission?.id;
@@ -238,6 +330,7 @@ function ReviewWorkspaceInner() {
     onSuccess: (data) => {
       showToast(`AI Governance audit completed: ${data.issues?.length || 0} issues detected.`);
       refetch();
+      brandGovMutation.mutate();
     },
     onError: (err: any) => {
       showToast(`Audit failed: ${err.message || 'Server error'}`);
@@ -392,14 +485,55 @@ function ReviewWorkspaceInner() {
         unreadNotificationsCount={1}
         compact={true}
         actions={
-          <button
-            type="button"
-            onClick={openNewSubmission}
-            className="bg-[#25251F] hover:bg-[#383832] text-white px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>New Review</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setDecisionModalType('APPROVED');
+                setIsDecisionModalOpen(true);
+              }}
+              className="bg-[#2D5A3A] hover:bg-[#23472E] text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+              title="Sign off and approve this submission"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Approve</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setDecisionModalType('CHANGES_REQUESTED');
+                setIsDecisionModalOpen(true);
+              }}
+              className="bg-[#8A5B28] hover:bg-[#6E481F] text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+              title="Request revisions from author"
+            >
+              <AlertTriangle className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Request Changes</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setDecisionModalType('REJECTED');
+                setIsDecisionModalOpen(true);
+              }}
+              className="bg-[#8B2626] hover:bg-[#6D1E1E] text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+              title="Reject this submission"
+            >
+              <XCircle className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Reject</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={openNewSubmission}
+              className="bg-[#25251F] hover:bg-[#383832] dark:bg-[#F7F5F0] dark:hover:bg-[#EAE6DF] text-white dark:text-[#18181B] px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">New Review</span>
+            </button>
+          </div>
         }
       />
 
@@ -553,15 +687,26 @@ function ReviewWorkspaceInner() {
         >
           <ReviewAiPanel
             issues={issues}
+            governanceEvaluation={governanceEvaluation}
             selectedFindingId={selectedFindingId}
             onSelectFinding={handleSelectFinding}
             onAcceptFinding={handleAcceptFinding}
             onDismissFinding={handleDismissFinding}
-            onRunAudit={() => analyzeMutation.mutate()}
-            isAuditing={analyzeMutation.isPending}
-            auditError={analyzeMutation.error?.message || null}
-            hasReviewRun={Boolean(reviewData?.reviewRun)}
-            complianceScore={reviewData?.reviewRun?.overallComplianceScore}
+            onRunAudit={() => {
+              analyzeMutation.mutate();
+              brandGovMutation.mutate();
+            }}
+            isAuditing={analyzeMutation.isPending || brandGovMutation.isPending}
+            auditError={
+              analyzeMutation.error?.message ||
+              (brandGovMutation.error as any)?.message ||
+              null
+            }
+            hasReviewRun={Boolean(reviewData?.reviewRun || governanceEvaluation)}
+            complianceScore={
+              governanceEvaluation?.overallGovernanceScore ??
+              reviewData?.reviewRun?.overallComplianceScore
+            }
             showToast={showToast}
           />
         </div>
@@ -577,6 +722,75 @@ function ReviewWorkspaceInner() {
         rulesApplied={rewriteModalData.rulesApplied}
         onAccept={handleApplyRewrite}
       />
+
+      {/* 5. Human Reviewer Decision Modal (Persists in PostgreSQL) */}
+      {isDecisionModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-[#FFFEFA] dark:bg-[#1E1D19] border border-[#E5E1D8] dark:border-[#2C2B26] rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-serif text-lg font-semibold text-[#25251F] dark:text-[#F7F5F0] flex items-center gap-2">
+                {decisionModalType === 'APPROVED' ? (
+                  <CheckCircle2 className="w-5 h-5 text-[#2D5A3A]" />
+                ) : decisionModalType === 'REJECTED' ? (
+                  <XCircle className="w-5 h-5 text-[#8B2626]" />
+                ) : (
+                  <AlertTriangle className="w-5 h-5 text-[#8A5B28]" />
+                )}
+                <span>Record Decision: {decisionModalType.replace('_', ' ')}</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsDecisionModalOpen(false)}
+                className="p-1 rounded-lg text-[#77766E] hover:text-[#25251F] dark:hover:text-[#F7F5F0] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-[#77766E] dark:text-[#A09D92]">
+              This human review decision will be immutably recorded in the PostgreSQL audit trail alongside timestamps and review metrics.
+            </p>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-[#25251F] dark:text-[#F7F5F0]">
+                Reviewer Rationale & Notes:
+              </label>
+              <textarea
+                value={decisionComment}
+                onChange={(e) => setDecisionComment(e.target.value)}
+                placeholder="Enter audit rationale, requested changes, or approval verification..."
+                className="w-full h-24 p-2.5 text-xs rounded-xl border border-[#E5E1D8] dark:border-[#2C2B26] bg-[#FAF9F5] dark:bg-[#161512] text-[#25251F] dark:text-[#F7F5F0] focus:outline-none focus:ring-1 focus:ring-[#68745D]"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsDecisionModalOpen(false)}
+                className="px-3 py-1.5 rounded-lg border border-[#E5E1D8] dark:border-[#2C2B26] text-xs font-medium text-[#77766E] hover:text-[#25251F] cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={humanDecisionMutation.isPending}
+                onClick={() =>
+                  humanDecisionMutation.mutate({
+                    decision: decisionModalType,
+                    comments: decisionComment,
+                  })
+                }
+                className="px-4 py-1.5 rounded-lg bg-[#25251F] hover:bg-[#383832] dark:bg-[#F7F5F0] dark:hover:bg-[#EAE6DF] text-white dark:text-[#18181B] text-xs font-semibold flex items-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer"
+              >
+                {humanDecisionMutation.isPending && (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                )}
+                <span>Confirm & Sign Off</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

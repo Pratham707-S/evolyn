@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { Download, Plus, Layers, Eye } from 'lucide-react';
 import { AppShell, useAppShell } from '@/components/layout/app-shell';
 import { PageHeader } from '@/components/shared/page-header';
+import { SetupStepperBanner } from '@/components/shared/setup-stepper-banner';
 import { Button } from '@/components/ui/button';
 import {
   KnowledgeCategoryId,
@@ -168,6 +170,9 @@ export default function KnowledgeLibraryPage() {
             </>
           }
         />
+
+        {/* Governance Setup Stepper Banner */}
+        <SetupStepperBanner currentModule="knowledge-library" />
 
         {/* Top Metric & Category Cards Bar */}
         <div className="shrink-0">
