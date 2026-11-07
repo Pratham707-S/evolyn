@@ -6,8 +6,14 @@ export function generateSimplePdf(title: string, text: string): Buffer {
       .replace(/\(/g, '\\(')
       .replace(/\)/g, '\\)');
 
-  const cleanText = text || 'No document content available.';
-  const rawLines = cleanText.split('\n');
+  // Clean raw extraction noise
+  const cleanedText = (text || 'No document content available.')
+    .replace(/^.*\|\s*[A-Z\s]+Page\s*\d+.*$/gim, '')
+    .replace(/^Page\s*\d+\s*Reference.*$/gim, '')
+    .replace(/---\s*Page\s*\d+.*---/gi, '')
+    .trim();
+
+  const rawLines = cleanedText.split('\n');
   const formattedLines: string[] = [];
 
   for (const rawLine of rawLines) {
@@ -16,19 +22,24 @@ export function generateSimplePdf(title: string, text: string): Buffer {
       formattedLines.push('');
       continue;
     }
-    // Simple line wrapping at 80 characters
-    if (trimmed.length > 80) {
+    // Sentence wrapping at 82 characters
+    if (trimmed.length > 82) {
       let remaining = trimmed;
       while (remaining.length > 0) {
-        formattedLines.push(remaining.substring(0, 80));
-        remaining = remaining.substring(80);
+        let splitIdx = 82;
+        if (remaining.length > 82) {
+          const spaceIdx = remaining.lastIndexOf(' ', 82);
+          if (spaceIdx > 50) splitIdx = spaceIdx;
+        }
+        formattedLines.push(remaining.substring(0, splitIdx).trim());
+        remaining = remaining.substring(splitIdx).trim();
       }
     } else {
       formattedLines.push(trimmed);
     }
   }
 
-  const maxLinesPerPage = 38;
+  const maxLinesPerPage = 36;
   const chunks: string[][] = [];
   for (let i = 0; i < formattedLines.length; i += maxLinesPerPage) {
     chunks.push(formattedLines.slice(i, i + maxLinesPerPage));
@@ -69,7 +80,7 @@ export function generateSimplePdf(title: string, text: string): Buffer {
 
     // Stream content
     let stream = 'BT\n/F2 13 Tf\n50 740 Td\n(' + sanitize(title) + ') Tj\nET\n';
-    stream += 'BT\n/F1 10 Tf\n50 715 Td\n15 TL\n';
+    stream += 'BT\n/F1 9.5 Tf\n50 714 Td\n15 TL\n';
     for (const line of chunk) {
       if (line) {
         stream += '(' + sanitize(line) + ") '\n";
@@ -78,6 +89,10 @@ export function generateSimplePdf(title: string, text: string): Buffer {
       }
     }
     stream += 'ET\n';
+
+    // Footer with dynamic Page X of Y
+    const footerText = `Evolyn Brand Governance  |  Page ${i + 1} of ${chunks.length}`;
+    stream += 'BT\n/F1 8 Tf\n50 38 Td\n(' + sanitize(footerText) + ') Tj\nET\n';
 
     offsets[contentNum] = output.length;
     output += `${contentNum} 0 obj\n<< /Length ${Buffer.byteLength(stream, 'utf8')} >>\nstream\n${stream}endstream\nendobj\n`;

@@ -81,3 +81,4 @@ export const PDF_THEMES: PdfTheme[] = [
     swatchColors: ['#FDFBF7', '#C25E43', '#D97706'],
   },
 ];
+

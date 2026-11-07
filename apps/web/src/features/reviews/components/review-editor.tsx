@@ -35,6 +35,7 @@ import {
 import { Button } from '../../../components/ui/button';
 import { getApiBaseUrl } from '@/lib/api/client';
 import { ExportPdfModal } from './export-pdf-modal';
+import { cleanAndFormatPdfToHtml } from '../utils/format-document-text';
 
 export interface ReviewEditorProps {
   initialTitle?: string;
@@ -48,84 +49,6 @@ export interface ReviewEditorProps {
   onContentChange?: (content: string) => void;
   showToast: (msg: string) => void;
   isSaving?: boolean;
-}
-
-function cleanAndFormatPdfToHtml(raw: string): string {
-  if (!raw) return '<p>Loading document content...</p>';
-  if (
-    raw.includes('<p>') ||
-    raw.includes('<h1>') ||
-    raw.includes('<h2>') ||
-    raw.includes('<h3>') ||
-    raw.includes('<ul>') ||
-    raw.includes('<ol>') ||
-    raw.includes('<div>')
-  ) {
-    return raw;
-  }
-
-  // 1. Strip raw delimiter noise and convert page markers into structured tags
-  const cleaned = raw
-    .replace(/\f/g, '\n\n')
-    .replace(/---\s*Page\s*(\d+)(?:\s*of\s*\d+)?\s*---/gi, '\n\n[PAGE_BREAK_$1]\n\n')
-    .replace(/--\s*Page\s*(\d+)\s*--/gi, '\n\n[PAGE_BREAK_$1]\n\n')
-    .replace(/--\s*(\d+)\s*of\s*(\d+)\s*--/gi, '\n\n[PAGE_BREAK_$1]\n\n')
-    .replace(/Page\s+(\d+)\s+of\s+(\d+)/gi, '');
-
-  const lines = cleaned.split('\n');
-  const htmlBlocks: string[] = [];
-  let currentList: string[] = [];
-
-  const flushList = () => {
-    if (currentList.length > 0) {
-      htmlBlocks.push(`<ul>${currentList.map((li) => `<li>${li}</li>`).join('')}</ul>`);
-      currentList = [];
-    }
-  };
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) {
-      flushList();
-      continue;
-    }
-
-    const pageMatch = line.match(/^\[PAGE_BREAK_(\d+)\]$/);
-    if (pageMatch) {
-      flushList();
-      htmlBlocks.push(
-        `<p style="margin: 24px 0 12px; padding: 4px 10px; background: #F1EFE8; border-radius: 6px; font-family: monospace; font-size: 11px; color: #68745D; font-weight: 600; display: inline-block;">Page ${pageMatch[1]} Reference</p>`
-      );
-      continue;
-    }
-
-    if (line.startsWith('# ')) {
-      flushList();
-      htmlBlocks.push(`<h1>${line.replace('# ', '')}</h1>`);
-    } else if (line.startsWith('## ')) {
-      flushList();
-      htmlBlocks.push(`<h2>${line.replace('## ', '')}</h2>`);
-    } else if (line.startsWith('### ')) {
-      flushList();
-      htmlBlocks.push(`<h3>${line.replace('### ', '')}</h3>`);
-    } else if (
-      /^[A-Z0-9\s—:-]{4,60}$/.test(line) &&
-      !line.endsWith('.') &&
-      line.length > 5 &&
-      !line.includes('HTTP')
-    ) {
-      flushList();
-      htmlBlocks.push(`<h2>${line}</h2>`);
-    } else if (line.startsWith('• ') || line.startsWith('- ') || line.startsWith('* ')) {
-      currentList.push(line.replace(/^[•\-*]\s+/, ''));
-    } else {
-      flushList();
-      htmlBlocks.push(`<p>${line}</p>`);
-    }
-  }
-
-  flushList();
-  return htmlBlocks.join('');
 }
 
 export function ReviewEditor({

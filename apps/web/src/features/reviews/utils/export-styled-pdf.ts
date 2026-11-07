@@ -1,4 +1,5 @@
 import type { PdfTheme } from '../constants/pdf-themes';
+import { cleanAndFormatPdfToHtml } from './format-document-text';
 
 export interface ExportStyledPdfOptions {
   title: string;
@@ -26,9 +27,12 @@ export function exportStyledPdf({
     day: 'numeric',
   });
 
+  // Ensure content is cleanly formatted semantic HTML without raw extraction debris
+  const formattedContent = cleanAndFormatPdfToHtml(contentHtml);
+
   // Calculate approximate word count
   const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = contentHtml;
+  tempDiv.innerHTML = formattedContent;
   const rawText = tempDiv.textContent || tempDiv.innerText || '';
   const wordCount = rawText.trim().split(/\s+/).filter(Boolean).length;
 
@@ -42,8 +46,35 @@ export function exportStyledPdf({
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,400&display=swap" rel="stylesheet">
   <style>
     @page {
-      size: A4;
-      margin: 20mm 18mm;
+      size: A4 portrait;
+      margin: 20mm 18mm 20mm 18mm;
+      @top-left {
+        content: "${cleanTitle}";
+        font-family: ${theme.bodyFont};
+        font-size: 7.5pt;
+        color: ${theme.textMuted};
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      @top-right {
+        content: "Evolyn Brand Governance";
+        font-family: ${theme.bodyFont};
+        font-size: 7.5pt;
+        color: ${theme.textMuted};
+      }
+      @bottom-left {
+        content: "Confidential • Approved Copy";
+        font-family: ${theme.bodyFont};
+        font-size: 7.5pt;
+        color: ${theme.textMuted};
+      }
+      @bottom-right {
+        content: "Page " counter(page);
+        font-family: ${theme.bodyFont};
+        font-size: 7.5pt;
+        font-weight: 600;
+        color: ${theme.textMuted};
+      }
     }
     *, *::before, *::after {
       box-sizing: border-box;
@@ -51,32 +82,36 @@ export function exportStyledPdf({
       print-color-adjust: exact !important;
       color-adjust: exact !important;
     }
-    body {
+    html, body {
       margin: 0;
       padding: 0;
       background-color: ${theme.paperBg};
       color: ${theme.textPrimary};
       font-family: ${theme.bodyFont};
-      font-size: 11pt;
-      line-height: 1.65;
+      font-size: 10pt;
+      line-height: 1.7;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
     }
     .document-wrapper {
       max-width: 100%;
       margin: 0 auto;
     }
     .document-header {
-      padding-bottom: 20px;
-      margin-bottom: 24px;
+      padding-bottom: 16px;
+      margin-bottom: 22px;
       border-bottom: 1.5px solid ${theme.borderColor};
+      page-break-after: avoid;
+      break-after: avoid;
     }
     .top-meta-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 12px;
-      font-size: 8.5pt;
+      margin-bottom: 10px;
+      font-size: 8pt;
       color: ${theme.textMuted};
-      font-weight: 500;
+      font-weight: 600;
       letter-spacing: 0.05em;
       text-transform: uppercase;
     }
@@ -89,11 +124,11 @@ export function exportStyledPdf({
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      padding: 3px 8px;
+      padding: 2.5px 8px;
       border-radius: 9999px;
       background-color: ${theme.badgeBg};
       color: ${theme.badgeText};
-      font-size: 8pt;
+      font-size: 7.5pt;
       font-weight: 600;
       letter-spacing: 0.04em;
     }
@@ -101,30 +136,30 @@ export function exportStyledPdf({
       display: inline-flex;
       align-items: center;
       gap: 5px;
-      padding: 4px 10px;
+      padding: 3px 9px;
       border-radius: 6px;
       background-color: ${theme.badgeBg};
       color: ${theme.badgeText};
-      font-size: 8.5pt;
+      font-size: 8pt;
       font-weight: 600;
       border: 1px solid ${theme.borderColor};
     }
     .document-title {
       font-family: ${theme.headingFont};
-      font-size: 24pt;
+      font-size: 22pt;
       font-weight: 700;
       color: ${theme.accentColor};
-      margin: 6px 0 10px;
+      margin: 6px 0 8px;
       line-height: 1.25;
       letter-spacing: -0.02em;
     }
     .sub-meta {
-      font-size: 9pt;
+      font-size: 8.5pt;
       color: ${theme.textMuted};
       display: flex;
       gap: 16px;
     }
-    /* Main Prose Styling */
+    /* Main Content Typography */
     .content-body {
       color: ${theme.textPrimary};
     }
@@ -134,54 +169,64 @@ export function exportStyledPdf({
       font-weight: 700;
       page-break-after: avoid;
       break-after: avoid;
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
     .content-body h1 {
-      font-size: 18pt;
+      font-size: 16pt;
       margin-top: 24px;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
       border-bottom: 1px solid ${theme.borderColor};
-      padding-bottom: 6px;
+      padding-bottom: 4px;
     }
     .content-body h2 {
-      font-size: 14pt;
+      font-size: 13pt;
       margin-top: 20px;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
+      border-bottom: 0.5px solid ${theme.borderColor};
+      padding-bottom: 3px;
     }
     .content-body h3 {
-      font-size: 12pt;
-      margin-top: 16px;
-      margin-bottom: 8px;
+      font-size: 11pt;
+      margin-top: 14px;
+      margin-bottom: 6px;
     }
     .content-body p {
       margin-top: 0;
-      margin-bottom: 14px;
-      text-align: justify;
+      margin-bottom: 12px;
+      text-align: left;
+      line-height: 1.7;
     }
     .content-body ul, .content-body ol {
-      margin-top: 0;
+      margin-top: 4px;
       margin-bottom: 14px;
       padding-left: 22px;
     }
     .content-body li {
-      margin-bottom: 6px;
+      margin-bottom: 5px;
+      line-height: 1.6;
     }
     .content-body blockquote {
-      margin: 16px 0;
+      margin: 14px 0;
       padding: 10px 16px;
-      border-left: 3px solid ${theme.accentColor};
+      border-left: 3.5px solid ${theme.accentColor};
       background: ${theme.badgeBg};
       color: ${theme.textPrimary};
+      font-size: 9.5pt;
       font-style: italic;
+      border-radius: 0 6px 6px 0;
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
-    /* Footer */
-    .document-footer {
-      margin-top: 40px;
-      padding-top: 14px;
+    /* Sign-off Compact Footer (never causes empty orphan pages) */
+    .document-end-signoff {
+      margin-top: 24px;
+      padding-top: 10px;
       border-top: 1px solid ${theme.borderColor};
       display: flex;
       align-items: center;
       justify-content: space-between;
-      font-size: 8pt;
+      font-size: 7.5pt;
       color: ${theme.textMuted};
       page-break-inside: avoid;
       break-inside: avoid;
@@ -217,13 +262,13 @@ export function exportStyledPdf({
     }
 
     <main class="content-body">
-      ${contentHtml}
+      ${formattedContent}
     </main>
 
-    <footer class="document-footer">
+    <div class="document-end-signoff">
       <span>Verified & formatted by Evolyn Brand Governance Platform</span>
       <span>${cleanTitle} &bull; ${formattedDate}</span>
-    </footer>
+    </div>
   </div>
 </body>
 </html>`;
@@ -261,7 +306,7 @@ export function exportStyledPdf({
           if (document.body.contains(iframe)) {
             document.body.removeChild(iframe);
           }
-        }, 1000);
+        }, 1200);
       }
     }, 400);
   };
