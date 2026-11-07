@@ -5,7 +5,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import { Mark, mergeAttributes } from '@tiptap/core';
-import type { DetectedIssue } from '@evolyn/shared';
+import type { DetectedIssue, BrandSetup } from '@evolyn/shared';
 
 // Custom TipTap Mark for highlighting AI-detected grammar/guideline issues inline with red squiggly
 export const IssueHighlight = Mark.create({
@@ -95,6 +95,7 @@ export interface ReviewEditorProps {
   onContentChange?: (content: string) => void;
   showToast: (msg: string) => void;
   isSaving?: boolean;
+  brandSetup?: BrandSetup | null;
 }
 
 export interface ActiveIssuePopover {
@@ -120,6 +121,7 @@ export function ReviewEditor({
   onContentChange,
   showToast,
   isSaving = false,
+  brandSetup = null,
 }: ReviewEditorProps) {
   const [activeTab, setActiveTab] = useState<'editor' | 'pdf' | 'history'>('editor');
   const [copied, setCopied] = useState(false);
@@ -353,9 +355,36 @@ export function ReviewEditor({
           </button>
 
           <div className="min-w-0">
-            <h2 className="text-sm sm:text-base font-semibold text-[#25251F] dark:text-[#F7F5F0] truncate leading-tight">
-              {initialTitle}
-            </h2>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-sm sm:text-base font-semibold text-[#25251F] dark:text-[#F7F5F0] truncate leading-tight">
+                {initialTitle}
+              </h2>
+              {brandSetup?.brandName && (
+                <span
+                  className="text-[10px] font-semibold px-2 py-0.5 rounded-md border flex items-center gap-1.5 shadow-2xs"
+                  style={{
+                    borderColor: `${brandSetup.primaryColor || '#111111'}30`,
+                    backgroundColor: `${brandSetup.primaryColor || '#111111'}10`,
+                    color: brandSetup.primaryColor || '#111111',
+                  }}
+                  title={brandSetup.description || brandSetup.brandName}
+                >
+                  {brandSetup.logoUrl ? (
+                    <img
+                      src={brandSetup.logoUrl}
+                      alt={brandSetup.brandName}
+                      className="w-3.5 h-3.5 object-contain rounded-xs"
+                    />
+                  ) : (
+                    <span
+                      className="w-2 h-2 rounded-full inline-block"
+                      style={{ backgroundColor: brandSetup.primaryColor || '#111111' }}
+                    />
+                  )}
+                  <span>{brandSetup.brandName}</span>
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-[11px] text-[#77766E] dark:text-[#A09D92] mt-0.5 flex-wrap">
               <span className="font-medium text-[#68745D] dark:text-[#8A987D]">{channel}</span>
               <span>•</span>

@@ -152,6 +152,30 @@ export class BrandSetupRepository implements IBrandSetupRepository {
           });
         }
 
+        // Competitor Restriction Rule
+        if (setup.governance?.blockCompetitors) {
+          rulesToInsert.push({
+            guidelineId,
+            ruleType: 'PROHIBITED',
+            ruleStatement: 'Never mention or name direct competitors in external marketing communications.',
+            explanation: 'Competitor mentions are strictly prohibited by Brand Governance policy.',
+            severity: 'CRITICAL',
+            metadata: { category: 'Brand Governance', type: 'Competitor' },
+          });
+        }
+
+        // Mandatory Evidence Verification Rule
+        if (setup.governance?.requireEvidence) {
+          rulesToInsert.push({
+            guidelineId,
+            ruleType: 'MANDATORY',
+            ruleStatement: 'All statistical, numeric, and factual claims must cite approved evidence from the Knowledge Library.',
+            explanation: 'Mandatory evidence verification required by Brand Governance policy.',
+            severity: 'CRITICAL',
+            metadata: { category: 'Brand Governance', type: 'Evidence' },
+          });
+        }
+
         if (rulesToInsert.length > 0) {
           await this.database.insert(guidelineRules).values(rulesToInsert);
         }

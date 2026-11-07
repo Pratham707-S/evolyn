@@ -20,7 +20,7 @@ import {
   ShieldAlert,
   Info,
 } from 'lucide-react';
-import type { DetectedIssue, BrandGovernanceEvaluation } from '@evolyn/shared';
+import type { DetectedIssue, BrandGovernanceEvaluation, BrandSetup } from '@evolyn/shared';
 
 export interface ReviewAiPanelProps {
   issues?: DetectedIssue[];
@@ -35,6 +35,7 @@ export interface ReviewAiPanelProps {
   hasReviewRun?: boolean;
   complianceScore?: number;
   showToast: (msg: string) => void;
+  brandSetup?: BrandSetup | null;
 }
 
 type FilterCategory = 'ALL' | 'GRAMMAR' | 'BRAND' | 'EVIDENCE' | 'RECO';
@@ -52,6 +53,7 @@ export function ReviewAiPanel({
   hasReviewRun = true,
   complianceScore,
   showToast,
+  brandSetup = null,
 }: ReviewAiPanelProps) {
   const [activeFilter, setActiveFilter] = useState<FilterCategory>('ALL');
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
@@ -129,13 +131,22 @@ export function ReviewAiPanel({
       {/* 1. Header */}
       <div className="mb-2 shrink-0">
         <h3 className="text-sm font-semibold text-[#25251F] dark:text-[#F7F5F0] leading-tight flex items-center justify-between">
-          <span>Brand Governance AI Audit</span>
+          <span className="flex items-center gap-1.5">
+            <span>Brand Governance AI Audit</span>
+            {brandSetup?.brandName && (
+              <span className="text-[10px] font-medium text-[#68745D] dark:text-[#86EFAC] px-1.5 py-0.2 rounded bg-[#E8EBE1] dark:bg-[#1A261C]">
+                {brandSetup.brandName}
+              </span>
+            )}
+          </span>
           <span className="text-[11px] font-mono text-[#68745D] dark:text-[#86EFAC] bg-[#E8EBE1] dark:bg-[#1A261C] px-1.5 py-0.5 rounded-full">
             {safeIssues.length} active
           </span>
         </h3>
         <p className="text-[11px] text-[#77766E] dark:text-[#A09D92] mt-0.5">
-          Grounded anti-hallucination citations and brand rule checks.
+          {brandSetup?.brandName
+            ? `Grounded checks against ${brandSetup.brandName} guidelines & approved facts.`
+            : 'Grounded anti-hallucination citations and brand rule checks.'}
         </p>
       </div>
 

@@ -35,13 +35,22 @@ export function BrandProfileForm({
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        showToast('Logo file exceeds 5MB limit');
+      if (file.size > 2 * 1024 * 1024) {
+        showToast('Logo file exceeds 2MB limit');
         return;
       }
-      const previewUrl = URL.createObjectURL(file);
-      onChange({ logoUrl: previewUrl });
-      showToast(`Uploaded new logo: ${file.name}`);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target?.result as string;
+        if (dataUrl) {
+          onChange({ logoUrl: dataUrl });
+          showToast(`Uploaded and persisted logo: ${file.name}`);
+        }
+      };
+      reader.onerror = () => {
+        showToast('Failed to read image file');
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -205,8 +214,17 @@ export function BrandProfileForm({
             </div>
           </div>
 
+          <div className="pt-1">
+            <input
+              type="text"
+              value={data.logoUrl?.startsWith('data:') ? '' : data.logoUrl || ''}
+              onChange={(e) => onChange({ logoUrl: e.target.value.trim() })}
+              placeholder="Or paste image URL (https://...)"
+              className="w-full bg-[#FAF9F5] border border-[#E5E1D8] hover:border-[#68745D]/40 focus:border-[#25251F] focus:bg-[#FFFEFA] focus:outline-none rounded-xl px-3 py-1.5 text-xs text-[#25251F] transition-all"
+            />
+          </div>
           <p className="text-[11px] text-[#A09D92]">
-            PNG, JPG or SVG (max 5MB)
+            PNG, JPG or SVG (max 2MB) or direct image URL
           </p>
         </div>
 

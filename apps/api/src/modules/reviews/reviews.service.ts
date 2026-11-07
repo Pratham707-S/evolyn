@@ -1,3 +1,6 @@
+import { and, eq } from 'drizzle-orm';
+import { db } from '../../db/index.js';
+import { guidelines, guidelineRules } from '../../db/schema.js';
 import {
   issueTypeSchema,
   rewriteContentSchema,
@@ -131,6 +134,17 @@ function mapGroundedAIResults(
       continue;
     }
 
+    const fixLower = (issue.suggestedFix || '').toLowerCase();
+    if (
+      fixLower.includes('no changes needed') ||
+      fixLower.includes('no change needed') ||
+      fixLower.includes('aligns well with') ||
+      fixLower.includes('no change is needed')
+    ) {
+      discardedCount += 1;
+      continue;
+    }
+
     const isWritingQuality =
       issue.issueType === 'GRAMMAR_ERROR' || issue.issueType === 'SPELLING_ERROR';
 
@@ -192,11 +206,12 @@ function mapGroundedAIResults(
     }
 
     const source = matchingSources[0];
-    const rawQuote = (issue.sourceQuote || '').trim();
+    const rawQuote = (issue.sourceQuote || '').trim().replace(/^["'«“](.*)["'»”]$/s, '$1').trim();
+    const fallbackQuote = 'ruleId' in source && rule ? rule.ruleStatement : fact ? fact.claimStatement : source.sourceText;
     const validSourceQuote =
       rawQuote.length > 0 && source.sourceText.includes(rawQuote)
         ? rawQuote
-        : source.sourceText;
+        : fallbackQuote;
 
     findings.push({
       issueType: issueTypeSchema.parse(issue.issueType),
@@ -394,10 +409,55 @@ export class ReviewService implements IReviewService {
       ]);
       const vectorRetrievalMs = Date.now() - vectorStart;
 
+      // Always fetch active Brand Setup rules from database so the audit strictly enforces the configured brand identity and policy
+      let brandRules: GuidelineRule[] = [];
+      try {
+        const brandSetupGuidelines = await db
+          .select({ id: guidelines.id })
+          .from(guidelines)
+          .where(and(eq(guidelines.category, 'BRAND_SETUP'), eq(guidelines.status, 'ACTIVE')))
+          .limit(1);
+
+        if (brandSetupGuidelines.length > 0 && brandSetupGuidelines[0]?.id) {
+          const rawRules = await db
+            .select()
+            .from(guidelineRules)
+            .where(eq(guidelineRules.guidelineId, brandSetupGuidelines[0].id));
+
+          brandRules = rawRules.map((record) => ({
+            id: record.id,
+            guidelineId: record.guidelineId,
+            ruleType: record.ruleType as GuidelineRule['ruleType'],
+            ruleStatement: record.ruleStatement,
+            explanation: record.explanation,
+            severity: record.severity as GuidelineRule['severity'],
+            metadata:
+              record.metadata && typeof record.metadata === 'object' && !Array.isArray(record.metadata)
+                ? (record.metadata as Record<string, unknown>)
+                : undefined,
+            createdAt: record.createdAt.toISOString(),
+          }));
+        }
+      } catch {
+        // Fall back gracefully to vector-retrieved rules
+      }
+
+      // Merge brand rules (highest priority) with vector rules
+      const mergedRulesMap = new Map<string, GuidelineRule>();
+      for (const r of brandRules) {
+        mergedRulesMap.set(r.id, r);
+      }
+      for (const r of rules) {
+        if (!mergedRulesMap.has(r.id)) {
+          mergedRulesMap.set(r.id, r);
+        }
+      }
+      const allAuditingRules = Array.from(mergedRulesMap.values());
+
       const auditStart = Date.now();
       const audit = await this.dependencies.ai.auditContent({
         content: contentToAudit,
-        rules: rules.map((rule) => ({
+        rules: allAuditingRules.map((rule) => ({
           id: rule.id,
           statement: rule.ruleStatement,
           severity: rule.severity,
@@ -412,11 +472,11 @@ export class ReviewService implements IReviewService {
 
       const grounded = mapGroundedAIResults(
         audit.issues,
-        rules,
+        allAuditingRules,
         facts,
         contentToAudit
       );
-      const deterministic = findQuotedProhibitedPhrases(rules, contentToAudit);
+      const deterministic = findQuotedProhibitedPhrases(allAuditingRules, contentToAudit);
       const deduplicatedAI = grounded.findings.filter(
         (finding) =>
           !deterministic.some(
@@ -428,7 +488,7 @@ export class ReviewService implements IReviewService {
       const findings = [...deterministic, ...deduplicatedAI];
       const reviewRunInput = buildCreateReviewRunInput(
         id,
-        rules,
+        allAuditingRules,
         facts.length,
         findings,
         grounded.discardedCount

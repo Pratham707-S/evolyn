@@ -73,7 +73,7 @@ export function AppShell({ children, activeItem, noScroll = false }: AppShellPro
 
   const handleNewSubmission = (newSub: SubmissionItem) => {
     showToast(`Opening Review Workspace for "${newSub.title}"...`);
-    router.push('/reviews');
+    router.push(newSub.id ? `/reviews?id=${newSub.id}` : '/reviews');
   };
 
   const contextValue: AppShellContextValue = {

@@ -26,6 +26,7 @@ import type {
   ContentSubmission,
   ReviewRun,
   BrandGovernanceEvaluation,
+  BrandSetup,
 } from '@evolyn/shared';
 import {
   ReviewSidebarTools,
@@ -89,32 +90,17 @@ function ReviewWorkspaceInner() {
       let targetId = urlSubmissionId;
 
       if (!targetId) {
-        // Fetch all submissions: prioritize pending items, or fall back to latest active submission
+        // Fetch all submissions: prioritize pending items, or fall back to latest reviewed submission
         const subListRes = await apiClient<{ submissions: ContentSubmission[] }>('/api/submissions');
         const activeSubmissions = subListRes.submissions || [];
         const targetSub =
           activeSubmissions.find((s) => s.status === 'PENDING') ||
-          activeSubmissions[0];
+          activeSubmissions.find((s) => s.status === 'REVIEWED');
 
         if (targetSub) {
           targetId = targetSub.id;
         } else {
-          try {
-            const newDraftRes = await apiClient.post<{ submission: ContentSubmission }>('/api/submissions', {
-              title: 'Global Brand Campaign Draft',
-              channel: 'SOCIAL',
-              rawText:
-                'Get ready for the revolutionary EVOLYN experience! Our new autonomous governance engine guarantees 100% risk-free compliance with zero human effort. Trusted by 100 enterprise clients with 100% uptime. Sign up today!',
-              submittedBy: 'Marketing Campaign Team',
-            });
-            if (newDraftRes?.submission?.id) {
-              targetId = newDraftRes.submission.id;
-            } else {
-              return null;
-            }
-          } catch {
-            return null;
-          }
+          return null;
         }
       }
 
@@ -134,11 +120,29 @@ function ReviewWorkspaceInner() {
     },
   });
 
+  // Track loaded submission to guarantee exact submitted text is loaded without being overwritten
+  const loadedSubmissionIdRef = React.useRef<string | null>(null);
+
   useEffect(() => {
-    if (reviewData?.submission?.rawText && !currentContent) {
-      setCurrentContent(reviewData.submission.rawText);
+    const sub = reviewData?.submission;
+    if (sub && sub.id !== loadedSubmissionIdRef.current) {
+      loadedSubmissionIdRef.current = sub.id;
+      setCurrentContent(sub.rawText || '');
     }
-  }, [reviewData, currentContent]);
+  }, [reviewData?.submission]);
+
+  // Load active brand profile
+  const { data: brandSetup } = useQuery<BrandSetup | null>({
+    queryKey: ['active-brand-setup'],
+    queryFn: async () => {
+      try {
+        return await apiClient.get<BrandSetup>('/api/brand-setup');
+      } catch {
+        return null;
+      }
+    },
+    staleTime: 30000,
+  });
 
   // Derived reviewer feedback from URL redirect or persisted decision
   const reviewerFeedback = React.useMemo(() => {
@@ -447,27 +451,42 @@ function ReviewWorkspaceInner() {
 
   const handleAcceptFinding = (issue: DetectedIssue) => {
     if (issue.flaggedExcerpt && issue.suggestedFix) {
+      const fixLower = issue.suggestedFix.toLowerCase();
       if (
-        issue.suggestedFix.toLowerCase().includes('no change') ||
-        issue.suggestedFix.toLowerCase().includes('no changes needed')
+        fixLower.includes('no change') ||
+        fixLower.includes('no changes needed') ||
+        fixLower.includes('aligns well')
       ) {
         showToast('Rule validated: Content is compliant with guidelines.');
       } else {
+        let applied = false;
         setCurrentContent((prev) => {
           if (!prev) return prev;
           const excerpt = issue.flaggedExcerpt!.trim();
           const fix = issue.suggestedFix!.trim();
           if (prev.includes(excerpt)) {
+            applied = true;
             return prev.replace(excerpt, fix);
           }
           const escaped = excerpt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
           const reg = new RegExp(escaped, 'i');
           if (reg.test(prev)) {
+            applied = true;
             return prev.replace(reg, fix);
+          }
+          const normalizedExcerpt = excerpt.replace(/\s+/g, '\\s+');
+          const normReg = new RegExp(normalizedExcerpt, 'i');
+          if (normReg.test(prev)) {
+            applied = true;
+            return prev.replace(normReg, fix);
           }
           return prev;
         });
-        showToast(`Applied fix: "${issue.suggestedFix}"`);
+        if (applied) {
+          showToast(`Applied fix: "${issue.suggestedFix}"`);
+        } else {
+          showToast('Finding resolved.');
+        }
       }
     }
     if (issue.id) {
@@ -540,7 +559,13 @@ function ReviewWorkspaceInner() {
   }
 
   return (
-    <div className="h-full flex flex-col gap-3 min-h-0">
+    <div
+      className="h-full flex flex-col gap-3 min-h-0"
+      style={{
+        ['--brand-primary' as any]: brandSetup?.primaryColor || '#111111',
+        ['--brand-secondary' as any]: brandSetup?.secondaryColor || '#EDE7DE',
+      }}
+    >
       {/* 1. Page Header */}
       <PageHeader
         title={t('nav.reviews') || 'Review Workspace'}
@@ -550,6 +575,44 @@ function ReviewWorkspaceInner() {
         compact={true}
         actions={
           <div className="flex items-center gap-2">
+            {/* Active Brand Identity Pill */}
+            {brandSetup && (
+              <div
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#E5E1D8] dark:border-[#2C2B26] bg-[#FFFEFA] dark:bg-[#1E1D19] shadow-2xs text-xs"
+                title={brandSetup.description || brandSetup.brandName}
+              >
+                {brandSetup.logoUrl ? (
+                  <img
+                    src={brandSetup.logoUrl}
+                    alt={brandSetup.brandName}
+                    className="h-4 w-auto max-w-[70px] object-contain rounded-xs"
+                  />
+                ) : (
+                  <div
+                    className="w-4 h-4 rounded-full flex items-center justify-center text-white text-[9px] font-bold shrink-0"
+                    style={{ backgroundColor: brandSetup.primaryColor || '#111111' }}
+                  >
+                    {brandSetup.brandName?.slice(0, 1).toUpperCase() || 'E'}
+                  </div>
+                )}
+                <span className="font-semibold text-[#25251F] dark:text-[#F7F5F0] truncate max-w-[120px]">
+                  {brandSetup.brandName}
+                </span>
+                <div className="flex items-center gap-1 shrink-0 ml-0.5">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full border border-black/10 inline-block shadow-2xs"
+                    style={{ backgroundColor: brandSetup.primaryColor }}
+                    title={`Primary: ${brandSetup.primaryColor}`}
+                  />
+                  <span
+                    className="w-2.5 h-2.5 rounded-full border border-black/10 inline-block shadow-2xs"
+                    style={{ backgroundColor: brandSetup.secondaryColor }}
+                    title={`Secondary: ${brandSetup.secondaryColor}`}
+                  />
+                </div>
+              </div>
+            )}
+
             <button
               type="button"
               onClick={() => router.push(submission?.id ? `/approvals?id=${submission.id}` : '/approvals')}
@@ -713,6 +776,7 @@ function ReviewWorkspaceInner() {
           )}
 
           <ReviewEditor
+            key={submission?.id || 'editor'}
             initialTitle={submission?.title || 'Brand Content Draft'}
             channel={submission?.channel || 'Website'}
             initialContent={currentContent || submission?.rawText || ''}
@@ -729,6 +793,7 @@ function ReviewWorkspaceInner() {
             }}
             showToast={showToast}
             isSaving={saveMutation.isPending}
+            brandSetup={brandSetup}
           />
         </div>
 
@@ -761,6 +826,7 @@ function ReviewWorkspaceInner() {
               reviewData?.reviewRun?.overallComplianceScore
             }
             showToast={showToast}
+            brandSetup={brandSetup}
           />
         </div>
       </div>

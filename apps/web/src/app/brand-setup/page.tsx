@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { Bell, Check, Menu } from 'lucide-react';
 import { AppShell, useAppShell } from '@/components/layout/app-shell';
 import { apiClient } from '@/lib/api/client';
@@ -51,6 +52,7 @@ const STEPS: StepItem[] = [
 
 function BrandSetupContent() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { openMobileSidebar, showToast } = useAppShell();
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -188,6 +190,9 @@ function BrandSetupContent() {
 
     try {
       await apiClient.post('/api/brand-setup', payload);
+      queryClient.invalidateQueries({ queryKey: ['active-brand-setup'] });
+      queryClient.invalidateQueries({ queryKey: ['brand-governance-context'] });
+      queryClient.invalidateQueries({ queryKey: ['guidelines'] });
       showToast(
         isPublish
           ? `Brand Setup published and synced with Brand Governance AI.`
@@ -195,25 +200,9 @@ function BrandSetupContent() {
       );
 
       if (isPublish) {
-        let targetReviewUrl = '/reviews';
-        try {
-          const brandName = payload.brandName?.trim() || 'Evolyn';
-          const newSubRes = await apiClient.post<{ submission: ContentSubmission }>('/api/submissions', {
-            title: `${brandName} Global Campaign Announcement`,
-            channel: 'SOCIAL',
-            rawText: `Get ready for the revolutionary ${brandName} experience! Our new autonomous governance engine guarantees 100% risk-free compliance for your company with zero human effort. Trusted by 100 enterprise clients with 100% uptime. Sign up today!`,
-            submittedBy: 'Marketing Campaign Team',
-          });
-          if (newSubRes?.submission?.id) {
-            targetReviewUrl = `/reviews?id=${newSubRes.submission.id}`;
-          }
-        } catch (subErr) {
-          console.warn('Auto-create brand submission draft failed, falling back to /reviews:', subErr);
-        }
-
         setTimeout(() => {
-          router.push(targetReviewUrl);
-        }, 500);
+          router.push('/reviews');
+        }, 600);
       }
     } catch (err) {
       console.error('Failed to persist brand setup:', err);
