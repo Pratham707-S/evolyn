@@ -67,15 +67,51 @@ export function DecisionHistoryTimeline({
 
   const activeStatus = statusFilter || (localStatus === 'ALL' ? null : localStatus);
 
-  const daysOfWeek = [
-    { name: 'Mon', date: '02', fullDate: 'Monday, Nov 02', index: 0, isToday: false },
-    { name: 'Tue', date: '03', fullDate: 'Tuesday, Nov 03', index: 1, isToday: false },
-    { name: 'Wed', date: '04', fullDate: 'Wednesday, Nov 04', index: 2, isToday: false },
-    { name: 'Thu', date: '05', fullDate: 'Thursday, Nov 05 (Today)', index: 3, isToday: true },
-    { name: 'Fri', date: '06', fullDate: 'Friday, Nov 06', index: 4, isToday: false },
-    { name: 'Sat', date: '07', fullDate: 'Saturday, Nov 07', index: 5, isToday: false },
-    { name: 'Sun', date: '08', fullDate: 'Sunday, Nov 08', index: 6, isToday: false },
-  ];
+  // Dynamic real-time calculation for the current 7-day week
+  const { daysOfWeek, weekRangeLabel, liveMarkerLeft, liveTimeString } = React.useMemo(() => {
+    const now = new Date();
+    // 0 = Mon, 1 = Tue, ..., 5 = Sat, 6 = Sun
+    const currentDayIdx = (now.getDay() + 6) % 7;
+
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - currentDayIdx);
+    monday.setHours(0, 0, 0, 0);
+
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    const days = dayNames.map((name, i) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const isToday = d.toDateString() === now.toDateString();
+      const dateStr = String(d.getDate()).padStart(2, '0');
+      const monthStr = monthNames[d.getMonth()];
+      return {
+        name,
+        date: dateStr,
+        month: monthStr,
+        fullDate: `${name}, ${monthStr} ${dateStr}${isToday ? ' (Today)' : ''}`,
+        index: i,
+        isToday,
+      };
+    });
+
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    const range = `${monthNames[monday.getMonth()]} ${String(monday.getDate()).padStart(2, '0')} – ${monthNames[sunday.getMonth()]} ${String(sunday.getDate()).padStart(2, '0')}`;
+
+    // Place marker accurately in the center of the current day column
+    // Each column is 100% / 7 ≈ 14.2857%
+    const colCenterPct = ((currentDayIdx + 0.5) / 7) * 100;
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+
+    return {
+      daysOfWeek: days,
+      weekRangeLabel: range,
+      liveMarkerLeft: `${colCenterPct.toFixed(2)}%`,
+      liveTimeString: timeStr,
+    };
+  }, []);
 
   const swimlanes = [
     { title: 'Social & Growth Campaigns', track: 0 },
@@ -189,7 +225,7 @@ export function DecisionHistoryTimeline({
                 Decision Timeline
               </h2>
               <span className="text-[11px] font-mono uppercase tracking-wider text-[#68745D] bg-[#E8EBE1] px-2.5 py-0.5 rounded-full font-medium">
-                Nov 02 – Nov 08
+                {weekRangeLabel}
               </span>
             </div>
             <p className="text-xs text-[#77766E] mt-1">
@@ -443,15 +479,15 @@ export function DecisionHistoryTimeline({
 
             {/* Timeline Swimlanes Container with Slid-Down Live Marker */}
             <div className="relative pt-4 space-y-4">
-              {/* Slid-Down Live Marker: starts cleanly below the header row so it NEVER overlaps dates */}
+              {/* Slid-Down Live Marker: tracks real-time today column */}
               <div
-                style={{ left: '55.5%' }}
+                style={{ left: liveMarkerLeft }}
                 className="absolute top-1 bottom-1 w-[2px] bg-[#68745D]/80 z-10 pointer-events-none"
               >
                 {/* Live Pill badge positioned inside the track ruler below day headers */}
                 <div className="absolute top-0 -left-9 bg-[#25251F] text-white text-[10px] font-mono px-2 py-0.5 rounded-full shadow-md flex items-center gap-1 z-30 pointer-events-auto">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#64816A] animate-pulse" />
-                  <span>17:30</span>
+                  <span>{liveTimeString}</span>
                 </div>
               </div>
 
