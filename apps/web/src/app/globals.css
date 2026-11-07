@@ -4,8 +4,9 @@
 
 @layer base {
   :root {
-    --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --font-serif: 'Instrument Serif', Georgia, serif;
+    --font-sans: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-heading: 'Plus Jakarta Sans', sans-serif;
+    --font-serif: 'Plus Jakarta Sans', Georgia, serif;
     --background: #F7F5F0;
     --surface: #FFFEFA;
     --sidebar: #F1EFE8;
@@ -24,14 +25,38 @@
   body {
     background-color: #F7F5F0;
     color: #25251F;
-    font-family: var(--font-sans), 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--font-sans), 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   .font-serif {
-    font-family: var(--font-serif), 'Instrument Serif', Georgia, serif;
+    font-family: var(--font-serif), 'Plus Jakarta Sans', Georgia, serif;
+    letter-spacing: -0.015em;
   }
+}
+
+/* In-editor AI finding error underline & highlight */
+.evolyn-issue-mark {
+  background-color: rgba(239, 68, 68, 0.12);
+  color: inherit;
+  text-decoration: underline wavy #DC2626;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+  border-radius: 3px;
+  padding: 1px 3px;
+  margin: 0 1px;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  display: inline;
+}
+
+.evolyn-issue-mark:hover,
+.evolyn-issue-mark.active-issue {
+  background-color: rgba(239, 68, 68, 0.22);
+  text-decoration-color: #B91C1C;
+  text-decoration-thickness: 2px;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.25);
 }
 
 /* Custom slim scrollbar */

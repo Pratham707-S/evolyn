@@ -1,9 +1,52 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
+import { Mark, mergeAttributes } from '@tiptap/core';
+import type { DetectedIssue } from '@evolyn/shared';
+
+// Custom TipTap Mark for highlighting AI-detected grammar/guideline issues inline with red squiggly
+export const IssueHighlight = Mark.create({
+  name: 'issueHighlight',
+
+  addAttributes() {
+    return {
+      'data-issue-id': {
+        default: null,
+        parseHTML: (el) => el.getAttribute('data-issue-id'),
+        renderHTML: (attrs) => (attrs['data-issue-id'] ? { 'data-issue-id': attrs['data-issue-id'] } : {}),
+      },
+      'data-suggested-fix': {
+        default: null,
+        parseHTML: (el) => el.getAttribute('data-suggested-fix'),
+        renderHTML: (attrs) => (attrs['data-suggested-fix'] ? { 'data-suggested-fix': attrs['data-suggested-fix'] } : {}),
+      },
+      'data-explanation': {
+        default: null,
+        parseHTML: (el) => el.getAttribute('data-explanation'),
+        renderHTML: (attrs) => (attrs['data-explanation'] ? { 'data-explanation': attrs['data-explanation'] } : {}),
+      },
+      'data-issue-type': {
+        default: 'GRAMMAR_ERROR',
+        parseHTML: (el) => el.getAttribute('data-issue-type'),
+        renderHTML: (attrs) => (attrs['data-issue-type'] ? { 'data-issue-type': attrs['data-issue-type'] } : {}),
+      },
+    };
+  },
+
+  parseHTML() {
+    return [
+      { tag: 'mark.evolyn-issue-mark' },
+      { tag: 'mark[data-issue-id]' },
+    ];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ['mark', mergeAttributes({ class: 'evolyn-issue-mark' }, HTMLAttributes), 0];
+  },
+});
 import {
   ChevronLeft,
   ChevronRight,
@@ -43,12 +86,24 @@ export interface ReviewEditorProps {
   initialContent?: string;
   submissionId?: string;
   fileUrl?: string | null;
+  issues?: DetectedIssue[];
+  selectedFindingId?: string | null;
   onSelectFinding?: (findingId: string, excerpt?: string) => void;
+  onAcceptFinding?: (issue: DetectedIssue) => void;
   onSave?: (currentContent: string) => void;
   onApplyRewrite?: (newContent: string) => void;
   onContentChange?: (content: string) => void;
   showToast: (msg: string) => void;
   isSaving?: boolean;
+}
+
+export interface ActiveIssuePopover {
+  issueId: string;
+  flaggedExcerpt: string;
+  suggestedFix: string;
+  explanation: string;
+  issueType: string;
+  position: { top: number; left: number };
 }
 
 export function ReviewEditor({
@@ -57,7 +112,10 @@ export function ReviewEditor({
   initialContent = '',
   submissionId,
   fileUrl,
+  issues = [],
+  selectedFindingId,
   onSelectFinding,
+  onAcceptFinding,
   onSave,
   onContentChange,
   showToast,
@@ -92,8 +150,13 @@ export function ReviewEditor({
   }, [effectivePdfUrl, currentPage, pdfZoom]);
 
   const lastSetContentRef = React.useRef('');
+  const lastIssuesHashRef = React.useRef('');
+  const editorContainerRef = React.useRef<HTMLDivElement>(null);
+  const [activePopover, setActivePopover] = useState<ActiveIssuePopover | null>(null);
 
-  // Initialize TipTap Editor
+  const issuesHash = (issues || []).map((i) => `${i.id}:${i.status}`).join('|');
+
+  // Initialize TipTap Editor with custom IssueHighlight mark for inline red squiggly error indications
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -102,12 +165,13 @@ export function ReviewEditor({
         },
       }),
       Underline,
+      IssueHighlight,
     ],
-    content: cleanAndFormatPdfToHtml(initialContent),
+    content: cleanAndFormatPdfToHtml(initialContent, issues),
     editorProps: {
       attributes: {
         class:
-          'prose prose-sm max-w-none focus:outline-hidden min-h-[360px] text-[#25251F] leading-relaxed select-text font-sans p-5 sm:p-7 [&>p]:mb-4 [&>p]:leading-relaxed [&>h1]:mt-6 [&>h1]:mb-3 [&>h1]:font-serif [&>h1]:text-2xl [&>h2]:mt-6 [&>h2]:mb-3 [&>h2]:font-serif [&>h2]:text-xl [&>h2]:text-[#25251F] [&>h3]:mt-5 [&>h3]:mb-2 [&>h3]:font-serif [&>h3]:text-lg [&>h3]:text-[#25251F] [&>ul]:my-3 [&>ol]:my-3 [&>li]:my-1 [&>blockquote]:my-4 [&>blockquote]:p-3 [&>blockquote]:border-l-4 [&>blockquote]:border-[#68745D]',
+          'prose prose-sm max-w-none focus:outline-hidden min-h-[420px] text-[#1E1E1A] leading-relaxed select-text font-sans p-6 sm:p-8 [&>p]:mb-4 [&>p]:leading-relaxed [&>p]:text-[15px] [&>h1]:mt-6 [&>h1]:mb-3 [&>h1]:font-bold [&>h1]:text-2xl [&>h1]:tracking-tight [&>h1]:text-[#1A1A17] [&>h2]:mt-6 [&>h2]:mb-3 [&>h2]:font-bold [&>h2]:text-xl [&>h2]:tracking-tight [&>h2]:text-[#1A1A17] [&>h3]:mt-5 [&>h3]:mb-2 [&>h3]:font-semibold [&>h3]:text-lg [&>h3]:tracking-tight [&>h3]:text-[#1A1A17] [&>ul]:my-3 [&>ol]:my-3 [&>li]:my-1 [&>blockquote]:my-4 [&>blockquote]:p-3 [&>blockquote]:border-l-4 [&>blockquote]:border-[#68745D] [&>blockquote]:bg-[#F4F2EC] [&>blockquote]:rounded-r-md',
       },
     },
     onUpdate: ({ editor: ed }) => {
@@ -117,21 +181,118 @@ export function ReviewEditor({
     },
   });
 
-  // Sync editor content when initialContent changes (e.g. API load, rewrite acceptance, or finding fix)
+  // Sync editor content when initialContent or active issues change (e.g. API load, rewrite acceptance, or finding fix)
   useEffect(() => {
     if (editor && initialContent) {
       const currentText = editor.getText?.() || '';
       const isPlaceholder = !currentText || currentText === 'Loading document content...';
-      if (isPlaceholder || initialContent !== lastSetContentRef.current) {
+      const contentChanged = initialContent !== lastSetContentRef.current;
+      const issuesChanged = issuesHash !== lastIssuesHashRef.current;
+
+      if (isPlaceholder || contentChanged || issuesChanged) {
         lastSetContentRef.current = initialContent;
+        lastIssuesHashRef.current = issuesHash;
         try {
-          editor.commands.setContent(cleanAndFormatPdfToHtml(initialContent));
+          editor.commands.setContent(cleanAndFormatPdfToHtml(initialContent, issues));
         } catch (err) {
           console.error('Error syncing editor content:', err);
         }
       }
     }
-  }, [editor, initialContent]);
+  }, [editor, initialContent, issues, issuesHash]);
+
+  // Handle click on .evolyn-issue-mark to display inline quick-fix popover
+  const handleEditorClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const mark = target.closest('.evolyn-issue-mark') as HTMLElement | null;
+
+    if (mark && editorContainerRef.current) {
+      const issueId = mark.getAttribute('data-issue-id') || '';
+      const suggestedFix = mark.getAttribute('data-suggested-fix') || '';
+      const explanation = mark.getAttribute('data-explanation') || '';
+      const issueType = mark.getAttribute('data-issue-type') || 'GRAMMAR_ERROR';
+      const flaggedExcerpt = mark.textContent || '';
+
+      const containerRect = editorContainerRef.current.getBoundingClientRect();
+      const markRect = mark.getBoundingClientRect();
+
+      const popoverWidth = 320;
+      let left = markRect.left - containerRect.left;
+      if (left + popoverWidth > containerRect.width - 20) {
+        left = Math.max(16, containerRect.width - popoverWidth - 20);
+      }
+      if (left < 16) left = 16;
+
+      const top = markRect.bottom - containerRect.top + editorContainerRef.current.scrollTop + 8;
+
+      setActivePopover({
+        issueId,
+        flaggedExcerpt,
+        suggestedFix,
+        explanation,
+        issueType,
+        position: { top, left },
+      });
+
+      onSelectFinding?.(issueId, flaggedExcerpt);
+    } else if (!target.closest('.evolyn-quick-fix-popover')) {
+      setActivePopover(null);
+    }
+  };
+
+  // Direct 1-click apply fix from in-editor quick-fix popover
+  const handleApplyQuickFix = (popover: ActiveIssuePopover) => {
+    if (!editor) return;
+
+    const targetIssue = issues?.find((i) => i.id === popover.issueId) || {
+      id: popover.issueId,
+      flaggedExcerpt: popover.flaggedExcerpt,
+      suggestedFix: popover.suggestedFix,
+      explanation: popover.explanation,
+      issueType: (popover.issueType as any) || 'GRAMMAR_ERROR',
+      sourceQuote: '',
+      confidenceScore: 1,
+      evidenceStrengthScore: 0,
+      status: 'ACCEPTED' as const,
+      reviewRunId: '',
+    };
+
+    // Update in editor HTML directly
+    const currentHtml = editor.getHTML();
+    const escapedId = popover.issueId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const markRegex = new RegExp(`<mark[^>]*data-issue-id="${escapedId}"[^>]*>[\\s\\S]*?<\\/mark>`, 'gi');
+    let newHtml = currentHtml.replace(markRegex, popover.suggestedFix);
+    if (newHtml === currentHtml && popover.flaggedExcerpt) {
+      newHtml = currentHtml.replace(popover.flaggedExcerpt, popover.suggestedFix);
+    }
+
+    editor.commands.setContent(newHtml);
+    const newText = editor.getText();
+    lastSetContentRef.current = newText;
+    onContentChange?.(newText);
+
+    if (onAcceptFinding) {
+      onAcceptFinding(targetIssue);
+    }
+
+    showToast(`Applied fix: "${popover.suggestedFix}"`);
+    setActivePopover(null);
+  };
+
+  // Smooth scroll and focus to flagged element when finding selected in right-hand panel
+  useEffect(() => {
+    if (!selectedFindingId || activeTab !== 'editor' || !editorContainerRef.current) return;
+    const mark = editorContainerRef.current.querySelector(
+      `[data-issue-id="${selectedFindingId}"]`
+    ) as HTMLElement | null;
+    if (mark) {
+      mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      mark.classList.add('active-issue');
+      setTimeout(() => {
+        mark.classList.remove('active-issue');
+      }, 2500);
+    }
+  }, [selectedFindingId, activeTab]);
 
   const handleCopy = () => {
     if (!editor) return;
@@ -452,10 +613,92 @@ export function ReviewEditor({
       )}
 
       {/* 3. Editor / PDF / History Canvas Content */}
-      <div className="flex-1 min-h-0 overflow-y-auto bg-[#FFFEFA]">
+      <div
+        ref={editorContainerRef}
+        onClick={handleEditorClick}
+        className="flex-1 min-h-0 overflow-y-auto bg-[#FFFEFA] relative"
+      >
         {activeTab === 'editor' && (
-          <div className="h-full">
+          <div className="h-full relative">
             <EditorContent editor={editor} />
+
+            {/* In-Editor Quick Fix Popover for clicked red squiggly error marks */}
+            {activePopover && (
+              <div
+                className="evolyn-quick-fix-popover absolute z-30 bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl shadow-xl p-3.5 w-[320px] transition-all animate-in fade-in zoom-in-95 duration-150"
+                style={{
+                  top: `${activePopover.position.top}px`,
+                  left: `${activePopover.position.left}px`,
+                }}
+              >
+                {/* Header with Badge & Close */}
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#F1EFE8]">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-red-700">
+                      {activePopover.issueType === 'GRAMMAR_ERROR' || activePopover.issueType === 'SPELLING_ERROR'
+                        ? 'Spelling / Grammar Error'
+                        : 'Brand Guideline Issue'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActivePopover(null);
+                    }}
+                    className="text-[#A09D92] hover:text-[#25251F] text-xs px-1 py-0.5 rounded transition-colors cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Explanation */}
+                {activePopover.explanation && (
+                  <p className="text-xs text-[#52524C] mb-2.5 leading-relaxed font-normal">
+                    {activePopover.explanation}
+                  </p>
+                )}
+
+                {/* Change Preview */}
+                <div className="bg-[#FAF8F5] border border-[#EFECE6] rounded-lg p-2.5 mb-3 text-xs flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span className="line-through text-red-600 bg-red-100/70 px-1.5 py-0.5 rounded font-mono text-[11px] truncate max-w-[110px]">
+                      {activePopover.flaggedExcerpt}
+                    </span>
+                    <span className="text-[#A09D92] font-bold">→</span>
+                    <span className="text-emerald-700 font-semibold bg-emerald-100/70 px-1.5 py-0.5 rounded font-mono text-[11px] truncate max-w-[130px]">
+                      {activePopover.suggestedFix || 'Remove'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActivePopover(null);
+                    }}
+                    className="px-2.5 py-1.5 text-xs text-[#77766E] hover:text-[#25251F] hover:bg-[#F1EFE8] rounded-md transition-colors cursor-pointer"
+                  >
+                    Dismiss
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleApplyQuickFix(activePopover);
+                    }}
+                    className="bg-[#68745D] hover:bg-[#515B48] text-white text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-xs transition-all cursor-pointer hover:shadow-sm"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Apply Fix</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

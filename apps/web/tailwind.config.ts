@@ -32,8 +32,9 @@ const config: Config = {
         },
       },
       fontFamily: {
-        serif: ['var(--font-serif)', '"Instrument Serif"', 'Georgia', 'serif'],
-        sans: ['var(--font-sans)', '"DM Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        sans: ['var(--font-sans)', '"Plus Jakarta Sans"', '"Inter"', '"DM Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        heading: ['var(--font-heading)', '"Plus Jakarta Sans"', 'sans-serif'],
+        serif: ['var(--font-serif)', '"Plus Jakarta Sans"', 'Georgia', 'serif'],
       },
     },
   },

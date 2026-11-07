@@ -408,7 +408,10 @@ function ReviewWorkspaceInner() {
             initialContent={currentContent || submission?.rawText || ''}
             submissionId={submission?.id}
             fileUrl={submission?.fileUrl}
+            issues={issues}
+            selectedFindingId={selectedFindingId}
             onSelectFinding={handleSelectFinding}
+            onAcceptFinding={handleAcceptFinding}
             onContentChange={(text) => setCurrentContent(text)}
             onSave={(text) => {
               setCurrentContent(text);

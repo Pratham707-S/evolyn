@@ -1,8 +1,65 @@
+import type { DetectedIssue } from '@evolyn/shared';
+
+/**
+ * Highlights active/open issues directly in HTML text nodes using <mark class="evolyn-issue-mark">.
+ * Preserves existing HTML tags and attributes without unintended replacement.
+ */
+export function markIssuesInHtml(html: string, issues?: DetectedIssue[]): string {
+  if (!html || !issues || issues.length === 0) return html;
+
+  const activeIssues = issues.filter(
+    (issue) =>
+      issue.status !== 'ACCEPTED' &&
+      issue.status !== 'OVERRIDDEN' &&
+      issue.flaggedExcerpt &&
+      issue.flaggedExcerpt.trim().length > 0
+  );
+
+  if (activeIssues.length === 0) return html;
+
+  // Sort longest flaggedExcerpt first so sub-phrases do not preempt longer matches
+  const sorted = [...activeIssues].sort(
+    (a, b) => (b.flaggedExcerpt?.length || 0) - (a.flaggedExcerpt?.length || 0)
+  );
+
+  let result = html;
+
+  for (const issue of sorted) {
+    const rawExcerpt = issue.flaggedExcerpt.trim();
+    const escaped = rawExcerpt
+      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      .replace(/['’]/g, "['’]");
+    const startsWithWord = /^\w/.test(rawExcerpt);
+    const endsWithWord = /\w$/.test(rawExcerpt);
+    const prefix = startsWithWord ? '\\b' : '';
+    const suffix = endsWithWord ? '\\b' : '';
+    const regex = new RegExp(`${prefix}(${escaped})${suffix}`, 'gi');
+
+    const safeFix = (issue.suggestedFix || '').replace(/"/g, '&quot;');
+    const safeExpl = (issue.explanation || '').replace(/"/g, '&quot;');
+    const safeType = issue.issueType || 'GRAMMAR_ERROR';
+    const issueId = issue.id || '';
+
+    // Replace text in text nodes only, leaving HTML tags and existing <mark> tags untouched
+    result = result.replace(/([^<]+)|(<[^>]+>)/g, (match, text, tag) => {
+      if (tag) return tag;
+      return text.replace(
+        regex,
+        (matchedText: string) =>
+          `<mark class="evolyn-issue-mark" data-issue-id="${issueId}" data-suggested-fix="${safeFix}" data-explanation="${safeExpl}" data-issue-type="${safeType}">${matchedText}</mark>`
+      );
+    });
+  }
+
+  return result;
+}
+
 /**
  * Intelligently cleans, unwraps, and formats raw extracted document text into
  * clean, publication-grade semantic HTML (headings, continuous paragraphs, lists, and metadata).
+ * Optionally decorates open issues with inline red squiggly error marks.
  */
-export function cleanAndFormatPdfToHtml(raw: string): string {
+export function cleanAndFormatPdfToHtml(raw: string, issues?: DetectedIssue[]): string {
   if (!raw) return '<p>Loading document content...</p>';
 
   // If already HTML, strip any legacy artifacts and return
@@ -15,10 +72,11 @@ export function cleanAndFormatPdfToHtml(raw: string): string {
     raw.includes('<ol>') ||
     raw.includes('<div>')
   ) {
-    return raw
+    const cleaned = raw
       .replace(/<p[^>]*>Page\s*\d+\s*Reference<\/p>/gi, '')
       .replace(/<p[^>]*>\s*<\/p>/gi, '')
       .replace(/<p[^>]*>.*\|\s*[A-Z\s]+Page\s*\d+.*<\/p>/gi, '');
+    return markIssuesInHtml(cleaned, issues);
   }
 
   // 1. Strip raw PDF page markers, running headers, and web-clipping artifacts
@@ -205,5 +263,5 @@ export function cleanAndFormatPdfToHtml(raw: string): string {
     flushPara();
   }
 
-  return finalHtmlBlocks.join('\n');
+  return markIssuesInHtml(finalHtmlBlocks.join('\n'), issues);
 }
