@@ -22,6 +22,11 @@ import {
   rewriteActionSchema,
   rewriteContentSchema,
   rewriteResponseSchema,
+  brandSetupSchema,
+  updateGuidelineSchema,
+  brandGovernanceFindingSchema,
+  brandGovernanceEvaluationResponseSchema,
+  brandGovernanceEvaluateRequestSchema,
 } from './schemas.js';
 
 export type GuidelineCategory = z.infer<typeof guidelineCategorySchema>;
@@ -132,3 +137,9 @@ export type HealthCheckResponse = z.infer<typeof healthCheckResponseSchema>;
 export type RewriteAction = z.infer<typeof rewriteActionSchema>;
 export type RewriteContentInput = z.infer<typeof rewriteContentSchema>;
 export type RewriteResponse = z.infer<typeof rewriteResponseSchema>;
+
+export type BrandSetup = z.infer<typeof brandSetupSchema>;
+export type UpdateGuidelineInput = z.infer<typeof updateGuidelineSchema>;
+export type BrandGovernanceFinding = z.infer<typeof brandGovernanceFindingSchema>;
+export type BrandGovernanceEvaluation = z.infer<typeof brandGovernanceEvaluationResponseSchema>;
+export type BrandGovernanceEvaluateRequest = z.infer<typeof brandGovernanceEvaluateRequestSchema>;

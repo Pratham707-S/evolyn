@@ -162,3 +162,79 @@ export const healthCheckResponseSchema = z.object({
     configured: z.boolean(),
   }),
 });
+
+// ----------------------------------------
+// Brand Setup & Profile
+// ----------------------------------------
+export const brandSetupSchema = z.object({
+  brandName: z.string().min(1, 'Brand name is required'),
+  industry: z.string().default('Marketing Technology'),
+  description: z.string().default(''),
+  logoUrl: z.string().optional().default(''),
+  primaryColor: z.string().default('#111111'),
+  secondaryColor: z.string().default('#EDE7DE'),
+  headerFont: z.string().default('Instrument Serif'),
+  bodyFont: z.string().default('DM Sans'),
+  voiceTone: z
+    .object({
+      formality: z.number().min(1).max(5).default(3),
+      boldness: z.number().min(1).max(5).default(4),
+      accessibility: z.number().min(1).max(5).default(4),
+      toneDescriptors: z.array(z.string()).default(['Authoritative', 'Precise', 'Modern']),
+      dos: z.array(z.string()).default([]),
+      donts: z.array(z.string()).default([]),
+    })
+    .default({}),
+  governance: z
+    .object({
+      approvalStrategy: z.string().default('single'),
+      requireEvidence: z.boolean().default(true),
+      blockCompetitors: z.boolean().default(true),
+      enforcePalette: z.boolean().default(true),
+      brandGuardianEmail: z.string().default('guardian@evolyn.ai'),
+      minComplianceScore: z.number().default(85),
+    })
+    .default({}),
+});
+
+export const updateGuidelineSchema = z.object({
+  title: z.string().min(1).max(255).optional(),
+  category: z.string().optional(),
+  version: z.string().optional(),
+  rawContent: z.string().min(10).optional(),
+  status: guidelineStatusSchema.optional(),
+});
+
+// ----------------------------------------
+// Dedicated Brand Governance AI Schemas
+// ----------------------------------------
+export const brandGovernanceFindingSchema = z.object({
+  category: z.enum(['BRAND_VOICE', 'BRAND_RULE', 'FACT_VERIFICATION']),
+  severity: z.enum(['CRITICAL', 'WARNING', 'SUGGESTION']),
+  statement: z.string().min(1),
+  sourceEvidence: z.string().min(1),
+  suggestedImprovement: z.string().min(1),
+});
+
+export const brandGovernanceEvaluationResponseSchema = z.object({
+  governanceDecision: z.enum(['COMPLIANT', 'NEEDS_REVISION', 'NON_COMPLIANT']),
+  overallGovernanceScore: z.number().min(0).max(100),
+  brandVoiceScore: z.number().min(0).max(100),
+  rulesComplianceScore: z.number().min(0).max(100),
+  factGroundingScore: z.number().min(0).max(100),
+  findings: z.array(brandGovernanceFindingSchema),
+  summary: z.string().min(1),
+  requiresHumanApproval: z.literal(true),
+  evaluatedAt: z.string(),
+});
+
+export const brandGovernanceEvaluateRequestSchema = z.object({
+  content: z.string().min(1, 'Content to evaluate is required'),
+  contextOverrides: z
+    .object({
+      brandSetupId: z.string().uuid().optional(),
+      includeRules: z.boolean().default(true),
+      includeFacts: z.boolean().default(true),
+    })
+    .optional(),
+});

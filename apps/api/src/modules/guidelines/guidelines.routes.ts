@@ -18,6 +18,16 @@ guidelinesRouter.get(
     guidelinesController.getGuidelineById,
 );
 
+guidelinesRouter.put(
+    '/:id',
+    guidelinesController.updateGuideline,
+);
+
+guidelinesRouter.delete(
+    '/:id',
+    guidelinesController.deleteGuideline,
+);
+
 guidelinesRouter.post(
     '/:id/extract-rules',
     guidelinesController.extractRules,

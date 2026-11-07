@@ -27,6 +27,8 @@ import type { FactMatchResult } from './knowledge.types.js';
 export interface IKnowledgeService {
   createFact(input: CreateApprovedFactInput): Promise<ApprovedFact>;
   listFacts(topic?: string): Promise<ApprovedFact[]>;
+  getFactById(id: string): Promise<ApprovedFact | null>;
+  deleteFact(id: string): Promise<boolean>;
   findRelevantFacts(queryVector: number[], limit?: number): Promise<FactMatchResult[]>;
   generateAndSaveEmbeddings(): Promise<number>;
 }

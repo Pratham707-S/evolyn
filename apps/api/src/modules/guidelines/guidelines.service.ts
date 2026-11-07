@@ -1,5 +1,6 @@
 import {
     createGuidelineSchema,
+    updateGuidelineSchema,
     RULE_TYPES,
     SEVERITY_LEVELS,
 } from '@evolyn/shared';
@@ -40,6 +41,8 @@ type GuidelinesRepositoryPort = Pick<
     | 'create'
     | 'findMany'
     | 'findById'
+    | 'update'
+    | 'delete'
     | 'findRulesByGuidelineId'
     | 'createRules'
     | 'findConflictsByRuleIds'
@@ -327,6 +330,31 @@ export class GuidelinesService implements IGuidelineService {
             ...mapGuideline(guideline),
             rules: rules.map(mapRule),
         };
+    }
+
+    async updateGuideline(
+        id: string,
+        input: unknown,
+    ): Promise<Guideline | null> {
+        if (!id || !id.trim()) {
+            throw new Error('Guideline ID cannot be empty');
+        }
+
+        const validated = updateGuidelineSchema.parse(input);
+        const updated = await this.repository.update(id, validated as any);
+        if (!updated) {
+            return null;
+        }
+
+        return mapGuideline(updated);
+    }
+
+    async deleteGuideline(id: string): Promise<boolean> {
+        if (!id || !id.trim()) {
+            throw new Error('Guideline ID cannot be empty');
+        }
+
+        return await this.repository.delete(id);
     }
 
     async detectAndSaveConflicts(

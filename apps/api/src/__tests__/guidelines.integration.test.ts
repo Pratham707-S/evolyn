@@ -120,6 +120,8 @@ describe('Guidelines Integration Tests (Express App E2E)', () => {
   const originalFindConflicts = guidelinesRepository.findConflictsByRuleIds;
   const originalCreateConflicts = guidelinesRepository.createConflicts;
   const originalFindRelevantRules = guidelinesRepository.findRelevantRules;
+  const originalUpdate = guidelinesRepository.update;
+  const originalDelete = guidelinesRepository.delete;
 
   function restoreRepositoryMocks() {
     guidelinesRepository.create = originalCreate;
@@ -130,6 +132,8 @@ describe('Guidelines Integration Tests (Express App E2E)', () => {
     guidelinesRepository.findConflictsByRuleIds = originalFindConflicts;
     guidelinesRepository.createConflicts = originalCreateConflicts;
     guidelinesRepository.findRelevantRules = originalFindRelevantRules;
+    guidelinesRepository.update = originalUpdate;
+    guidelinesRepository.delete = originalDelete;
     guidelinesService.setRuleExtractor(undefined);
   }
 
@@ -601,6 +605,71 @@ describe('Guidelines Integration Tests (Express App E2E)', () => {
       assert.equal(res.statusCode, 500);
       assert.equal(res.body.error, 'Database connection failed during conflict detection');
       assert.equal(res.body.stack, undefined);
+    });
+  });
+
+  describe('PUT /api/guidelines/:id', () => {
+    it('updates an existing guideline and returns 200 with updated record', async () => {
+      guidelinesRepository.update = async (id, input) => ({
+        ...sampleRecord,
+        id,
+        title: input.title || sampleRecord.title,
+        status: (input.status || sampleRecord.status) as GuidelineRecord['status'],
+        updatedAt: new Date('2026-11-05T12:00:00.000Z'),
+      });
+
+      const res = await dispatch({
+        method: 'PUT',
+        url: `/api/guidelines/${sampleRecord.id}`,
+        body: {
+          title: 'Updated Global Brand Guidelines v2',
+          status: 'ACTIVE',
+        },
+      });
+
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.body.title, 'Updated Global Brand Guidelines v2');
+      assert.equal(res.body.status, 'ACTIVE');
+    });
+
+    it('returns 404 when guideline to update does not exist', async () => {
+      guidelinesRepository.update = async () => null;
+
+      const res = await dispatch({
+        method: 'PUT',
+        url: '/api/guidelines/non-existent-id',
+        body: { title: 'New Title' },
+      });
+
+      assert.equal(res.statusCode, 404);
+      assert.equal(res.body.error, 'Guideline not found');
+    });
+  });
+
+  describe('DELETE /api/guidelines/:id', () => {
+    it('deletes an existing guideline and returns 200', async () => {
+      guidelinesRepository.delete = async () => true;
+
+      const res = await dispatch({
+        method: 'DELETE',
+        url: `/api/guidelines/${sampleRecord.id}`,
+      });
+
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.body.success, true);
+      assert.equal(res.body.id, sampleRecord.id);
+    });
+
+    it('returns 404 when guideline to delete does not exist', async () => {
+      guidelinesRepository.delete = async () => false;
+
+      const res = await dispatch({
+        method: 'DELETE',
+        url: '/api/guidelines/non-existent-id',
+      });
+
+      assert.equal(res.statusCode, 404);
+      assert.equal(res.body.error, 'Guideline not found');
     });
   });
 

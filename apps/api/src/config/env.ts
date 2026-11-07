@@ -17,10 +17,14 @@ const envSchema = z
     DATABASE_URL: z.string().default('postgresql://evolyn:evolyn_secret@localhost:5432/evolyn_db'),
     DIRECT_URL: z.string().optional(),
 
-    // Gemini AI Model Configuration (strictly environment-driven)
+    // Main Gemini AI Model Configuration (strictly environment-driven)
     GEMINI_API_KEY: z.string().optional().default(''),
     GEMINI_MODEL: z.string().default('gemini-flash-lite-latest'),
     GEMINI_EMBEDDING_MODEL: z.string().default('gemini-embedding-2'),
+
+    // Dedicated Brand Governance AI Configuration (strictly isolated from main AI)
+    GEMINI_BRAND_GOVERNANCE_API_KEY: z.string().optional().default(''),
+    GEMINI_BRAND_GOVERNANCE_MODEL: z.string().default('gemini-1.5-pro'),
 
     // AWS S3 (optional in Phase 1 / local fallback)
     AWS_REGION: z.string().default('us-east-1'),

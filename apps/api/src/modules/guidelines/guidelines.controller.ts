@@ -84,6 +84,40 @@ export function createGuidelinesController(
     }
   };
 
+  // PUT: Update an existing guideline
+  const updateGuideline = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const updated = await service.updateGuideline(req.params.id, req.body);
+      if (!updated) {
+        return res.status(404).json({ error: 'Guideline not found' });
+      }
+      return res.status(200).json(updated);
+    } catch (error) {
+      return next(error);
+    }
+  };
+
+  // DELETE: Delete a guideline
+  const deleteGuideline = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const deleted = await service.deleteGuideline(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Guideline not found' });
+      }
+      return res.status(200).json({ success: true, id: req.params.id });
+    } catch (error) {
+      return next(error);
+    }
+  };
+
   // POST: Extract and persist atomic rules for a guideline from canonical stored content
   const extractRules = async (
     req: Request,
@@ -165,6 +199,8 @@ export function createGuidelinesController(
     createGuideline,
     getGuidelines,
     getGuidelineById,
+    updateGuideline,
+    deleteGuideline,
     extractRules,
     detectConflicts,
   };

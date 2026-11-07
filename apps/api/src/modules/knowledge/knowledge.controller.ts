@@ -43,9 +43,43 @@ export function createKnowledgeController(
         }
     };
 
+    const getFactById = async (
+        req: Request,
+        res: Response,
+        next: NextFunction,
+    ) => {
+        try {
+            const fact = await service.getFactById(req.params.id);
+            if (!fact) {
+                return res.status(404).json({ error: 'Approved fact not found' });
+            }
+            return res.status(200).json(fact);
+        } catch (error) {
+            return next(error);
+        }
+    };
+
+    const deleteFact = async (
+        req: Request,
+        res: Response,
+        next: NextFunction,
+    ) => {
+        try {
+            const deleted = await service.deleteFact(req.params.id);
+            if (!deleted) {
+                return res.status(404).json({ error: 'Approved fact not found' });
+            }
+            return res.status(200).json({ success: true, id: req.params.id });
+        } catch (error) {
+            return next(error);
+        }
+    };
+
     return {
         createFact,
         getFacts,
+        getFactById,
+        deleteFact,
     };
 }
 

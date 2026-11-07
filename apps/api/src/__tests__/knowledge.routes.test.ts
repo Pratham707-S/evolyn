@@ -16,7 +16,7 @@ const routerStack = (
     knowledgeRouter as unknown as { stack: RouteLayer[] }
 ).stack;
 
-function findRoute(path: string, method: 'get' | 'post') {
+function findRoute(path: string, method: 'get' | 'post' | 'delete') {
     const route = routerStack.find(
         (layer) =>
             layer.route?.path === path &&
@@ -47,6 +47,24 @@ describe('KnowledgeRoutes', () => {
         assert.equal(
             route.stack[0]?.handle,
             knowledgeController.getFacts,
+        );
+    });
+
+    it('registers GET /facts/:id with getFactById controller', () => {
+        const route = findRoute('/facts/:id', 'get');
+
+        assert.equal(
+            route.stack[0]?.handle,
+            knowledgeController.getFactById,
+        );
+    });
+
+    it('registers DELETE /facts/:id with deleteFact controller', () => {
+        const route = findRoute('/facts/:id', 'delete');
+
+        assert.equal(
+            route.stack[0]?.handle,
+            knowledgeController.deleteFact,
         );
     });
 });

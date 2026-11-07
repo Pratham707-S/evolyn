@@ -59,3 +59,10 @@ export interface AIProvider {
    */
   rewriteContent(params: AIRewriteParams): Promise<AIRewriteResult>;
 }
+
+export {
+  BrandGovernanceAIProvider,
+  BrandGovernanceAIConfigError,
+  type BrandGovernanceContext,
+  type BrandGovernanceEvaluateParams,
+} from './brand-governance.provider.js';

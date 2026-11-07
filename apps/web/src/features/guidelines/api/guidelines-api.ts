@@ -35,3 +35,26 @@ export async function createGuideline(payload: {
   return apiClient.post<BackendGuidelineWithRules>('/api/guidelines', payload);
 }
 
+export async function updateGuideline(
+  id: string,
+  payload: {
+    title?: string;
+    category?: string;
+    rawContent?: string;
+    version?: string;
+    status?: 'ACTIVE' | 'ARCHIVED' | 'DRAFT';
+  }
+): Promise<BackendGuidelineWithRules> {
+  return apiClient.put<BackendGuidelineWithRules>(`/api/guidelines/${id}`, payload);
+}
+
+export async function deleteGuideline(id: string): Promise<boolean> {
+  try {
+    await apiClient.delete(`/api/guidelines/${id}`);
+    return true;
+  } catch (error) {
+    console.error(`Failed to delete guideline ${id}:`, error);
+    return false;
+  }
+}
+

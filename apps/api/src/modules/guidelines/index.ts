@@ -39,6 +39,8 @@ export interface IGuidelineService {
   createGuideline(input: CreateGuidelineInput): Promise<Guideline>;
   getGuidelines(filter?: GuidelineQueryFilter): Promise<Guideline[]>;
   getGuidelineById(id: string): Promise<GuidelineWithRules | null>;
+  updateGuideline(id: string, input: unknown): Promise<Guideline | null>;
+  deleteGuideline(id: string): Promise<boolean>;
   extractAndSaveRules(
     guidelineId: string,
   ): Promise<GuidelineRule[]>;

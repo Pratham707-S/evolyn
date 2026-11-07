@@ -27,6 +27,8 @@ type KnowledgeRepositoryPort = Pick<
     KnowledgeRepository,
     | 'create'
     | 'findMany'
+    | 'findById'
+    | 'delete'
     | 'findRelevantFacts'
     | 'findFactsWithoutEmbeddings'
     | 'updateEmbedding'
@@ -63,6 +65,27 @@ export class KnowledgeService implements IKnowledgeService {
         const facts = await this.repository.findMany(topic);
 
         return facts.map(mapFact);
+    }
+
+    async getFactById(id: string): Promise<ApprovedFact | null> {
+        if (!id || !id.trim()) {
+            throw new Error('Fact ID cannot be empty');
+        }
+
+        const fact = await this.repository.findById(id);
+        if (!fact) {
+            return null;
+        }
+
+        return mapFact(fact);
+    }
+
+    async deleteFact(id: string): Promise<boolean> {
+        if (!id || !id.trim()) {
+            throw new Error('Fact ID cannot be empty');
+        }
+
+        return await this.repository.delete(id);
     }
 
     async findRelevantFacts(

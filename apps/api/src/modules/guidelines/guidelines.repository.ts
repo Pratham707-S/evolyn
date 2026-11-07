@@ -164,6 +164,35 @@ export class GuidelinesRepository {
         return guideline ?? null;
     }
 
+    async update(
+        id: string,
+        input: Partial<CreateGuidelineInput & { status: string }>
+    ): Promise<GuidelineRecord | null> {
+        const [updated] = await this.database
+            .update(guidelines)
+            .set({
+                ...(input.title ? { title: input.title } : {}),
+                ...(input.category ? { category: input.category } : {}),
+                ...(input.version ? { version: input.version } : {}),
+                ...(input.rawContent ? { rawContent: input.rawContent } : {}),
+                ...(input.status ? { status: input.status } : {}),
+                updatedAt: new Date(),
+            })
+            .where(eq(guidelines.id, id))
+            .returning();
+
+        return updated ?? null;
+    }
+
+    async delete(id: string): Promise<boolean> {
+        const deleted = await this.database
+            .delete(guidelines)
+            .where(eq(guidelines.id, id))
+            .returning();
+
+        return deleted.length > 0;
+    }
+
     async findRulesByGuidelineId(
         guidelineId: string,
     ): Promise<GuidelineRuleRecord[]> {

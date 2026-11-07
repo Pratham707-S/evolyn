@@ -61,6 +61,25 @@ export class KnowledgeRepository {
         return query.orderBy(desc(approvedFacts.createdAt));
     }
 
+    async findById(id: string): Promise<ApprovedFactRecord | null> {
+        const [fact] = await this.database
+            .select()
+            .from(approvedFacts)
+            .where(eq(approvedFacts.id, id))
+            .limit(1);
+
+        return fact ?? null;
+    }
+
+    async delete(id: string): Promise<boolean> {
+        const deleted = await this.database
+            .delete(approvedFacts)
+            .where(eq(approvedFacts.id, id))
+            .returning();
+
+        return deleted.length > 0;
+    }
+
     async findByTopic(topic: string): Promise<ApprovedFactRecord[]> {
         return this.database
             .select()

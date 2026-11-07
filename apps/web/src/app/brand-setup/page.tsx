@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bell, Check, Menu } from 'lucide-react';
 import { AppShell, useAppShell } from '@/components/layout/app-shell';
+import { apiClient } from '@/lib/api/client';
+import type { BrandSetup } from '@evolyn/shared';
 import {
   BrandSetupStepper,
   StepItem,
@@ -96,12 +98,116 @@ function BrandSetupContent() {
     minComplianceScore: 85,
   });
 
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Fetch live persisted brand setup on component mount
+  useEffect(() => {
+    let mounted = true;
+    async function loadPersistedSetup() {
+      try {
+        const setup = await apiClient.get<BrandSetup>('/api/brand-setup');
+        if (!mounted || !setup) return;
+
+        setProfileData({
+          brandName: setup.brandName,
+          industry: setup.industry,
+          description: setup.description,
+          logoUrl: setup.logoUrl || '',
+          primaryColor: setup.primaryColor,
+          secondaryColor: setup.secondaryColor,
+        });
+
+        setAssetsData({
+          headerFont: setup.headerFont,
+          bodyFont: setup.bodyFont,
+          mediaAssetsCount: 4,
+        });
+
+        if (setup.voiceTone) {
+          setVoiceData({
+            formality: setup.voiceTone.formality,
+            boldness: setup.voiceTone.boldness,
+            accessibility: setup.voiceTone.accessibility,
+            toneDescriptors: setup.voiceTone.toneDescriptors,
+            dos: setup.voiceTone.dos,
+            donts: setup.voiceTone.donts,
+          });
+        }
+
+        if (setup.governance) {
+          setGovernanceData({
+            approvalStrategy: (setup.governance.approvalStrategy as 'single' | 'dual' | 'automated') || 'single',
+            requireEvidence: setup.governance.requireEvidence,
+            blockCompetitors: setup.governance.blockCompetitors,
+            enforcePalette: setup.governance.enforcePalette,
+            brandGuardianEmail: setup.governance.brandGuardianEmail,
+            minComplianceScore: setup.governance.minComplianceScore,
+          });
+        }
+      } catch (err) {
+        // Fall back gracefully to initial state
+      }
+    }
+    loadPersistedSetup();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const persistCurrentSetup = async (isPublish = false) => {
+    setIsSaving(true);
+    const payload: BrandSetup = {
+      brandName: profileData.brandName,
+      industry: profileData.industry,
+      description: profileData.description,
+      logoUrl: profileData.logoUrl || '',
+      primaryColor: profileData.primaryColor,
+      secondaryColor: profileData.secondaryColor,
+      headerFont: assetsData.headerFont,
+      bodyFont: assetsData.bodyFont,
+      voiceTone: {
+        formality: voiceData.formality,
+        boldness: voiceData.boldness,
+        accessibility: voiceData.accessibility,
+        toneDescriptors: voiceData.toneDescriptors,
+        dos: voiceData.dos,
+        donts: voiceData.donts,
+      },
+      governance: {
+        approvalStrategy: governanceData.approvalStrategy,
+        requireEvidence: governanceData.requireEvidence,
+        blockCompetitors: governanceData.blockCompetitors,
+        enforcePalette: governanceData.enforcePalette,
+        brandGuardianEmail: governanceData.brandGuardianEmail,
+        minComplianceScore: governanceData.minComplianceScore,
+      },
+    };
+
+    try {
+      await apiClient.post('/api/brand-setup', payload);
+      showToast(
+        isPublish
+          ? `Brand Setup published and synced with Brand Governance AI.`
+          : `Brand Setup draft persisted to database.`
+      );
+    } catch (err) {
+      console.error('Failed to persist brand setup:', err);
+      showToast(
+        isPublish
+          ? 'Failed to publish brand setup to server.'
+          : 'Failed to save brand setup to server.'
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleSaveDraft = () => {
-    showToast('Draft retained in local session only. Backend persistence is unavailable.');
+    persistCurrentSetup(false);
   };
 
   const handlePublishSetup = () => {
-    showToast('Brand setup is in UI preview mode. Backend persistence is unavailable.');
+    persistCurrentSetup(true);
   };
 
   return (
@@ -143,18 +249,20 @@ function BrandSetupContent() {
           <button
             type="button"
             onClick={handleSaveDraft}
-            className="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-[#E5E1D8] bg-[#FFFEFA] hover:bg-[#F2EFE8] text-xs sm:text-sm font-medium text-[#25251F] transition-colors cursor-pointer shadow-2xs"
+            disabled={isSaving}
+            className="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-[#E5E1D8] bg-[#FFFEFA] hover:bg-[#F2EFE8] text-xs sm:text-sm font-medium text-[#25251F] transition-colors cursor-pointer shadow-2xs disabled:opacity-50"
           >
-            Save Draft
+            {isSaving ? 'Saving...' : 'Save Draft'}
           </button>
 
           <button
             type="button"
             onClick={handlePublishSetup}
-            className="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-[#25251F] hover:bg-[#383832] text-xs sm:text-sm font-semibold text-white transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
+            disabled={isSaving}
+            className="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-[#25251F] hover:bg-[#383832] text-xs sm:text-sm font-semibold text-white transition-all cursor-pointer flex items-center gap-1.5 shadow-xs disabled:opacity-50"
           >
             <Check className="w-4 h-4 stroke-[2.5]" />
-            <span>Publish Setup</span>
+            <span>{isSaving ? 'Publishing...' : 'Publish Setup'}</span>
           </button>
         </div>
       </div>

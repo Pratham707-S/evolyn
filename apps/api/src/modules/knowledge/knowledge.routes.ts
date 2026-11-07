@@ -13,3 +13,13 @@ knowledgeRouter.get(
     '/facts',
     knowledgeController.getFacts,
 );
+
+knowledgeRouter.get(
+    '/facts/:id',
+    knowledgeController.getFactById,
+);
+
+knowledgeRouter.delete(
+    '/facts/:id',
+    knowledgeController.deleteFact,
+);

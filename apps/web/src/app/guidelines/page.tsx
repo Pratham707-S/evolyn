@@ -18,6 +18,8 @@ import {
   EditCategoryModal,
   fetchAllGuidelines,
   createGuideline,
+  updateGuideline,
+  deleteGuideline,
   BackendGuidelineWithRules,
 } from '@/features/guidelines';
 
@@ -125,7 +127,20 @@ function GuidelinesContent() {
     data: Omit<GuidelineItem, 'id' | 'updatedAt'> & { id?: string }
   ) => {
     if (data.id) {
-      // Edit existing locally
+      // Edit existing: Persist to backend PostgreSQL database
+      try {
+        await updateGuideline(data.id, {
+          title: data.title,
+          category: data.categoryName.toUpperCase().replace(/\s+/g, '_'),
+          rawContent: data.description + (data.ruleStatement ? `\nRule: ${data.ruleStatement}` : ''),
+        });
+        refetchGuidelines();
+        showToast(`Updated and persisted guideline: "${data.title}"`);
+      } catch (err) {
+        console.error('Failed to update guideline in database:', err);
+        showToast(`Updated guideline: "${data.title}" (local state fallback).`);
+      }
+
       setGuidelines((prev) =>
         prev.map((item) =>
           item.id === data.id
@@ -137,7 +152,6 @@ function GuidelinesContent() {
             : item
         )
       );
-      showToast(`Updated guideline: "${data.title}"`);
     } else {
       // Add new: Persist to backend PostgreSQL database
       try {
@@ -170,10 +184,17 @@ function GuidelinesContent() {
     }
   };
 
-  const handleDeleteGuideline = (guidelineId: string) => {
+  const handleDeleteGuideline = async (guidelineId: string) => {
     const target = guidelines.find((g) => g.id === guidelineId);
     setGuidelines((prev) => prev.filter((g) => g.id !== guidelineId));
-    showToast(`Deleted guideline: "${target?.title || guidelineId}"`);
+
+    try {
+      await deleteGuideline(guidelineId);
+      refetchGuidelines();
+      showToast(`Deleted guideline: "${target?.title || guidelineId}" from database.`);
+    } catch {
+      showToast(`Deleted guideline: "${target?.title || guidelineId}"`);
+    }
   };
 
   const handleEditCategorySave = (updatedCat: GuidelineCategoryItem) => {

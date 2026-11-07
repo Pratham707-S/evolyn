@@ -8,6 +8,9 @@ import {
   createApprovedFactSchema,
   rewriteContentSchema,
   rewriteResponseSchema,
+  brandSetupSchema,
+  updateGuidelineSchema,
+  brandGovernanceEvaluationResponseSchema,
 } from '../schemas.js';
 import { REWRITE_ACTIONS } from '../constants.js';
 
@@ -236,6 +239,68 @@ describe('Shared Zod Schemas Validation', () => {
         }).success,
         false
       );
+    });
+  });
+
+  describe('brandSetupSchema', () => {
+    it('accepts valid brand setup with defaults', () => {
+      const valid = {
+        brandName: 'Evolyn Enterprise',
+        industry: 'Brand Safety AI',
+        description: 'Enterprise brand compliance platform.',
+      };
+      const result = brandSetupSchema.safeParse(valid);
+      assert.equal(result.success, true);
+      if (result.success) {
+        assert.equal(result.data.primaryColor, '#111111');
+        assert.equal(result.data.headerFont, 'Instrument Serif');
+        assert.equal(result.data.governance.minComplianceScore, 85);
+      }
+    });
+
+    it('rejects brand setup missing brandName', () => {
+      const invalid = {
+        brandName: '',
+      };
+      const result = brandSetupSchema.safeParse(invalid);
+      assert.equal(result.success, false);
+    });
+  });
+
+  describe('updateGuidelineSchema', () => {
+    it('accepts partial updates', () => {
+      const valid = {
+        title: 'Updated Guideline Title',
+        status: 'ACTIVE' as const,
+      };
+      const result = updateGuidelineSchema.safeParse(valid);
+      assert.equal(result.success, true);
+    });
+  });
+
+  describe('brandGovernanceEvaluationResponseSchema', () => {
+    it('validates structured brand governance evaluation response and enforces human approval', () => {
+      const valid = {
+        governanceDecision: 'NEEDS_REVISION',
+        overallGovernanceScore: 78,
+        brandVoiceScore: 85,
+        rulesComplianceScore: 70,
+        factGroundingScore: 80,
+        findings: [
+          {
+            category: 'BRAND_RULE',
+            severity: 'CRITICAL',
+            statement: 'Copy contains unverified risk-free claim.',
+            sourceEvidence: 'Global Governance Rule 2: Absolute guarantees prohibited.',
+            suggestedImprovement: 'Replace with grounded uptime statistic.',
+          },
+        ],
+        summary: 'One critical rule violation detected; requires human review before publishing.',
+        requiresHumanApproval: true as const,
+        evaluatedAt: new Date().toISOString(),
+      };
+      const result = brandGovernanceEvaluationResponseSchema.safeParse(valid);
+      assert.equal(result.success, true);
     });
   });
 });
