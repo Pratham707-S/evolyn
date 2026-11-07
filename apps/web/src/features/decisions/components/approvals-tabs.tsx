@@ -37,8 +37,8 @@ export function ApprovalsTabs({
             onClick={() => onTabChange(tab.id)}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors select-none ${
               isActive
-                ? 'bg-[#25251F] text-white shadow-xs'
-                : 'bg-[#F1EFE8] text-[#25251F] hover:bg-[#E8E5DD]'
+                ? 'bg-[#25251F] dark:bg-[#F4F4F5] text-white dark:text-[#18181B] shadow-xs font-semibold'
+                : 'bg-[#F1EFE8] dark:bg-[#262520] text-[#25251F] dark:text-[#A09D92] hover:bg-[#E8E5DD] dark:hover:bg-[#33322C] dark:hover:text-[#F7F5F0]'
             }`}
           >
             {tab.label}

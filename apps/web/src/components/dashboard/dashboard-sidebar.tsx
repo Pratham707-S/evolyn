@@ -83,23 +83,23 @@ export function DashboardSidebar({
   };
 
   const content = (
-    <div className="flex flex-col h-full bg-[#F1EFE8] border-r border-[#E5E1D8] w-60 max-w-[calc(100vw-3rem)] py-5 px-4 select-none">
+    <div className="flex flex-col h-full bg-[#F1EFE8] dark:bg-[#181714] border-r border-[#E5E1D8] dark:border-[#2C2B26] w-60 max-w-[calc(100vw-3rem)] py-5 px-4 select-none">
       {/* Brand Logo */}
       <div className="flex items-center justify-between mb-7 px-2">
         <div className="flex items-center gap-2.5">
           {/* Isometric Cube Icon matching reference */}
-          <div className="w-6 h-6 flex items-center justify-center text-[#25251F] flex-shrink-0">
+          <div className="w-6 h-6 flex items-center justify-center text-[#25251F] dark:text-[#F7F5F0] flex-shrink-0">
             <svg
               width="20"
               height="20"
               viewBox="0 0 24 24"
               fill="currentColor"
-              className="w-5 h-5 text-[#25251F]"
+              className="w-5 h-5 text-[#25251F] dark:text-[#F7F5F0]"
             >
               <path d="M12 2L3 7v10l9 5 9-5V7l-9-5zm0 2.236l6.764 3.757L12 11.75 5.236 7.993 12 4.236zM4.75 9.472L11 12.944v7.32l-6.25-3.472V9.472zm8 7.32v-7.32l6.25-3.472v7.32L12.75 16.792z" />
             </svg>
           </div>
-          <span className="font-semibold text-lg tracking-tight text-[#25251F]">
+          <span className="font-semibold text-lg tracking-tight text-[#25251F] dark:text-[#F7F5F0]">
             Evolyn
           </span>
         </div>
@@ -109,7 +109,7 @@ export function DashboardSidebar({
           <button
             type="button"
             onClick={onMobileClose}
-            className="lg:hidden p-1.5 rounded-lg text-[#77766E] hover:text-[#25251F] hover:bg-[#E5E1D8] transition-colors touch-manipulation"
+            className="lg:hidden p-1.5 rounded-lg text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0] hover:bg-[#E5E1D8] dark:hover:bg-[#262520] transition-colors touch-manipulation"
             aria-label="Close sidebar"
           >
             <X className="w-5 h-5" />
@@ -121,7 +121,7 @@ export function DashboardSidebar({
       <div className="flex-1 space-y-6 overflow-y-auto pr-1 -mr-1">
         {/* Workspace */}
         <div>
-          <div className="px-2 mb-2 text-[11px] font-semibold tracking-wider text-[#77766E] uppercase">
+          <div className="px-2 mb-2 text-[11px] font-semibold tracking-wider text-[#77766E] dark:text-[#A09D92] uppercase">
             {t('nav.workspace', 'Workspace')}
           </div>
           <div className="space-y-0.5">
@@ -135,14 +135,18 @@ export function DashboardSidebar({
                   href={route}
                   prefetch={true}
                   onClick={() => handleItemClick(item.name)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors text-left ${
+                  className={`group w-full flex items-center gap-2.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors text-left ${
                     isActive
-                      ? 'bg-[#25251F] text-white shadow-sm'
-                      : 'text-[#25251F] hover:bg-[#E8E5DD]'
+                      ? 'bg-[#25251F] dark:bg-[#2A2924] text-white dark:text-[#F7F5F0] shadow-xs font-semibold dark:border dark:border-[#3D3A32]'
+                      : 'text-[#25251F] dark:text-[#A09D92] hover:bg-[#E8E5DD] dark:hover:bg-[#24231E] hover:text-[#25251F] dark:hover:text-[#F7F5F0]'
                   }`}
                 >
                   <Icon
-                    className={`w-4 h-4 ${isActive ? 'text-white' : 'text-[#77766E]'}`}
+                    className={`w-4 h-4 transition-colors ${
+                      isActive
+                        ? 'text-white dark:text-[#F7F5F0]'
+                        : 'text-[#77766E] dark:text-[#77766E] group-hover:text-[#25251F] dark:group-hover:text-[#F7F5F0]'
+                    }`}
                   />
                   <span>{item.label}</span>
                 </Link>
@@ -153,7 +157,7 @@ export function DashboardSidebar({
 
         {/* Brand */}
         <div>
-          <div className="px-2 mb-2 text-[11px] font-semibold tracking-wider text-[#77766E] uppercase">
+          <div className="px-2 mb-2 text-[11px] font-semibold tracking-wider text-[#77766E] dark:text-[#A09D92] uppercase">
             {t('nav.brand', 'Brand')}
           </div>
           <div className="space-y-0.5">
@@ -167,14 +171,18 @@ export function DashboardSidebar({
                   href={route}
                   prefetch={true}
                   onClick={() => handleItemClick(item.name)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors text-left ${
+                  className={`group w-full flex items-center gap-2.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors text-left ${
                     isActive
-                      ? 'bg-[#25251F] text-white shadow-sm'
-                      : 'text-[#25251F] hover:bg-[#E8E5DD]'
+                      ? 'bg-[#25251F] dark:bg-[#2A2924] text-white dark:text-[#F7F5F0] shadow-xs font-semibold dark:border dark:border-[#3D3A32]'
+                      : 'text-[#25251F] dark:text-[#A09D92] hover:bg-[#E8E5DD] dark:hover:bg-[#24231E] hover:text-[#25251F] dark:hover:text-[#F7F5F0]'
                   }`}
                 >
                   <Icon
-                    className={`w-4 h-4 ${isActive ? 'text-white' : 'text-[#77766E]'}`}
+                    className={`w-4 h-4 transition-colors ${
+                      isActive
+                        ? 'text-white dark:text-[#F7F5F0]'
+                        : 'text-[#77766E] dark:text-[#77766E] group-hover:text-[#25251F] dark:group-hover:text-[#F7F5F0]'
+                    }`}
                   />
                   <span>{item.label}</span>
                 </Link>
@@ -185,7 +193,7 @@ export function DashboardSidebar({
 
         {/* Intelligence */}
         <div>
-          <div className="px-2 mb-2 text-[11px] font-semibold tracking-wider text-[#77766E] uppercase">
+          <div className="px-2 mb-2 text-[11px] font-semibold tracking-wider text-[#77766E] dark:text-[#A09D92] uppercase">
             {t('nav.intelligence', 'Intelligence')}
           </div>
           <div className="space-y-0.5">
@@ -199,14 +207,18 @@ export function DashboardSidebar({
                   href={route}
                   prefetch={true}
                   onClick={() => handleItemClick(item.name)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors text-left ${
+                  className={`group w-full flex items-center gap-2.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors text-left ${
                     isActive
-                      ? 'bg-[#25251F] text-white shadow-sm'
-                      : 'text-[#25251F] hover:bg-[#E8E5DD]'
+                      ? 'bg-[#25251F] dark:bg-[#2A2924] text-white dark:text-[#F7F5F0] shadow-xs font-semibold dark:border dark:border-[#3D3A32]'
+                      : 'text-[#25251F] dark:text-[#A09D92] hover:bg-[#E8E5DD] dark:hover:bg-[#24231E] hover:text-[#25251F] dark:hover:text-[#F7F5F0]'
                   }`}
                 >
                   <Icon
-                    className={`w-4 h-4 ${isActive ? 'text-white' : 'text-[#77766E]'}`}
+                    className={`w-4 h-4 transition-colors ${
+                      isActive
+                        ? 'text-white dark:text-[#F7F5F0]'
+                        : 'text-[#77766E] dark:text-[#77766E] group-hover:text-[#25251F] dark:group-hover:text-[#F7F5F0]'
+                    }`}
                   />
                   <span>{item.label}</span>
                 </Link>
@@ -216,7 +228,7 @@ export function DashboardSidebar({
         </div>
 
         {/* Bottom items */}
-        <div className="pt-2 border-t border-[#E5E1D8]/60 space-y-0.5">
+        <div className="pt-2 border-t border-[#E5E1D8]/60 dark:border-[#2C2B26] space-y-0.5">
           {bottomNav.map((item) => {
             const isActive = activeItem === item.name;
             const Icon = item.icon;
@@ -227,14 +239,18 @@ export function DashboardSidebar({
                 href={route}
                 prefetch={true}
                 onClick={() => handleItemClick(item.name)}
-                className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors text-left ${
+                className={`group w-full flex items-center gap-2.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors text-left ${
                   isActive
-                    ? 'bg-[#25251F] text-white shadow-sm'
-                    : 'text-[#25251F] hover:bg-[#E8E5DD]'
+                    ? 'bg-[#25251F] dark:bg-[#2A2924] text-white dark:text-[#F7F5F0] shadow-xs font-semibold dark:border dark:border-[#3D3A32]'
+                    : 'text-[#25251F] dark:text-[#A09D92] hover:bg-[#E8E5DD] dark:hover:bg-[#24231E] hover:text-[#25251F] dark:hover:text-[#F7F5F0]'
                 }`}
               >
                 <Icon
-                  className={`w-4 h-4 ${isActive ? 'text-white' : 'text-[#77766E]'}`}
+                  className={`w-4 h-4 transition-colors ${
+                    isActive
+                      ? 'text-white dark:text-[#F7F5F0]'
+                      : 'text-[#77766E] dark:text-[#77766E] group-hover:text-[#25251F] dark:group-hover:text-[#F7F5F0]'
+                  }`}
                 />
                 <span>{item.label}</span>
               </Link>
@@ -244,22 +260,22 @@ export function DashboardSidebar({
       </div>
 
       {/* Workspace Footer Profile */}
-      <div className="pt-3 border-t border-[#E5E1D8] mt-2">
-        <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-[#E8E5DD] transition-colors cursor-pointer">
+      <div className="pt-3 border-t border-[#E5E1D8] dark:border-[#2C2B26] mt-2">
+        <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-[#E8E5DD] dark:hover:bg-[#24231E] transition-colors cursor-pointer">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-7 h-7 rounded bg-[#E5E1D8] flex items-center justify-center font-medium text-xs text-[#25251F] flex-shrink-0">
+            <div className="w-7 h-7 rounded bg-[#E5E1D8] dark:bg-[#2A2924] border border-transparent dark:border-[#3D3A32] flex items-center justify-center font-medium text-xs text-[#25251F] dark:text-[#F7F5F0] flex-shrink-0">
               E
             </div>
             <div className="truncate">
-              <p className="text-xs font-medium text-[#25251F] leading-tight truncate">
+              <p className="text-xs font-medium text-[#25251F] dark:text-[#F7F5F0] leading-tight truncate">
                 Evolyn Team
               </p>
-              <p className="text-[11px] text-[#77766E] leading-tight truncate">
+              <p className="text-[11px] text-[#77766E] dark:text-[#A09D92] leading-tight truncate">
                 Brand Workspace
               </p>
             </div>
           </div>
-          <ChevronDown className="w-3.5 h-3.5 text-[#77766E] flex-shrink-0 ml-1" />
+          <ChevronDown className="w-3.5 h-3.5 text-[#77766E] dark:text-[#A09D92] flex-shrink-0 ml-1" />
         </div>
       </div>
     </div>
