@@ -385,10 +385,10 @@ export function ApprovalInspector({
                   {change.before && change.after && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] pt-1">
                       <div className="p-2 rounded-lg bg-[#FAF9F5] border border-[#F4BFB9]/80 text-[#8A332B] line-through">
-                        "{change.before}"
+                        "{change.before.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()}"
                       </div>
                       <div className="p-2 rounded-lg bg-[#FAF9F5] border border-[#C8DEC9] text-[#2A4530] font-medium">
-                        "{change.after}"
+                        "{change.after.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()}"
                       </div>
                     </div>
                   )}
@@ -418,7 +418,31 @@ export function ApprovalInspector({
           )}
         </div>
 
-        {isFinalized ? (
+        {item.decision === 'Changes Requested' ? (
+          <div className="p-4 rounded-xl bg-[#FDF9F0] border border-[#F0D5B5] space-y-3">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-[#B78A4A] shrink-0 mt-0.5" />
+              <div>
+                <span className="text-xs font-semibold text-[#865920] block">
+                  Changes Have Been Requested For This Draft
+                </span>
+                <p className="text-xs text-[#5C3C1A] mt-0.5 leading-relaxed">
+                  {item.summary || 'A reviewer has requested revisions before final sign-off.'}
+                </p>
+              </div>
+            </div>
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => router.push(`/reviews?id=${item.id}&status=changes_requested`)}
+                className="w-full sm:w-auto bg-[#25251F] hover:bg-[#383832] text-white text-xs font-semibold px-4 py-2.5 rounded-xl flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-[#E6C687]" />
+                <span>Open in Review Workspace to Apply Changes & AI Auto-Fix ➔</span>
+              </button>
+            </div>
+          </div>
+        ) : isFinalized ? (
           <div className="p-3.5 rounded-xl bg-[#EEF4EE]/70 border border-[#C8DEC9] text-xs text-[#2A4530] flex items-center gap-2">
             <CheckCheck className="w-4 h-4 text-[#64816A] shrink-0" />
             <span>

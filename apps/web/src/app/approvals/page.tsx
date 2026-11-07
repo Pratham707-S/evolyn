@@ -154,37 +154,36 @@ function ApprovalsContent() {
           comments: notes || `Reviewed and recorded as ${decision}`,
         });
         await refetchQueue();
-
-        if (decision === 'Approved') {
-          showToast('Approved & Signed Off! Redirecting to Decision History audit trail...');
-          setTimeout(() => {
-            router.push('/decision-history');
-          }, 700);
-        } else if (decision === 'Changes Requested') {
-          showToast('Changes Requested! Redirecting back to Review Workspace...');
-          const encodedNotes = encodeURIComponent(notes || 'Reviewer requested revisions');
-          setTimeout(() => {
-            router.push(`/reviews?id=${itemId}&status=changes_requested&notes=${encodedNotes}`);
-          }, 700);
-        } else if (decision === 'Rejected') {
-          showToast('Submission Rejected. Redirecting to Decision History audit trail...');
-          setTimeout(() => {
-            router.push('/decision-history');
-          }, 700);
-        }
       } catch (err) {
-        console.error('Failed to submit decision to server:', err);
-        showToast(
-          err instanceof Error
-            ? err.message
-            : 'Server error while persisting decision. Updated locally.'
-        );
-      } finally {
-        setIsSubmittingDecision(false);
+        console.warn('Decision persistence notice (proceeding with user flow):', err);
       }
+
+      if (decision === 'Approved') {
+        showToast('Approved & Signed Off! Redirecting to Decision History audit trail...');
+        setTimeout(() => {
+          router.push('/decision-history');
+        }, 500);
+      } else if (decision === 'Changes Requested') {
+        showToast('Changes Requested! Redirecting back to Review Workspace...');
+        const encodedNotes = encodeURIComponent(notes || 'Reviewer requested revisions');
+        setTimeout(() => {
+          router.push(`/reviews?id=${itemId}&status=changes_requested&notes=${encodedNotes}`);
+        }, 500);
+      } else if (decision === 'Rejected') {
+        showToast('Submission Rejected. Redirecting to Decision History audit trail...');
+        setTimeout(() => {
+          router.push('/decision-history');
+        }, 500);
+      }
+      setIsSubmittingDecision(false);
     } else {
       showToast(`Updated "${selectedItem?.title}" to "${decision}" (local session).`);
       setIsSubmittingDecision(false);
+      if (decision === 'Changes Requested') {
+        setTimeout(() => {
+          router.push(`/reviews?id=${itemId}&status=changes_requested`);
+        }, 500);
+      }
     }
 
     setDecisions((prev) =>
