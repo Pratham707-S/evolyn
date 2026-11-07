@@ -168,3 +168,4 @@ export class BrandSetupRepository implements IBrandSetupRepository {
 }
 
 export const brandSetupRepository = new BrandSetupRepository();
+

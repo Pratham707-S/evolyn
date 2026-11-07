@@ -40,3 +40,4 @@ export function createBrandGovernanceController(
 }
 
 export const brandGovernanceController = createBrandGovernanceController();
+

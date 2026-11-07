@@ -5,3 +5,4 @@ export const brandGovernanceRouter = Router();
 
 brandGovernanceRouter.get('/context', brandGovernanceController.getContext);
 brandGovernanceRouter.post('/evaluate', brandGovernanceController.evaluate);
+

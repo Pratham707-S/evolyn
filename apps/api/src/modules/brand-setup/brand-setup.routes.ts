@@ -6,3 +6,4 @@ export const brandSetupRouter = Router();
 brandSetupRouter.get('/', brandSetupController.getBrandSetup);
 brandSetupRouter.post('/', brandSetupController.saveBrandSetup);
 brandSetupRouter.put('/', brandSetupController.saveBrandSetup);
+
