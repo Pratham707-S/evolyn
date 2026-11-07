@@ -204,8 +204,8 @@ export default function Home() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 min-w-0">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-4">
+      <main className="flex-1 min-w-0 overflow-x-hidden">
+        <div className="max-w-[1400px] mx-auto px-3.5 sm:px-6 lg:px-8 py-5 sm:py-7 lg:py-8 space-y-4 sm:space-y-6">
           {/* Toast feedback banner */}
           {notificationToast && (
             <div className="fixed top-4 right-4 z-50 bg-[#25251F] text-white text-xs px-4 py-2.5 rounded-lg shadow-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
@@ -247,7 +247,7 @@ export default function Home() {
           {/* Row 3: Bottom Analytics */}
           <section
             aria-label="Platform Health and Recent Audits"
-            className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start"
+            className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch"
           >
             <DashboardMetrics
               metrics={liveMetrics}
@@ -263,7 +263,7 @@ export default function Home() {
           </section>
 
           {/* Minimal Editorial Footer */}
-          <footer className="pt-4 pb-2 border-t border-[#E5E1D8]/60 flex flex-col sm:flex-row items-center justify-between text-[11px] text-[#A09D92] gap-2">
+          <footer className="pt-4 pb-2 border-t border-[#E5E1D8]/60 flex flex-col sm:flex-row items-center justify-between text-[11px] text-[#A09D92] gap-2 text-center sm:text-left">
             <p>
               Evolyn Brand Governance · Team Matrix Mechanics
             </p>

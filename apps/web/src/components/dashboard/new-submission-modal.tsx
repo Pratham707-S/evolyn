@@ -291,29 +291,29 @@ export function NewSubmissionModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-2xl w-full max-w-xl shadow-xl flex flex-col max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-2xl w-full max-w-xl shadow-xl flex flex-col max-h-[92vh] sm:max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="p-6 pb-4 border-b border-[#E5E1D8] flex items-center justify-between flex-shrink-0">
-          <div>
-            <h2 className="font-serif text-xl sm:text-2xl text-[#25251F]">
+        <div className="p-4 sm:p-6 pb-3 sm:pb-4 border-b border-[#E5E1D8] flex items-center justify-between shrink-0">
+          <div className="min-w-0 pr-2">
+            <h2 className="font-serif text-lg sm:text-2xl text-[#25251F] truncate">
               New Content Submission
             </h2>
-            <p className="text-xs text-[#77766E] mt-0.5">
+            <p className="text-xs text-[#77766E] mt-0.5 truncate">
               Submit copy or documents for grounded brand compliance verification.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-[#77766E] hover:text-[#25251F] rounded-lg hover:bg-[#F1EFE8] transition-colors"
+            className="p-1.5 text-[#77766E] hover:text-[#25251F] rounded-lg hover:bg-[#F1EFE8] transition-colors shrink-0 touch-manipulation"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Scrollable Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-3.5 sm:space-y-4 overflow-y-auto flex-1">
           {error && (
             <div className="p-3 rounded-lg bg-[#FBEBE8] border border-[#EAC4BE] text-[#B56E63] text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -641,22 +641,22 @@ export function NewSubmissionModal({
           )}
 
           {/* Actions */}
-          <div className="flex items-center justify-between pt-3 border-t border-[#E5E1D8] flex-shrink-0">
-            <div>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-[#E5E1D8] shrink-0">
+            <div className="min-w-0">
               {createdSubmissionId && (
-                <span className="text-xs text-[#64816A] font-medium flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Submission persisted in database</span>
+                <span className="text-xs text-[#64816A] font-medium flex items-center gap-1 truncate">
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">Submission persisted in database</span>
                 </span>
               )}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-end gap-2 w-full sm:w-auto">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={isSubmitting}
-                className="px-3.5 py-2 text-xs font-medium text-[#77766E] hover:text-[#25251F] hover:bg-[#F1EFE8] rounded-lg transition-colors"
+                className="px-3.5 py-2 text-xs font-medium text-[#77766E] hover:text-[#25251F] hover:bg-[#F1EFE8] rounded-lg transition-colors flex-1 sm:flex-initial text-center justify-center"
               >
                 Cancel
               </button>
@@ -668,7 +668,7 @@ export function NewSubmissionModal({
                   (mode === 'upload' && processingState !== 'ready') ||
                   (mode === 'url' && !createdSubmissionId)
                 }
-                className="bg-[#25251F] hover:bg-[#383832] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-medium px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-xs transition-colors"
+                className="bg-[#25251F] hover:bg-[#383832] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-medium px-4 py-2 rounded-lg flex items-center justify-center gap-1.5 shadow-xs transition-colors flex-1 sm:flex-initial"
               >
                 {isSubmitting ? (
                   <>

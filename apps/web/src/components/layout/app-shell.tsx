@@ -108,7 +108,7 @@ export function AppShell({ children, activeItem, noScroll = false }: AppShellPro
 
         {/* Main Content Area */}
         <main
-          className={`flex-1 min-w-0 ${
+          className={`flex-1 min-w-0 overflow-x-hidden ${
             noScroll ? 'lg:h-screen lg:overflow-hidden flex flex-col' : ''
           }`}
         >

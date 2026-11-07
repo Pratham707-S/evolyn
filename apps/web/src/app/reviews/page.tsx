@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Plus, Edit3, Sparkles, Wand2, Loader2, AlertCircle, AlertTriangle } from 'lucide-react';
+import { Plus, Edit3, Sparkles, Wand2, Loader2, AlertCircle, AlertTriangle, X } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AppShell, useAppShell } from '@/components/layout/app-shell';
 import { PageHeader } from '@/components/shared/page-header';
@@ -30,6 +30,9 @@ function ReviewWorkspaceInner() {
   const { showToast, openNewSubmission } = useAppShell();
 
   const urlSubmissionId = searchParams.get('id');
+  const urlStatus = searchParams.get('status');
+  const urlNotes = searchParams.get('notes');
+  const [showFeedbackBanner, setShowFeedbackBanner] = useState(true);
 
   const [activeTool, setActiveTool] = useState('improve-writing');
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
@@ -96,9 +99,38 @@ function ReviewWorkspaceInner() {
     }
   }, [reviewData, currentContent]);
 
+  // Derived reviewer feedback from URL redirect or persisted decision
+  const reviewerFeedback = React.useMemo(() => {
+    if (urlNotes) {
+      try {
+        return decodeURIComponent(urlNotes);
+      } catch {
+        return urlNotes;
+      }
+    }
+    if (reviewData?.decision?.comments) {
+      return reviewData.decision.comments;
+    }
+    return null;
+  }, [urlNotes, reviewData?.decision]);
+
+  const isChangesRequested =
+    urlStatus === 'changes_requested' ||
+    reviewData?.decision?.decision === 'CHANGES_REQUESTED' ||
+    reviewData?.submission?.status === 'REJECTED' ||
+    Boolean(reviewerFeedback);
+
   // 2. Gemini Rewrite Mutation
   const rewriteMutation = useMutation({
-    mutationFn: async ({ action, label }: { action: string; label: string }) => {
+    mutationFn: async ({
+      action,
+      label,
+      instructions,
+    }: {
+      action: string;
+      label: string;
+      instructions?: string;
+    }) => {
       const subId = reviewData?.submission?.id;
       if (!subId) throw new Error('No active submission to rewrite.');
 
@@ -115,7 +147,7 @@ function ReviewWorkspaceInner() {
         {
           action,
           content: textToRewrite,
-          instruction: `${label} conforming strictly to enterprise brand guidelines`,
+          instructions: instructions || `${label} conforming strictly to enterprise brand guidelines`,
         },
         { timeoutMs: 60000 }
       );
@@ -127,6 +159,7 @@ function ReviewWorkspaceInner() {
         original: currentContent || reviewData?.submission?.rawText || '',
         rewritten,
         rulesApplied: res.semanticRulesApplied || [
+          'Reviewer feedback alignment',
           'Brand voice grounded verification',
           'Eliminated hyperbolic claims',
         ],
@@ -137,6 +170,15 @@ function ReviewWorkspaceInner() {
       showToast(`Rewrite failed: ${err.message || 'Evolyn AI service error'}`);
     },
   });
+
+  const handleAutoFixWithAi = () => {
+    if (!reviewerFeedback) return;
+    rewriteMutation.mutate({
+      action: 'IMPROVE_WRITING',
+      label: `Auto-Fix for Reviewer Request`,
+      instructions: `The reviewer has requested changes to this marketing draft: "${reviewerFeedback}". Rewrite and refine the content to directly resolve the reviewer's feedback while preserving strict enterprise brand tone, factual grounding, and grammatical accuracy.`,
+    });
+  };
 
   // 3. Save Revision Mutation (Persists directly to database without triggering slow AI analysis)
   const saveMutation = useMutation({
@@ -426,6 +468,60 @@ function ReviewWorkspaceInner() {
             mobileTab === 'editor' ? 'flex flex-col' : 'hidden'
           } lg:flex lg:flex-col flex-1 min-w-0 h-full overflow-hidden`}
         >
+          {/* Reviewer Feedback / Change Request Banner */}
+          {Boolean(reviewerFeedback) && showFeedbackBanner && (
+            <div className="bg-[#FAF7F0] border border-[#D5A770] rounded-xl px-3.5 py-2.5 mb-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-2xs shrink-0 animate-in fade-in slide-in-from-top-1">
+              <div className="flex items-start gap-2.5 min-w-0">
+                <div className="w-6 h-6 rounded-md bg-[#F4E8D5] text-[#8A5B28] flex items-center justify-center shrink-0 mt-0.5">
+                  <AlertTriangle className="w-3.5 h-3.5 text-[#9A672E]" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[11px] font-semibold text-[#6E481F] uppercase tracking-wider">
+                      Reviewer Requested Changes
+                    </span>
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#EBDBC9] text-[#5C3C1A]">
+                      Action Required
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#25251F] mt-0.5 font-medium italic break-words line-clamp-2">
+                    &ldquo;{reviewerFeedback}&rdquo;
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                <button
+                  type="button"
+                  disabled={rewriteMutation.isPending}
+                  onClick={handleAutoFixWithAi}
+                  className="bg-[#25251F] hover:bg-[#3D3C35] text-white text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer disabled:opacity-50 touch-manipulation"
+                >
+                  {rewriteMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>AI Fixing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5 text-[#E6C687]" />
+                      <span>Auto-Fix with AI</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowFeedbackBanner(false)}
+                  className="p-1 text-[#A09D92] hover:text-[#25251F] hover:bg-[#EAE4D7] rounded-md transition-colors cursor-pointer"
+                  title="Dismiss banner"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
           <ReviewEditor
             initialTitle={submission?.title || 'Brand Content Draft'}
             channel={submission?.channel || 'Website'}

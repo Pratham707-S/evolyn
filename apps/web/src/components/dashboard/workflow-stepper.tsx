@@ -56,7 +56,7 @@ export function WorkflowStepper({ onStepClick }: WorkflowStepperProps) {
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-3.5">
       {steps.map((step) => {
         const Icon = step.icon;
         return (
@@ -71,13 +71,13 @@ export function WorkflowStepper({ onStepClick }: WorkflowStepperProps) {
                 onStepClick?.(step.id);
               }
             }}
-            className="group bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-4 flex flex-col justify-between hover:border-[#68745D]/60 hover:shadow-xs transition-all cursor-pointer select-none text-left"
+            className="group bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-3.5 sm:p-4 flex flex-col justify-between hover:border-[#68745D]/60 hover:shadow-xs transition-all cursor-pointer select-none text-left min-h-[105px] touch-manipulation"
           >
             <div>
               <div className="w-6 h-6 flex items-center justify-center text-[#25251F]">
                 <Icon className="w-4 h-4 text-[#25251F] group-hover:scale-110 transition-transform" />
               </div>
-              <h3 className="font-semibold text-sm text-[#25251F] mt-2.5 mb-1 tracking-tight">
+              <h3 className="font-semibold text-xs sm:text-sm text-[#25251F] mt-2 sm:mt-2.5 mb-1 tracking-tight">
                 {step.title}
               </h3>
             </div>
@@ -86,7 +86,7 @@ export function WorkflowStepper({ onStepClick }: WorkflowStepperProps) {
               <p className="text-xs text-[#77766E] leading-relaxed line-clamp-2">
                 {step.description}
               </p>
-              <ArrowRight className="w-3.5 h-3.5 text-[#25251F] flex-shrink-0 group-hover:translate-x-1 transition-transform mb-0.5" />
+              <ArrowRight className="w-3.5 h-3.5 text-[#25251F] shrink-0 group-hover:translate-x-1 transition-transform mb-0.5" />
             </div>
           </div>
         );

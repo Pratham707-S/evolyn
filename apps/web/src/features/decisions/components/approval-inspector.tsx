@@ -130,10 +130,25 @@ export function ApprovalInspector({
 
   const isFinalized = item.decision === 'Approved' || item.decision === 'Rejected';
 
+  // Cleanly formatted document content: parse HTML if present, or format plain text
+  const rawDocContent = item.content || item.snippet || '';
+  const hasHtml = /<[a-z][\s\S]*>/i.test(rawDocContent);
+
+  const cleanDocHtml = React.useMemo(() => {
+    if (!hasHtml) return '';
+    return rawDocContent
+      .replace(/<p[^>]*>Page\s*\d+\s*Reference<\/p>/gi, '')
+      .replace(/<p[^>]*>\s*<\/p>/gi, '')
+      .replace(/<p[^>]*>.*\|\s*[A-Z\s]+Page\s*\d+.*<\/p>/gi, '');
+  }, [rawDocContent, hasHtml]);
+
   const handleCopy = async () => {
     try {
       if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        await navigator.clipboard.writeText(item.content);
+        const textToCopy = hasHtml
+          ? rawDocContent.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+          : rawDocContent;
+        await navigator.clipboard.writeText(textToCopy);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
         showToast('Document text copied to clipboard');
@@ -341,8 +356,17 @@ export function ApprovalInspector({
         </div>
 
         {/* The Clean Document Body */}
-        <div className="bg-[#FAF9F5] border border-[#E5E1D8] rounded-2xl p-5 sm:p-6 text-sm text-[#25251F] leading-relaxed font-sans shadow-2xs whitespace-pre-wrap max-h-[380px] overflow-y-auto custom-scrollbar">
-          {item.content || item.snippet}
+        <div className="bg-[#FAF9F5] border border-[#E5E1D8] rounded-2xl p-5 sm:p-6 text-sm text-[#25251F] leading-relaxed font-sans shadow-2xs max-h-[420px] overflow-y-auto custom-scrollbar">
+          {hasHtml ? (
+            <div
+              className="prose prose-sm max-w-none text-[#25251F] font-sans leading-relaxed [&>p]:mb-3.5 [&>p:last-child]:mb-0 [&>h1]:font-serif [&>h1]:text-xl [&>h1]:font-normal [&>h1]:text-[#25251F] [&>h1]:mt-4 [&>h1]:mb-2 [&>h2]:font-serif [&>h2]:text-base [&>h2]:font-normal [&>h2]:text-[#25251F] [&>h2]:mt-3.5 [&>h2]:mb-1.5 [&>h3]:font-serif [&>h3]:text-sm [&>h3]:font-medium [&>h3]:text-[#25251F] [&>h3]:mt-3 [&>h3]:mb-1 [&>ul]:list-disc [&>ul]:pl-5 [&>ul]:mb-3 [&>ol]:list-decimal [&>ol]:pl-5 [&>ol]:mb-3"
+              dangerouslySetInnerHTML={{ __html: cleanDocHtml }}
+            />
+          ) : (
+            <div className="whitespace-pre-wrap text-sm text-[#25251F] leading-relaxed font-sans">
+              {rawDocContent}
+            </div>
+          )}
         </div>
 
         {/* Detailed Diffs Drawer (when toggled) */}

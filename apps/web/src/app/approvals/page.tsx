@@ -68,10 +68,15 @@ function ApprovalsContent() {
             ? 'Changes Requested'
             : 'Pending';
 
+        const cleanPlainText = (sub.rawText || '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
         return {
           id: sub.id,
           title: sub.title,
-          snippet: sub.rawText.slice(0, 60) + '...',
+          snippet: cleanPlainText.slice(0, 75) + (cleanPlainText.length > 75 ? '...' : ''),
           content: sub.rawText,
           channel: sub.channel || 'Website',
           decision: decisionText as DecisionItem['decision'],
@@ -157,8 +162,9 @@ function ApprovalsContent() {
           }, 700);
         } else if (decision === 'Changes Requested') {
           showToast('Changes Requested! Redirecting back to Review Workspace...');
+          const encodedNotes = encodeURIComponent(notes || 'Reviewer requested revisions');
           setTimeout(() => {
-            router.push(`/reviews?id=${itemId}&status=changes_requested`);
+            router.push(`/reviews?id=${itemId}&status=changes_requested&notes=${encodedNotes}`);
           }, 700);
         } else if (decision === 'Rejected') {
           showToast('Submission Rejected. Redirecting to Decision History audit trail...');

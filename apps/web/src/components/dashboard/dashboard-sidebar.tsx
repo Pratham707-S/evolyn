@@ -80,7 +80,7 @@ export function DashboardSidebar({
   };
 
   const content = (
-    <div className="flex flex-col h-full bg-[#F1EFE8] border-r border-[#E5E1D8] w-60 py-5 px-4 select-none">
+    <div className="flex flex-col h-full bg-[#F1EFE8] border-r border-[#E5E1D8] w-60 max-w-[calc(100vw-3rem)] py-5 px-4 select-none">
       {/* Brand Logo */}
       <div className="flex items-center justify-between mb-7 px-2">
         <div className="flex items-center gap-2.5">
@@ -106,7 +106,7 @@ export function DashboardSidebar({
           <button
             type="button"
             onClick={onMobileClose}
-            className="lg:hidden p-1 rounded-md text-[#77766E] hover:text-[#25251F] hover:bg-[#E5E1D8]"
+            className="lg:hidden p-1.5 rounded-lg text-[#77766E] hover:text-[#25251F] hover:bg-[#E5E1D8] transition-colors touch-manipulation"
             aria-label="Close sidebar"
           >
             <X className="w-5 h-5" />
@@ -273,11 +273,11 @@ export function DashboardSidebar({
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div
-            className="fixed inset-0 bg-black/30 backdrop-blur-xs transition-opacity"
+            className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity"
             onClick={onMobileClose}
             aria-hidden="true"
           />
-          <div className="fixed inset-y-0 left-0 z-50 flex shadow-2xl">
+          <div className="fixed inset-y-0 left-0 z-50 flex shadow-2xl max-w-[85vw]">
             {content}
           </div>
         </div>

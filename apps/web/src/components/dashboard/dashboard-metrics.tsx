@@ -28,11 +28,11 @@ interface DashboardMetricsProps {
 export function DashboardMetrics({ metrics, isLoading = false }: DashboardMetricsProps) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3.5">
         {[1, 2, 3, 4].map((i) => (
           <div
             key={i}
-            className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-6 h-[188px] flex flex-col justify-between animate-pulse"
+            className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-4 sm:p-5 min-h-[160px] sm:min-h-[175px] flex flex-col justify-between animate-pulse"
           >
             <div className="flex items-center justify-between">
               <div className="w-5 h-5 rounded bg-[#E5E1D8]/60" />
@@ -88,7 +88,7 @@ export function DashboardMetrics({ metrics, isLoading = false }: DashboardMetric
   const items = metrics || defaultMetrics;
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3.5">
       {items.map((m) => {
         const Icon = m.icon;
         const isUp = m.trend === 'up';
@@ -97,7 +97,7 @@ export function DashboardMetrics({ metrics, isLoading = false }: DashboardMetric
         return (
           <div
             key={m.id}
-            className={`bg-[#FFFEFA] rounded-xl p-6 h-[188px] flex flex-col justify-start transition-colors opacity-100 ${
+            className={`bg-[#FFFEFA] rounded-xl p-4 sm:p-5 min-h-[160px] sm:min-h-[175px] flex flex-col justify-between transition-colors opacity-100 ${
               isNeedsChanges
                 ? 'border border-[#68745D]/50 hover:border-[#68745D]'
                 : 'border border-[#E5E1D8] hover:border-[#68745D]/40'
@@ -105,7 +105,7 @@ export function DashboardMetrics({ metrics, isLoading = false }: DashboardMetric
           >
             {/* 1. Icon and Status Pill */}
             <div className="flex items-center justify-between text-[#25251F]">
-              <div className="w-5 h-5 flex items-center justify-center">
+              <div className="w-5 h-5 flex items-center justify-center shrink-0">
                 <Icon className="w-5 h-5 text-[#25251F]" />
               </div>
               <span
@@ -119,24 +119,26 @@ export function DashboardMetrics({ metrics, isLoading = false }: DashboardMetric
               </span>
             </div>
 
-            {/* 2. Metric Number (Animated with GSAP from 0) */}
-            <span className="font-serif text-[34px] font-normal text-[#25251F] leading-tight mt-3 tracking-tight block">
-              <AnimatedCounter value={m.value} duration={1.2} />
-            </span>
+            <div>
+              {/* 2. Metric Number (Animated with GSAP from 0) */}
+              <span className="font-serif text-2xl sm:text-3xl lg:text-[34px] font-normal text-[#25251F] leading-tight mt-2 sm:mt-3 tracking-tight block">
+                <AnimatedCounter value={m.value} duration={1.2} />
+              </span>
 
-            {/* 3. Metric Label */}
-            <span className="text-xs text-[#77766E] font-sans font-normal mt-1 block">
-              {m.label}
-            </span>
+              {/* 3. Metric Label */}
+              <span className="text-xs text-[#77766E] font-sans font-normal mt-0.5 sm:mt-1 block truncate">
+                {m.label}
+              </span>
+            </div>
 
             {/* 4. Percentage Indicator */}
-            <div className="mt-3.5 flex items-center gap-1 text-xs text-[#77766E] font-sans font-medium">
+            <div className="mt-2.5 sm:mt-3.5 flex items-center gap-1 text-[11px] sm:text-xs text-[#77766E] font-sans font-medium truncate">
               {isUp ? (
-                <ArrowUp className="w-3 h-3 stroke-[2.5]" />
+                <ArrowUp className="w-3 h-3 stroke-[2.5] shrink-0" />
               ) : (
-                <ArrowDown className="w-3 h-3 stroke-[2.5]" />
+                <ArrowDown className="w-3 h-3 stroke-[2.5] shrink-0" />
               )}
-              <span>{m.delta} vs. last 30 days</span>
+              <span className="truncate">{m.delta} vs. last 30 days</span>
             </div>
           </div>
         );

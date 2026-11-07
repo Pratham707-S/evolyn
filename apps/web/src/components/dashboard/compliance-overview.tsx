@@ -141,13 +141,13 @@ export function ComplianceOverview({
   return (
     <div
       ref={containerRef}
-      className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-5 flex flex-col justify-between"
+      className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-4 sm:p-5 flex flex-col justify-between overflow-hidden"
     >
       {/* Top Header */}
       <div>
-        <div className="flex items-center justify-between relative">
-          <div className="flex items-center gap-2">
-            <h2 className="font-semibold text-base text-[#25251F]">
+        <div className="flex flex-wrap items-center justify-between gap-2 relative">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <h2 className="font-semibold text-sm sm:text-base text-[#25251F]">
               Brand Compliance
             </h2>
             <span
@@ -168,7 +168,7 @@ export function ComplianceOverview({
           </div>
 
           {/* Period selector */}
-          <div className="relative">
+          <div className="relative shrink-0">
             <button
               type="button"
               onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -203,8 +203,8 @@ export function ComplianceOverview({
         </div>
 
         {/* Metric and delta */}
-        <div className="compliance-metric mt-3 flex items-baseline gap-2.5">
-          <span className="text-3xl font-semibold tracking-tight text-[#25251F] font-sans">
+        <div className="compliance-metric mt-3 flex items-baseline gap-2 sm:gap-2.5">
+          <span className="text-2xl sm:text-3xl font-semibold tracking-tight text-[#25251F] font-sans">
             {score.toFixed(1)}%
           </span>
           <span className="inline-flex items-center gap-0.5 px-2 py-0.5 text-xs font-medium rounded-full bg-[#E8EBE1] text-[#4E6B54]">
@@ -218,10 +218,10 @@ export function ComplianceOverview({
       </div>
 
       {/* Visual Chart Area */}
-      <div className="mt-6">
-        <div className="w-full h-32 relative">
+      <div className="mt-5 sm:mt-6">
+        <div className="w-full h-28 sm:h-32 relative overflow-hidden">
           <svg
-            className="w-full h-full overflow-visible"
+            className="w-full h-full"
             viewBox="0 0 500 140"
             preserveAspectRatio="none"
           >
@@ -255,7 +255,7 @@ export function ComplianceOverview({
         </div>
 
         {/* Month labels evenly aligned */}
-        <div className="flex justify-between items-center text-xs text-[#77766E] mt-3 px-1 border-t border-[#E5E1D8]/40 pt-2">
+        <div className="flex justify-between items-center text-[11px] sm:text-xs text-[#77766E] mt-2.5 sm:mt-3 px-1 border-t border-[#E5E1D8]/40 pt-2">
           {months.map((m) => (
             <span key={m} className="compliance-month-label font-normal">
               {m}
