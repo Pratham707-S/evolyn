@@ -12,12 +12,14 @@ if (typeof window !== 'undefined') {
 interface ComplianceOverviewProps {
   score?: number;
   delta?: number;
+  isLive?: boolean;
   isLoading?: boolean;
 }
 
 export function ComplianceOverview({
   score = 92.4,
   delta = 4.8,
+  isLive = false,
   isLoading = false,
 }: ComplianceOverviewProps) {
   const [period, setPeriod] = useState('Last 6 months');
@@ -148,8 +150,14 @@ export function ComplianceOverview({
             <h2 className="font-semibold text-base text-[#25251F]">
               Brand Compliance
             </h2>
-            <span className="text-[10px] font-mono uppercase tracking-wider text-[#A09D92] bg-[#F1EFE8] px-1.5 py-0.5 rounded">
-              Sample Data
+            <span
+              className={`text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                isLive
+                  ? 'text-[#4E6B54] bg-[#EEF4EE] border border-[#D4DBC9]'
+                  : 'text-[#A09D92] bg-[#F1EFE8]'
+              }`}
+            >
+              {isLive ? 'Live Database' : 'Sample Data'}
             </span>
             <div
               className="group relative cursor-pointer"

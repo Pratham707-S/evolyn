@@ -52,7 +52,7 @@ export function RecentSubmissions({
     },
   ];
 
-  const items = submissions || defaultSubmissions;
+  const items = submissions !== undefined ? submissions : defaultSubmissions;
 
   return (
     <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-5 flex flex-col justify-between h-full">
@@ -81,41 +81,50 @@ export function RecentSubmissions({
       </div>
 
       {/* Submissions list */}
-      <div className="divide-y divide-[#E5E1D8]/50">
-        {items.map((sub) => {
-          const isApproved = sub.status === 'Approved';
+      {items.length === 0 ? (
+        <div className="py-10 text-center my-auto">
+          <p className="text-xs font-medium text-[#25251F]">No submissions in database</p>
+          <p className="text-[11px] text-[#A09D92] mt-1">
+            Upload or submit marketing content to start brand governance reviews.
+          </p>
+        </div>
+      ) : (
+        <div className="divide-y divide-[#E5E1D8]/50">
+          {items.map((sub) => {
+            const isApproved = sub.status === 'Approved';
 
-          return (
-            <div
-              key={sub.id}
-              onClick={() => onSelectSubmission?.(sub)}
-              className="py-2.5 flex items-center justify-between gap-3 group hover:bg-[#F7F5F0]/60 -mx-2 px-2 rounded-lg transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <FileText className="w-4 h-4 text-[#77766E] flex-shrink-0 group-hover:text-[#25251F] transition-colors" />
-                <span className="text-xs font-medium text-[#25251F] truncate">
-                  {sub.title}
-                </span>
-              </div>
+            return (
+              <div
+                key={sub.id}
+                onClick={() => onSelectSubmission?.(sub)}
+                className="py-2.5 flex items-center justify-between gap-3 group hover:bg-[#F7F5F0]/60 -mx-2 px-2 rounded-lg transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <FileText className="w-4 h-4 text-[#77766E] flex-shrink-0 group-hover:text-[#25251F] transition-colors" />
+                  <span className="text-xs font-medium text-[#25251F] truncate">
+                    {sub.title}
+                  </span>
+                </div>
 
-              <div className="flex items-center gap-3 flex-shrink-0">
-                <span className="text-xs text-[#A09D92] whitespace-nowrap">
-                  {sub.timestamp}
-                </span>
-                <span
-                  className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full inline-block ${
-                    isApproved
-                      ? 'bg-[#E8EBE1] text-[#4E6B54]'
-                      : 'bg-[#F5EFE6] text-[#8A6B3D]'
-                  }`}
-                >
-                  {sub.status}
-                </span>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <span className="text-xs text-[#A09D92] whitespace-nowrap">
+                    {sub.timestamp}
+                  </span>
+                  <span
+                    className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full inline-block ${
+                      isApproved
+                        ? 'bg-[#E8EBE1] text-[#4E6B54]'
+                        : 'bg-[#F5EFE6] text-[#8A6B3D]'
+                    }`}
+                  >
+                    {sub.status}
+                  </span>
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

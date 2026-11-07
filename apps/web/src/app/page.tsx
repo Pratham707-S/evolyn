@@ -42,12 +42,13 @@ export default function Home() {
       apiClient.get<{ submissions: ContentSubmission[]; total: number }>('/api/submissions'),
   });
 
-  const isLive = Boolean(submissionsData?.submissions && submissionsData.submissions.length > 0);
+  const isConnected = Boolean(submissionsData && Array.isArray(submissionsData.submissions));
   const subsList = submissionsData?.submissions || [];
+  const isLive = isConnected;
 
   // Real KPI metrics calculated from live database records
   const liveMetrics = useMemo<MetricCardData[] | undefined>(() => {
-    if (!isLive) return undefined;
+    if (!isConnected) return undefined;
 
     const total = subsList.length;
     const approved = subsList.filter((s) => s.status === 'APPROVED').length;
@@ -59,7 +60,7 @@ export default function Home() {
         id: 'reviewed',
         label: 'Content reviewed',
         value: total,
-        delta: '+100%',
+        delta: total > 0 ? '+100%' : '0%',
         trend: 'up',
         icon: FileText,
       },
@@ -83,23 +84,24 @@ export default function Home() {
         id: 'active-claims',
         label: 'Pending review',
         value: pending,
-        delta: 'In queue',
+        delta: total > 0 ? 'In queue' : 'Empty',
         trend: 'up',
         icon: Layers,
       },
     ];
-  }, [isLive, subsList]);
+  }, [isConnected, subsList]);
 
   // Real compliance score calculated from live database records
   const complianceScore = useMemo(() => {
-    if (!isLive || subsList.length === 0) return 92.4; // Sample baseline
+    if (!isConnected) return 92.4; // Sample baseline while loading before API responds
+    if (subsList.length === 0) return 0;
     const approved = subsList.filter((s) => s.status === 'APPROVED').length;
     return Math.round((approved / subsList.length) * 100);
-  }, [isLive, subsList]);
+  }, [isConnected, subsList]);
 
   // Real channel breakdown calculated from live database records
   const channelData = useMemo(() => {
-    if (!isLive || subsList.length === 0) return undefined;
+    if (!isConnected) return undefined;
 
     const targetChannels = ['Website', 'LinkedIn', 'Email', 'Ads', 'Blog'];
     return targetChannels.map((chName) => {
@@ -124,11 +126,11 @@ export default function Home() {
         needsChanges: Math.round((chChanges / chTotal) * 100),
       };
     });
-  }, [isLive, subsList]);
+  }, [isConnected, subsList]);
 
   // Map live submissions or fallback
   const submissions: SubmissionItem[] = useMemo(() => {
-    if (subsList.length > 0) {
+    if (isConnected) {
       return subsList.slice(0, 5).map((s: ContentSubmission) => ({
         id: s.id,
         title: s.title,
@@ -142,34 +144,8 @@ export default function Home() {
       }));
     }
 
-    // Default sample fallback
-    return [
-      {
-        id: 'sub-1',
-        title: 'Q3 Product Campaign (LinkedIn)',
-        timestamp: '2h ago',
-        status: 'Needs changes',
-      },
-      {
-        id: 'sub-2',
-        title: 'Website Hero Update',
-        timestamp: '4h ago',
-        status: 'Approved',
-      },
-      {
-        id: 'sub-3',
-        title: 'Product Launch Email',
-        timestamp: '6h ago',
-        status: 'Approved',
-      },
-      {
-        id: 'sub-4',
-        title: 'Customer Case Study',
-        timestamp: 'Yesterday',
-        status: 'Needs changes',
-      },
-    ];
-  }, [subsList]);
+    return [];
+  }, [isConnected, subsList]);
 
   const navRoutes: Record<string, string> = {
     Dashboard: '/',
@@ -257,11 +233,13 @@ export default function Home() {
           >
             <ComplianceOverview
               score={complianceScore}
-              delta={isLive ? 2.5 : 4.8}
+              delta={subsList.length > 0 ? 2.5 : 0}
+              isLive={isLive}
               isLoading={isSubmissionsLoading}
             />
             <ContentStatusChart
               data={channelData}
+              isLive={isLive}
               isLoading={isSubmissionsLoading}
             />
           </section>
