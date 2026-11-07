@@ -134,22 +134,22 @@ export function DecisionHistoryMetrics({
             }}
             className={`text-left rounded-xl transition-all p-5 border text-[#25251F] group relative focus:outline-none focus-visible:ring-1 focus-visible:ring-[#68745D] flex items-center justify-between opacity-100 ${
               isSelected
-                ? 'bg-[#FFFEFA] border-[#68745D] shadow-xs ring-1 ring-[#68745D]/20'
-                : 'bg-[#FFFEFA] border-[#E5E1D8] hover:border-[#68745D]/40'
+                ? 'bg-[#FFFEFA] dark:bg-[#1E1D19] border-[#68745D] shadow-xs ring-1 ring-[#68745D]/20'
+                : 'bg-[#FFFEFA] dark:bg-[#1E1D19] border-[#E5E1D8] dark:border-[#2C2B26] hover:border-[#68745D]/40'
             }`}
           >
             {/* Left Metrics Details */}
             <div className="space-y-1">
-              <div className="w-5 h-5 flex items-center justify-center text-[#25251F]">
+              <div className="w-5 h-5 flex items-center justify-center text-[#25251F] dark:text-[#F7F5F0]">
                 <Icon className="w-5 h-5" />
               </div>
 
-              <p className="text-xs text-[#77766E] font-medium pt-1">
+              <p className="text-xs text-[#77766E] dark:text-[#A09D92] font-medium pt-1">
                 {card.label}
               </p>
 
               {/* Animated number from 0 */}
-              <p className="font-serif text-3xl sm:text-[34px] font-normal text-[#25251F] tracking-tight leading-none">
+              <p className="font-serif text-3xl sm:text-[34px] font-normal text-[#25251F] dark:text-[#F7F5F0] tracking-tight leading-none">
                 <AnimatedCounter value={card.value} duration={1.2} />
               </p>
 

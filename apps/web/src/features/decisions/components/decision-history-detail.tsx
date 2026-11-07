@@ -60,20 +60,20 @@ export function DecisionHistoryDetail({
     switch (decision) {
       case 'Approved':
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#EEF4EE] text-[#4E6B54] border border-[#D4DBC9]">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#EEF4EE] dark:bg-[#1E2E22] text-[#4E6B54] dark:text-[#86EFAC] border border-[#D4DBC9] dark:border-[#2C4832]">
             Approved
           </span>
         );
       case 'Changes Requested':
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#FDF2EC] text-[#B56E63] border border-[#F2D7CA]">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#FDF2EC] dark:bg-[#2F2414] text-[#B56E63] dark:text-[#FDE047] border border-[#F2D7CA] dark:border-[#4A3B22]">
             Changes Requested
           </span>
         );
       case 'Rejected':
       default:
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#FDEAEA] text-[#B56E63] border border-[#F7C6C6]">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#FDEAEA] dark:bg-[#331818] text-[#B56E63] dark:text-[#FCA5A5] border border-[#F7C6C6] dark:border-[#4A2624]">
             Rejected
           </span>
         );
@@ -81,20 +81,20 @@ export function DecisionHistoryDetail({
   };
 
   return (
-    <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-5 sm:p-6 space-y-5 shadow-2xs">
+    <div className="bg-[#FFFEFA] dark:bg-[#1E1D19] border border-[#E5E1D8] dark:border-[#2C2B26] rounded-xl p-5 sm:p-6 space-y-5 shadow-2xs">
       {/* Header */}
       <div className="flex items-start justify-between gap-3 pb-1">
         <div className="flex items-start gap-3">
-          <div className="w-9 h-9 rounded-xl bg-[#F1EFE8] border border-[#E5E1D8] flex items-center justify-center text-[#25251F] shrink-0 mt-0.5">
+          <div className="w-9 h-9 rounded-xl bg-[#F1EFE8] dark:bg-[#262520] border border-[#E5E1D8] dark:border-[#2C2B26] flex items-center justify-center text-[#25251F] dark:text-[#F7F5F0] shrink-0 mt-0.5">
             <FileText className="w-4 h-4" />
           </div>
 
           <div>
-            <h3 className="font-serif text-xl sm:text-2xl font-normal text-[#25251F] tracking-tight">
+            <h3 className="font-serif text-xl sm:text-2xl font-normal text-[#25251F] dark:text-[#F7F5F0] tracking-tight">
               {item.title}
             </h3>
-            <div className="flex items-center gap-2 text-xs text-[#77766E] mt-0.5">
-              <span className="flex items-center gap-1 font-medium text-[#25251F]">
+            <div className="flex items-center gap-2 text-xs text-[#77766E] dark:text-[#A09D92] mt-0.5">
+              <span className="flex items-center gap-1 font-medium text-[#25251F] dark:text-[#F7F5F0]">
                 {getChannelIcon(item.channel)}
                 {item.channel}
               </span>
@@ -110,14 +110,14 @@ export function DecisionHistoryDetail({
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-5 border-b border-[#E5E1D8] text-xs font-medium text-[#77766E]">
+      <div className="flex items-center gap-5 border-b border-[#E5E1D8] dark:border-[#2C2B26] text-xs font-medium text-[#77766E] dark:text-[#A09D92]">
         <button
           type="button"
           onClick={() => setActiveTab('decision')}
           className={`pb-2.5 transition-colors relative ${
             activeTab === 'decision'
-              ? 'text-[#25251F] font-semibold border-b-2 border-[#25251F] -mb-[1px]'
-              : 'hover:text-[#25251F]'
+              ? 'text-[#25251F] dark:text-[#F7F5F0] font-semibold border-b-2 border-[#25251F] dark:border-[#F7F5F0] -mb-[1px]'
+              : 'hover:text-[#25251F] dark:hover:text-[#F7F5F0]'
           }`}
         >
           Decision
@@ -128,8 +128,8 @@ export function DecisionHistoryDetail({
           onClick={() => setActiveTab('findings')}
           className={`pb-2.5 flex items-center gap-1 transition-colors relative ${
             activeTab === 'findings'
-              ? 'text-[#25251F] font-semibold border-b-2 border-[#25251F] -mb-[1px]'
-              : 'hover:text-[#25251F]'
+              ? 'text-[#25251F] dark:text-[#F7F5F0] font-semibold border-b-2 border-[#25251F] dark:border-[#F7F5F0] -mb-[1px]'
+              : 'hover:text-[#25251F] dark:hover:text-[#F7F5F0]'
           }`}
         >
           <AlertTriangle className="w-3 h-3 text-[#B78A4A]" />
@@ -141,8 +141,8 @@ export function DecisionHistoryDetail({
           onClick={() => setActiveTab('guidelines')}
           className={`pb-2.5 flex items-center gap-1 transition-colors relative ${
             activeTab === 'guidelines'
-              ? 'text-[#25251F] font-semibold border-b-2 border-[#25251F] -mb-[1px]'
-              : 'hover:text-[#25251F]'
+              ? 'text-[#25251F] dark:text-[#F7F5F0] font-semibold border-b-2 border-[#25251F] dark:border-[#F7F5F0] -mb-[1px]'
+              : 'hover:text-[#25251F] dark:hover:text-[#F7F5F0]'
           }`}
         >
           <BookMarked className="w-3 h-3" />
@@ -154,8 +154,8 @@ export function DecisionHistoryDetail({
           onClick={() => setActiveTab('activity')}
           className={`pb-2.5 flex items-center gap-1 transition-colors relative ${
             activeTab === 'activity'
-              ? 'text-[#25251F] font-semibold border-b-2 border-[#25251F] -mb-[1px]'
-              : 'hover:text-[#25251F]'
+              ? 'text-[#25251F] dark:text-[#F7F5F0] font-semibold border-b-2 border-[#25251F] dark:border-[#F7F5F0] -mb-[1px]'
+              : 'hover:text-[#25251F] dark:hover:text-[#F7F5F0]'
           }`}
         >
           <Activity className="w-3 h-3" />
@@ -171,13 +171,13 @@ export function DecisionHistoryDetail({
             {/* Submitted Content Box (7 cols) */}
             <div className="lg:col-span-7 space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider text-[#25251F]">
+                <span className="text-xs font-semibold uppercase tracking-wider text-[#25251F] dark:text-[#F7F5F0]">
                   Submitted Content
                 </span>
                 <button
                   type="button"
                   onClick={handleCopy}
-                  className="p-1 rounded text-[#77766E] hover:text-[#25251F] hover:bg-[#F1EFE8] transition-colors"
+                  className="p-1 rounded text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0] hover:bg-[#F1EFE8] dark:hover:bg-[#262520] transition-colors"
                   title="Copy text"
                 >
                   {copied ? (
@@ -188,7 +188,7 @@ export function DecisionHistoryDetail({
                 </button>
               </div>
 
-              <div className="bg-[#F7F5F0] border border-[#E5E1D8] rounded-xl p-4 text-xs sm:text-sm text-[#25251F] leading-relaxed min-h-[110px]">
+              <div className="bg-[#F7F5F0] dark:bg-[#141412] border border-[#E5E1D8] dark:border-[#2C2B26] rounded-xl p-4 text-xs sm:text-sm text-[#25251F] dark:text-[#F7F5F0] leading-relaxed min-h-[110px]">
                 {item.content}
               </div>
             </div>
@@ -198,31 +198,31 @@ export function DecisionHistoryDetail({
               <div
                 className={`border rounded-xl p-4 h-full flex flex-col justify-between space-y-2 ${
                   item.decision === 'Approved'
-                    ? 'bg-[#EEF4EE]/40 border-[#D4DBC9]'
+                    ? 'bg-[#EEF4EE]/40 dark:bg-[#1E2E22]/40 border-[#D4DBC9] dark:border-[#2C4832]'
                     : item.decision === 'Changes Requested'
-                    ? 'bg-[#FEF7EC]/50 border-[#F4E3C7]'
-                    : 'bg-[#FDEAEA]/40 border-[#F7C6C6]'
+                    ? 'bg-[#FEF7EC]/50 dark:bg-[#2F2414]/50 border-[#F4E3C7] dark:border-[#4A3B22]'
+                    : 'bg-[#FDEAEA]/40 dark:bg-[#331818]/40 border-[#F7C6C6] dark:border-[#4A2624]'
                 }`}
               >
                 <div className="space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-[#25251F]">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-[#25251F] dark:text-[#F7F5F0]">
                     {item.decision === 'Approved' ? (
-                      <CheckCircle2 className="w-4 h-4 text-[#4E6B54]" />
+                      <CheckCircle2 className="w-4 h-4 text-[#4E6B54] dark:text-[#86EFAC]" />
                     ) : item.decision === 'Changes Requested' ? (
-                      <AlertTriangle className="w-4 h-4 text-[#B78A4A]" />
+                      <AlertTriangle className="w-4 h-4 text-[#B78A4A] dark:text-[#FDE047]" />
                     ) : (
-                      <XCircle className="w-4 h-4 text-[#B56E63]" />
+                      <XCircle className="w-4 h-4 text-[#B56E63] dark:text-[#FCA5A5]" />
                     )}
                     <span>Decision Summary</span>
                   </div>
 
-                  <p className="font-serif text-2xl font-normal text-[#25251F]">
+                  <p className="font-serif text-2xl font-normal text-[#25251F] dark:text-[#F7F5F0]">
                     {item.decision}
                   </p>
                 </div>
 
-                <p className="text-xs text-[#77766E]">
-                  Decided by <strong className="text-[#25251F]">{item.reviewerName}</strong> • {item.timeAgo}
+                <p className="text-xs text-[#77766E] dark:text-[#A09D92]">
+                  Decided by <strong className="text-[#25251F] dark:text-[#F7F5F0]">{item.reviewerName}</strong> • {item.timeAgo}
                 </p>
               </div>
             </div>
@@ -230,31 +230,31 @@ export function DecisionHistoryDetail({
 
           {/* Bottom Section: Decision Timeline Steps (Audit Trace) */}
           <div className="space-y-3 pt-1">
-            <span className="text-xs font-semibold uppercase tracking-wider text-[#25251F] block">
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#25251F] dark:text-[#F7F5F0] block">
               Decision Timeline
             </span>
 
-            <div className="relative pl-6 space-y-5 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-[1.5px] before:bg-[#E5E1D8]">
+            <div className="relative pl-6 space-y-5 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-[1.5px] before:bg-[#E5E1D8] dark:before:bg-[#2C2B26]">
               {item.timelineSteps.map((step, idx) => (
                 <div key={idx} className="relative">
                   {/* Step Node Dot */}
                   <div className="absolute -left-[20px] top-1">
                     {step.completed ? (
-                      <div className="w-4 h-4 rounded-full bg-[#64816A] text-white flex items-center justify-center ring-4 ring-[#FFFEFA]">
+                      <div className="w-4 h-4 rounded-full bg-[#64816A] text-white flex items-center justify-center ring-4 ring-[#FFFEFA] dark:ring-[#1E1D19]">
                         <Check className="w-2.5 h-2.5 stroke-[3]" />
                       </div>
                     ) : (
-                      <div className="w-3.5 h-3.5 rounded-full border-2 border-[#A09D92] bg-[#FFFEFA] ring-4 ring-[#FFFEFA]" />
+                      <div className="w-3.5 h-3.5 rounded-full border-2 border-[#A09D92] bg-[#FFFEFA] dark:bg-[#1E1D19] ring-4 ring-[#FFFEFA] dark:ring-[#1E1D19]" />
                     )}
                   </div>
 
                   {/* Step Details */}
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-xs sm:text-sm font-medium text-[#25251F]">
+                      <p className="text-xs sm:text-sm font-medium text-[#25251F] dark:text-[#F7F5F0]">
                         {step.title}
                       </p>
-                      <p className="text-xs text-[#77766E] mt-0.5">
+                      <p className="text-xs text-[#77766E] dark:text-[#A09D92] mt-0.5">
                         {step.description}
                       </p>
                     </div>
@@ -272,31 +272,31 @@ export function DecisionHistoryDetail({
 
       {activeTab === 'findings' && (
         <div className="space-y-3 text-xs">
-          <p className="text-[#77766E]">
+          <p className="text-[#77766E] dark:text-[#A09D92]">
             Verified AI findings associated with review run:
           </p>
-          <div className="p-3.5 bg-[#F7F5F0] border border-[#E5E1D8] rounded-xl space-y-1">
-            <p className="font-semibold text-[#25251F]">{item.decisionNote}</p>
-            <p className="text-[#77766E]">Grounded check completed with zero unresolved critical flags.</p>
+          <div className="p-3.5 bg-[#F7F5F0] dark:bg-[#141412] border border-[#E5E1D8] dark:border-[#2C2B26] rounded-xl space-y-1">
+            <p className="font-semibold text-[#25251F] dark:text-[#F7F5F0]">{item.decisionNote}</p>
+            <p className="text-[#77766E] dark:text-[#A09D92]">Grounded check completed with zero unresolved critical flags.</p>
           </div>
         </div>
       )}
 
       {activeTab === 'guidelines' && (
         <div className="space-y-3 text-xs">
-          <p className="text-[#77766E]">
+          <p className="text-[#77766E] dark:text-[#A09D92]">
             Guidelines enforced during this decision:
           </p>
-          <div className="p-3.5 bg-[#F7F5F0] border border-[#E5E1D8] rounded-xl space-y-1">
-            <p className="font-semibold text-[#25251F]">Brand Tone & Factual Precision Guide v2.4</p>
-            <p className="text-[#77766E]">Approved by Brand Guardians Committee.</p>
+          <div className="p-3.5 bg-[#F7F5F0] dark:bg-[#141412] border border-[#E5E1D8] dark:border-[#2C2B26] rounded-xl space-y-1">
+            <p className="font-semibold text-[#25251F] dark:text-[#F7F5F0]">Brand Tone & Factual Precision Guide v2.4</p>
+            <p className="text-[#77766E] dark:text-[#A09D92]">Approved by Brand Guardians Committee.</p>
           </div>
         </div>
       )}
 
       {activeTab === 'activity' && (
         <div className="space-y-2 text-xs">
-          <div className="p-3 bg-[#F7F5F0] rounded-lg flex items-center justify-between">
+          <div className="p-3 bg-[#F7F5F0] dark:bg-[#141412] rounded-lg flex items-center justify-between text-[#25251F] dark:text-[#F7F5F0]">
             <span>Decision signed off by {item.reviewerName}</span>
             <span className="text-[#A09D92]">{item.timeAgo}</span>
           </div>

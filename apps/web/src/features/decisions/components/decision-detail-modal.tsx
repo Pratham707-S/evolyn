@@ -150,20 +150,20 @@ export function DecisionDetailModal({
     switch (decision) {
       case 'Approved':
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#EEF4EE] text-[#4E6B54] border border-[#D4DBC9]">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#EEF4EE] dark:bg-[#1E2E22] text-[#4E6B54] dark:text-[#86EFAC] border border-[#D4DBC9] dark:border-[#2C4832]">
             Approved
           </span>
         );
       case 'Changes Requested':
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#FDF2EC] text-[#B78A4A] border border-[#F2D7CA]">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#FDF2EC] dark:bg-[#2F2414] text-[#B78A4A] dark:text-[#FDE047] border border-[#F2D7CA] dark:border-[#4A3B22]">
             Changes Requested
           </span>
         );
       case 'Rejected':
       default:
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#FDEAEA] text-[#B56E63] border border-[#F7C6C6]">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#FDEAEA] dark:bg-[#331818] text-[#B56E63] dark:text-[#FCA5A5] border border-[#F7C6C6] dark:border-[#4A2624]">
             Rejected
           </span>
         );
@@ -178,32 +178,32 @@ export function DecisionDetailModal({
           handleAnimatedClose();
         }
       }}
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-6 bg-[#25251F]/45 backdrop-blur-md transition-opacity"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-6 bg-[#25251F]/45 dark:bg-black/60 backdrop-blur-md transition-opacity"
       role="dialog"
       aria-modal="true"
       aria-label="Decision Detail Pop-up"
     >
       <div
         ref={cardRef}
-        className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-2xl w-full max-w-3xl max-h-[92vh] sm:max-h-[85vh] flex flex-col shadow-2xl overflow-hidden"
+        className="bg-[#FFFEFA] dark:bg-[#1E1D19] border border-[#E5E1D8] dark:border-[#2C2B26] rounded-2xl w-full max-w-3xl max-h-[92vh] sm:max-h-[85vh] flex flex-col shadow-2xl overflow-hidden"
       >
         {/* Header */}
-        <div className="p-4 sm:p-6 border-b border-[#E5E1D8] flex items-start justify-between gap-3 shrink-0 bg-[#FFFEFA]">
+        <div className="p-4 sm:p-6 border-b border-[#E5E1D8] dark:border-[#2C2B26] flex items-start justify-between gap-3 shrink-0 bg-[#FFFEFA] dark:bg-[#1E1D19]">
           <div className="flex items-start gap-3 min-w-0">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#F1EFE8] border border-[#E5E1D8] flex items-center justify-center text-[#25251F] shrink-0 mt-0.5 shadow-2xs">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#F1EFE8] dark:bg-[#262520] border border-[#E5E1D8] dark:border-[#2C2B26] flex items-center justify-center text-[#25251F] dark:text-[#F7F5F0] shrink-0 mt-0.5 shadow-2xs">
               <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
 
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="font-serif text-lg sm:text-2xl font-normal text-[#25251F] tracking-tight truncate">
+                <h3 className="font-serif text-lg sm:text-2xl font-normal text-[#25251F] dark:text-[#F7F5F0] tracking-tight truncate">
                   {item.title}
                 </h3>
                 {renderBadge(item.decision)}
               </div>
 
-              <div className="flex items-center gap-2 sm:gap-3 text-xs text-[#77766E] mt-1 flex-wrap">
-                <span className="flex items-center gap-1 font-medium text-[#25251F]">
+              <div className="flex items-center gap-2 sm:gap-3 text-xs text-[#77766E] dark:text-[#A09D92] mt-1 flex-wrap">
+                <span className="flex items-center gap-1 font-medium text-[#25251F] dark:text-[#F7F5F0]">
                   {getChannelIcon(item.channel)}
                   {item.channel}
                 </span>
@@ -223,7 +223,7 @@ export function DecisionDetailModal({
           <button
             type="button"
             onClick={handleAnimatedClose}
-            className="w-8 h-8 rounded-lg border border-[#E5E1D8] flex items-center justify-center text-[#77766E] hover:text-[#25251F] hover:bg-[#F1EFE8] transition-colors shrink-0"
+            className="w-8 h-8 rounded-lg border border-[#E5E1D8] dark:border-[#2C2B26] flex items-center justify-center text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0] hover:bg-[#F1EFE8] dark:hover:bg-[#262520] transition-colors shrink-0"
             aria-label="Close dialog"
           >
             <X className="w-4 h-4" />
@@ -231,14 +231,14 @@ export function DecisionDetailModal({
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center border-b border-[#E5E1D8] px-4 sm:px-6 gap-4 sm:gap-6 shrink-0 bg-[#FAF9F5] overflow-x-auto no-scrollbar">
+        <div className="flex items-center border-b border-[#E5E1D8] dark:border-[#2C2B26] px-4 sm:px-6 gap-4 sm:gap-6 shrink-0 bg-[#FAF9F5] dark:bg-[#181714] overflow-x-auto no-scrollbar">
           <button
             type="button"
             onClick={() => setActiveTab('decision')}
             className={`py-3 text-xs font-medium border-b-2 transition-colors shrink-0 whitespace-nowrap cursor-pointer ${
               activeTab === 'decision'
-                ? 'border-[#25251F] text-[#25251F]'
-                : 'border-transparent text-[#77766E] hover:text-[#25251F]'
+                ? 'border-[#25251F] dark:border-[#F7F5F0] text-[#25251F] dark:text-[#F7F5F0]'
+                : 'border-transparent text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0]'
             }`}
           >
             Decision Overview
@@ -470,7 +470,7 @@ export function DecisionDetailModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="p-4 sm:p-5 border-t border-[#E5E1D8] bg-[#FAF9F5] flex items-center justify-between gap-3 shrink-0">
+        <div className="p-4 sm:p-5 border-t border-[#E5E1D8] dark:border-[#2C2B26] bg-[#FAF9F5] dark:bg-[#181714] flex items-center justify-between gap-3 shrink-0">
           <div className="text-[11px] text-[#A09D92]">
             Immutable audit record • Cryptographically signed sign-off
           </div>

@@ -171,7 +171,7 @@ function DecisionHistoryContent() {
                 showToast('Refreshed real-time decision timeline.');
               }}
               title="Refresh timeline from database"
-              className="p-1.5 rounded-lg border border-[#E5E1D8] bg-[#FFFEFA] hover:bg-[#F1EFE8] text-[#77766E] hover:text-[#25251F] transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg border border-[#E5E1D8] dark:border-[#2C2B26] bg-[#FFFEFA] dark:bg-[#1E1D19] hover:bg-[#F1EFE8] dark:hover:bg-[#262520] text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0] transition-colors cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isQueueLoading ? 'animate-spin' : ''}`} />
             </button>

@@ -150,30 +150,30 @@ export function DecisionHistoryTimeline({
   const getDecisionTheme = (decision: string) => {
     if (decision === 'Approved') {
       return {
-        cardBg: 'bg-[#FFFEFA] border-[#C8DEC9] hover:border-[#64816A] hover:bg-[#F7FAF7]',
-        badgeBg: 'bg-[#EEF4EE] text-[#36533D] border-[#D1E2D3]',
+        cardBg: 'bg-[#FFFEFA] dark:bg-[#1E1D19] border-[#C8DEC9] dark:border-[#2C4832] hover:border-[#64816A] hover:bg-[#F7FAF7] dark:hover:bg-[#252C23]',
+        badgeBg: 'bg-[#EEF4EE] dark:bg-[#1E2E22] text-[#36533D] dark:text-[#A7F3D0] border-[#D1E2D3] dark:border-[#2C4832]',
         accentDot: 'bg-[#64816A]',
-        textSecondary: 'text-[#5C7761]',
-        iconBg: 'bg-[#EEF4EE]',
+        textSecondary: 'text-[#5C7761] dark:text-[#86EFAC]',
+        iconBg: 'bg-[#EEF4EE] dark:bg-[#1E2E22]',
         indicator: 'border-l-4 border-l-[#64816A]',
       };
     }
     if (decision === 'Changes Requested') {
       return {
-        cardBg: 'bg-[#FFFEFA] border-[#F2D8B9] hover:border-[#B78A4A] hover:bg-[#FDF9F2]',
-        badgeBg: 'bg-[#FDF4E7] text-[#865920] border-[#F0D5B5]',
+        cardBg: 'bg-[#FFFEFA] dark:bg-[#1E1D19] border-[#F2D8B9] dark:border-[#4A3B22] hover:border-[#B78A4A] hover:bg-[#FDF9F2] dark:hover:bg-[#2C261A]',
+        badgeBg: 'bg-[#FDF4E7] dark:bg-[#2F2414] text-[#865920] dark:text-[#FDE047] border-[#F0D5B5] dark:border-[#4A3B22]',
         accentDot: 'bg-[#B78A4A]',
-        textSecondary: 'text-[#876536]',
-        iconBg: 'bg-[#FDF4E7]',
+        textSecondary: 'text-[#876536] dark:text-[#FDE047]',
+        iconBg: 'bg-[#FDF4E7] dark:bg-[#2F2414]',
         indicator: 'border-l-4 border-l-[#B78A4A]',
       };
     }
     return {
-      cardBg: 'bg-[#FFFEFA] border-[#F5C5C0] hover:border-[#B56E63] hover:bg-[#FDF6F6]',
-      badgeBg: 'bg-[#FDEAEA] text-[#8A332B] border-[#F4BFB9]',
+      cardBg: 'bg-[#FFFEFA] dark:bg-[#1E1D19] border-[#F5C5C0] dark:border-[#4A2624] hover:border-[#B56E63] hover:bg-[#FDF6F6] dark:hover:bg-[#2D1B1B]',
+      badgeBg: 'bg-[#FDEAEA] dark:bg-[#331818] text-[#8A332B] dark:text-[#FCA5A5] border-[#F4BFB9] dark:border-[#4A2624]',
       accentDot: 'bg-[#B56E63]',
-      textSecondary: 'text-[#8C463F]',
-      iconBg: 'bg-[#FDEAEA]',
+      textSecondary: 'text-[#8C463F] dark:text-[#FCA5A5]',
+      iconBg: 'bg-[#FDEAEA] dark:bg-[#331818]',
       indicator: 'border-l-4 border-l-[#B56E63]',
     };
   };
@@ -215,21 +215,21 @@ export function DecisionHistoryTimeline({
   const selectedDayInfo = daysOfWeek.find((d) => d.index === selectedDay);
 
   return (
-    <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl p-5 sm:p-7 space-y-6 shadow-2xs">
+    <div className="bg-[#FFFEFA] dark:bg-[#1E1D19] border border-[#E5E1D8] dark:border-[#2C2B26] rounded-xl p-5 sm:p-7 space-y-6 shadow-2xs">
       {/* 1. Primary Wide Filter Toolbar */}
       <div className="space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           {/* Left: Section Title */}
           <div>
             <div className="flex items-center gap-2.5">
-              <h2 className="font-serif text-2xl sm:text-[26px] font-normal text-[#25251F] tracking-tight">
+              <h2 className="font-serif text-2xl sm:text-[26px] font-normal text-[#25251F] dark:text-[#F7F5F0] tracking-tight">
                 Decision Timeline
               </h2>
-              <span className="text-[11px] font-mono uppercase tracking-wider text-[#68745D] bg-[#E8EBE1] px-2.5 py-0.5 rounded-full font-medium">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-[#68745D] dark:text-[#8A987D] bg-[#E8EBE1] dark:bg-[#272B23] px-2.5 py-0.5 rounded-full font-medium">
                 {weekRangeLabel}
               </span>
             </div>
-            <p className="text-xs text-[#77766E] mt-1">
+            <p className="text-xs text-[#77766E] dark:text-[#A09D92] mt-1">
               Trace review outcomes across channels and dates. Click on any decision card to inspect findings and audit evidence.
             </p>
           </div>
@@ -244,13 +244,13 @@ export function DecisionHistoryTimeline({
                 placeholder="Search by title, reviewer..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#FAF9F5] border border-[#E5E1D8] text-[#25251F] placeholder:text-[#A09D92] text-xs pl-9 pr-3 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#68745D] transition-all"
+                className="w-full bg-[#FAF9F5] dark:bg-[#262520] border border-[#E5E1D8] dark:border-[#2C2B26] text-[#25251F] dark:text-[#F7F5F0] placeholder:text-[#A09D92] text-xs pl-9 pr-3 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#68745D] transition-all"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#A09D92] hover:text-[#25251F]"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0]"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -258,15 +258,15 @@ export function DecisionHistoryTimeline({
             </div>
 
             {/* View Mode Toggle */}
-            <div className="flex items-center bg-[#F1EFE8] p-1 rounded-lg border border-[#E5E1D8] shrink-0">
+            <div className="flex items-center bg-[#F1EFE8] dark:bg-[#141412] p-1 rounded-lg border border-[#E5E1D8] dark:border-[#2C2B26] shrink-0">
               <button
                 type="button"
                 onClick={() => setViewMode('gantt')}
                 title="Schedule Timeline View"
                 className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 ${
                   viewMode === 'gantt'
-                    ? 'bg-[#FFFEFA] text-[#25251F] shadow-2xs font-semibold'
-                    : 'text-[#77766E] hover:text-[#25251F]'
+                    ? 'bg-[#FFFEFA] dark:bg-[#262520] text-[#25251F] dark:text-[#F7F5F0] shadow-2xs font-semibold'
+                    : 'text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0]'
                 }`}
               >
                 <LayoutGrid className="w-3.5 h-3.5" />
@@ -279,8 +279,8 @@ export function DecisionHistoryTimeline({
                 title="Linear Audit List View"
                 className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 ${
                   viewMode === 'list'
-                    ? 'bg-[#FFFEFA] text-[#25251F] shadow-2xs font-semibold'
-                    : 'text-[#77766E] hover:text-[#25251F]'
+                    ? 'bg-[#FFFEFA] dark:bg-[#262520] text-[#25251F] dark:text-[#F7F5F0] shadow-2xs font-semibold'
+                    : 'text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0]'
                 }`}
               >
                 <List className="w-3.5 h-3.5" />
@@ -386,8 +386,8 @@ export function DecisionHistoryTimeline({
                     isDaySelected
                       ? 'bg-[#68745D] text-white shadow-xs font-semibold'
                       : day.isToday
-                      ? 'bg-[#E8EBE1] text-[#25251F] border border-[#68745D]/40 font-medium hover:bg-[#68745D] hover:text-white'
-                      : 'bg-[#FFFEFA] border border-[#E5E1D8] text-[#77766E] hover:text-[#25251F] hover:bg-[#F1EFE8]'
+                      ? 'bg-[#E8EBE1] dark:bg-[#2A2924] text-[#25251F] dark:text-[#F7F5F0] border border-[#68745D]/40 font-medium hover:bg-[#68745D] hover:text-white'
+                      : 'bg-[#FFFEFA] dark:bg-[#262520] border border-[#E5E1D8] dark:border-[#2C2B26] text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0] hover:bg-[#F1EFE8] dark:hover:bg-[#33322C]'
                   }`}
                 >
                   <span className="uppercase text-[10px]">{day.name}</span>
@@ -397,7 +397,7 @@ export function DecisionHistoryTimeline({
                       className={`text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-mono ${
                         isDaySelected
                           ? 'bg-white/25 text-white'
-                          : 'bg-[#E5E1D8] text-[#25251F]'
+                          : 'bg-[#E5E1D8] dark:bg-[#3D3A32] text-[#25251F] dark:text-[#F7F5F0]'
                       }`}
                     >
                       {dayItemCount}
@@ -410,14 +410,14 @@ export function DecisionHistoryTimeline({
 
           {/* Active Day Filter Notification Banner */}
           {selectedDay !== null && selectedDayInfo && (
-            <div className="flex items-center gap-2 bg-[#E8EBE1]/70 text-[#25251F] px-3 py-1 rounded-lg border border-[#68745D]/30 shrink-0">
+            <div className="flex items-center gap-2 bg-[#E8EBE1]/70 dark:bg-[#272B23] text-[#25251F] dark:text-[#F7F5F0] px-3 py-1 rounded-lg border border-[#68745D]/30 shrink-0">
               <span className="font-medium text-xs">
                 Showing work for {selectedDayInfo.fullDate} ({filteredItems.length})
               </span>
               <button
                 type="button"
                 onClick={() => setSelectedDay(null)}
-                className="text-[#68745D] hover:text-[#25251F] ml-1 p-0.5 rounded hover:bg-[#E8EBE1]"
+                className="text-[#68745D] dark:text-[#8A987D] hover:text-[#25251F] dark:hover:text-[#F7F5F0] ml-1 p-0.5 rounded hover:bg-[#E8EBE1] dark:hover:bg-[#33382D]"
                 title="Clear day filter"
               >
                 <X className="w-3 h-3" />
@@ -431,23 +431,23 @@ export function DecisionHistoryTimeline({
       {viewMode === 'gantt' && (
         <div className="space-y-2">
           {/* Mobile Swipe Hint Notice */}
-          <div className="md:hidden flex items-center justify-between text-[11px] text-[#77766E] bg-[#FAF9F5] border border-[#E5E1D8] px-3 py-1.5 rounded-xl">
+          <div className="md:hidden flex items-center justify-between text-[11px] text-[#77766E] dark:text-[#A09D92] bg-[#FAF9F5] dark:bg-[#1E1D19] border border-[#E5E1D8] dark:border-[#2C2B26] px-3 py-1.5 rounded-xl">
             <span className="flex items-center gap-1">
               👉 Swipe horizontally to view full schedule
             </span>
             <button
               type="button"
               onClick={() => setViewMode('list')}
-              className="text-[#68745D] font-semibold underline"
+              className="text-[#68745D] dark:text-[#8A987D] font-semibold underline"
             >
               List View
             </button>
           </div>
 
           <div className="overflow-x-auto pb-2 scroll-smooth">
-          <div className="min-w-[1020px] border border-[#E5E1D8] rounded-xl bg-[#FAF9F5] p-5 relative">
+          <div className="min-w-[1020px] border border-[#E5E1D8] dark:border-[#2C2B26] rounded-xl bg-[#FAF9F5] dark:bg-[#141412] p-5 relative">
             {/* Days Column Header Grid (Non-overlapping, clean layout) */}
-            <div className="grid grid-cols-7 gap-3 pb-4 mb-4 border-b border-[#E5E1D8] text-center text-xs relative z-20">
+            <div className="grid grid-cols-7 gap-3 pb-4 mb-4 border-b border-[#E5E1D8] dark:border-[#2C2B26] text-center text-xs relative z-20">
               {daysOfWeek.map((day) => {
                 const isDaySelected = selectedDay === day.index;
 
@@ -460,8 +460,8 @@ export function DecisionHistoryTimeline({
                       isDaySelected
                         ? 'bg-[#68745D] text-white shadow-xs'
                         : day.isToday
-                        ? 'bg-[#E8EBE1] text-[#25251F] ring-1 ring-[#68745D]/40 font-semibold'
-                        : 'text-[#77766E] hover:bg-[#FFFEFA] hover:text-[#25251F]'
+                        ? 'bg-[#E8EBE1] dark:bg-[#2A2924] text-[#25251F] dark:text-[#F7F5F0] ring-1 ring-[#68745D]/40 font-semibold'
+                        : 'text-[#77766E] dark:text-[#A09D92] hover:bg-[#FFFEFA] dark:hover:bg-[#262520] hover:text-[#25251F] dark:hover:text-[#F7F5F0]'
                     }`}
                   >
                     <span className="text-[11px] uppercase tracking-wider">{day.name}</span>
@@ -484,7 +484,7 @@ export function DecisionHistoryTimeline({
                 className="absolute top-0 bottom-0 w-[2px] bg-[#68745D]/60 z-10 pointer-events-none"
               >
                 {/* Live Pill badge positioned cleanly in the ruler gap with proper spacing from the day box */}
-                <div className="absolute top-1 -translate-x-1/2 bg-[#25251F] text-white text-[10px] font-sans px-2.5 py-0.5 rounded-full shadow-md flex items-center gap-1.5 z-30 pointer-events-auto whitespace-nowrap">
+                <div className="absolute top-1 -translate-x-1/2 bg-[#25251F] dark:bg-[#2A2924] text-white dark:text-[#F7F5F0] border border-transparent dark:border-[#3D3A32] text-[10px] font-sans px-2.5 py-0.5 rounded-full shadow-md flex items-center gap-1.5 z-30 pointer-events-auto whitespace-nowrap">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#64816A] animate-pulse" />
                   <span>{liveTimeString}</span>
                 </div>
@@ -495,7 +495,7 @@ export function DecisionHistoryTimeline({
                 {daysOfWeek.map((_, i) => (
                   <div
                     key={i}
-                    className="border-r border-dashed border-[#E5E1D8] h-full last:border-r-0"
+                    className="border-r border-dashed border-[#E5E1D8] dark:border-[#2C2B26] h-full last:border-r-0"
                   />
                 ))}
               </div>
@@ -509,15 +509,15 @@ export function DecisionHistoryTimeline({
                 return (
                   <div key={lane.track} className="space-y-1.5 relative z-20">
                     {/* Swimlane Header Label */}
-                    <div className="text-[11px] font-medium text-[#77766E] uppercase tracking-wider flex items-center gap-1.5 pl-1">
+                    <div className="text-[11px] font-medium text-[#77766E] dark:text-[#A09D92] uppercase tracking-wider flex items-center gap-1.5 pl-1">
                       <Layers className="w-3 h-3 text-[#A09D92]" />
                       <span>{lane.title}</span>
                     </div>
 
                     {/* Lane Track Grid */}
-                    <div className="grid grid-cols-7 gap-3 min-h-[66px] bg-[#FFFEFA]/90 border border-[#E5E1D8] rounded-xl p-2.5 items-start relative">
+                    <div className="grid grid-cols-7 gap-3 min-h-[66px] bg-[#FFFEFA]/90 dark:bg-[#1E1D19] border border-[#E5E1D8] dark:border-[#2C2B26] rounded-xl p-2.5 items-start relative">
                       {laneItems.length === 0 ? (
-                        <div className="col-span-7 text-center text-xs text-[#A09D92] py-2 italic font-normal">
+                        <div className="col-span-7 text-center text-xs text-[#A09D92] dark:text-[#77766E] py-2 italic font-normal">
                           No reviews logged for this category matching current filters
                         </div>
                       ) : (
@@ -540,24 +540,24 @@ export function DecisionHistoryTimeline({
                               {/* Top row: Icon + Title + Chevron */}
                               <div className="flex items-center gap-1.5 min-w-0 w-full">
                                 <div
-                                  className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border border-[#E5E1D8]/60 ${theme.iconBg}`}
+                                  className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border border-[#E5E1D8]/60 dark:border-[#2C2B26] ${theme.iconBg}`}
                                 >
                                   {getChannelIcon(item.channel)}
                                 </div>
 
                                 <p
-                                  className="text-xs font-semibold text-[#25251F] group-hover:text-[#68745D] transition-colors truncate leading-tight flex-1 min-w-0"
+                                  className="text-xs font-semibold text-[#25251F] dark:text-[#F7F5F0] group-hover:text-[#68745D] dark:group-hover:text-[#8A987D] transition-colors truncate leading-tight flex-1 min-w-0"
                                   title={item.title}
                                 >
                                   {item.title}
                                 </p>
 
-                                <ChevronRight className="w-3.5 h-3.5 text-[#A09D92] group-hover:text-[#25251F] group-hover:translate-x-0.5 transition-all shrink-0 ml-auto" />
+                                <ChevronRight className="w-3.5 h-3.5 text-[#A09D92] dark:text-[#77766E] group-hover:text-[#25251F] dark:group-hover:text-[#F7F5F0] group-hover:translate-x-0.5 transition-all shrink-0 ml-auto" />
                               </div>
 
                               {/* Bottom row: Time / Reviewer + Status Badge */}
-                              <div className="flex items-center justify-between gap-1.5 w-full pt-1 border-t border-[#E5E1D8]/40">
-                                <span className="text-[10px] text-[#77766E] truncate">
+                              <div className="flex items-center justify-between gap-1.5 w-full pt-1 border-t border-[#E5E1D8]/40 dark:border-[#2C2B26]">
+                                <span className="text-[10px] text-[#77766E] dark:text-[#A09D92] truncate">
                                   {item.timeAgo}
                                 </span>
 
