@@ -122,6 +122,7 @@ export const approvedFacts = pgTable(
     approvedProofSource: text('approved_proof_source').notNull(),
     validUntil: timestamp('valid_until', { withTimezone: true }),
     embedding: vector('embedding', { dimensions: 768 }),
+    metadata: jsonb('metadata').default({}),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [

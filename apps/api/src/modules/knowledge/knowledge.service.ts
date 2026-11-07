@@ -21,6 +21,7 @@ import type {
 } from './knowledge.types.js';
 
 import type { FactEmbeddingGenerator } from './knowledge.types.js';
+import { defaultMaintenanceGate } from '../maintenance/maintenance-gate.js';
 
 type KnowledgeRepositoryPort = Pick<
     KnowledgeRepository,
@@ -94,34 +95,36 @@ export class KnowledgeService implements IKnowledgeService {
     }
 
     async generateAndSaveEmbeddings(): Promise<number> {
-        if (!this.embeddingGenerator) {
-            throw new Error('Embedding generator is not configured');
-        }
-
-        const facts = await this.repository.findFactsWithoutEmbeddings();
-
-        let generatedCount = 0;
-
-        for (const fact of facts) {
-            const embedding = await this.embeddingGenerator.generateEmbedding(
-                fact.claimStatement,
-            );
-
-            if (
-                !Array.isArray(embedding) ||
-                embedding.length !== 768 ||
-                !embedding.every(Number.isFinite)
-            ) {
-                throw new Error(
-                    `Invalid embedding generated for fact: ${fact.id}`,
-                );
+        return await defaultMaintenanceGate.withSharedLock(async () => {
+            if (!this.embeddingGenerator) {
+                throw new Error('Embedding generator is not configured');
             }
 
-            await this.repository.updateEmbedding(fact.id, embedding);
-            generatedCount++;
-        }
+            const facts = await this.repository.findFactsWithoutEmbeddings();
 
-        return generatedCount;
+            let generatedCount = 0;
+
+            for (const fact of facts) {
+                const embedding = await this.embeddingGenerator.generateEmbedding(
+                    fact.claimStatement,
+                );
+
+                if (
+                    !Array.isArray(embedding) ||
+                    embedding.length !== 768 ||
+                    !embedding.every(Number.isFinite)
+                ) {
+                    throw new Error(
+                        `Invalid embedding generated for fact: ${fact.id}`,
+                    );
+                }
+
+                await this.repository.updateEmbedding(fact.id, embedding);
+                generatedCount++;
+            }
+
+            return generatedCount;
+        });
     }
 }
 export const knowledgeService = new KnowledgeService(

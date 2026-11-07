@@ -45,3 +45,5 @@ postgres-data/
 *.sqlite3
 uploads/
 apps/api/uploads/
+backups/
+apps/api/backups/

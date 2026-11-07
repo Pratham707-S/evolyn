@@ -5,6 +5,7 @@ import {
 } from '@evolyn/shared';
 
 import { detectRuleConflicts } from './conflict-detector.js';
+import { defaultMaintenanceGate } from '../maintenance/maintenance-gate.js';
 
 import type {
     Guideline,
@@ -115,51 +116,53 @@ export class GuidelinesService implements IGuidelineService {
     async generateAndSaveEmbeddings(
         guidelineId: string,
     ): Promise<EmbeddingGenerationResult> {
-        if (!guidelineId || !guidelineId.trim()) {
-            throw new Error('Guideline ID cannot be empty');
-        }
-
-        if (!this.embeddingGenerator) {
-            throw new Error('Embedding generator is not configured');
-        }
-
-        const guideline = await this.repository.findById(guidelineId);
-
-        if (!guideline) {
-            throw new Error('Guideline not found');
-        }
-
-        const rules = await this.repository.findRulesWithoutEmbeddings(
-            guidelineId,
-        );
-
-        let generatedCount = 0;
-
-        for (const rule of rules) {
-            const embedding = await this.embeddingGenerator.generateEmbedding(
-                rule.ruleStatement,
-                { dimensions: 768 },
-            );
-
-            if (
-                !Array.isArray(embedding) ||
-                embedding.length !== 768 ||
-                !embedding.every(Number.isFinite)
-            ) {
-                throw new Error(
-                    `Invalid embedding generated for rule: ${rule.id}`,
-                );
+        return await defaultMaintenanceGate.withSharedLock(async () => {
+            if (!guidelineId || !guidelineId.trim()) {
+                throw new Error('Guideline ID cannot be empty');
             }
 
-            await this.repository.updateRuleEmbedding(rule.id, embedding);
+            if (!this.embeddingGenerator) {
+                throw new Error('Embedding generator is not configured');
+            }
 
-            generatedCount++;
-        }
+            const guideline = await this.repository.findById(guidelineId);
 
-        return {
-            guidelineId,
-            generatedCount,
-        };
+            if (!guideline) {
+                throw new Error('Guideline not found');
+            }
+
+            const rules = await this.repository.findRulesWithoutEmbeddings(
+                guidelineId,
+            );
+
+            let generatedCount = 0;
+
+            for (const rule of rules) {
+                const embedding = await this.embeddingGenerator.generateEmbedding(
+                    rule.ruleStatement,
+                    { dimensions: 768 },
+                );
+
+                if (
+                    !Array.isArray(embedding) ||
+                    embedding.length !== 768 ||
+                    !embedding.every(Number.isFinite)
+                ) {
+                    throw new Error(
+                        `Invalid embedding generated for rule: ${rule.id}`,
+                    );
+                }
+
+                await this.repository.updateRuleEmbedding(rule.id, embedding);
+
+                generatedCount++;
+            }
+
+            return {
+                guidelineId,
+                generatedCount,
+            };
+        });
     }
 
     /**

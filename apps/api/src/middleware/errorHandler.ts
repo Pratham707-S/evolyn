@@ -51,6 +51,21 @@ export function errorHandler(
     });
   }
 
+  // Handle Active Maintenance Gate (blocks during active embedding re-indexing)
+  if (
+    err !== null &&
+    typeof err === 'object' &&
+    'code' in err &&
+    err.code === 'MAINTENANCE_GATE_ACTIVE'
+  ) {
+    res.setHeader('retry-after', '15');
+    return res.status(503).json({
+      error:
+        'Brand governance pipeline is temporarily locked for active embedding re-indexing. Please retry shortly.',
+      code: 'MAINTENANCE_GATE_ACTIVE',
+    });
+  }
+
   // Handle Brand Governance Retrieval & Runtime Verification Failures
   if (
     err !== null &&

@@ -23,6 +23,7 @@ import type {
   ReviewExecutionResult,
 } from './reviews.types.js';
 import type { RawFindingInput } from '../findings/findings.types.js';
+import { MaintenanceGate, defaultMaintenanceGate } from '../maintenance/maintenance-gate.js';
 
 const EMBEDDING_DIMENSIONS = 768;
 const RULE_SEARCH_LIMIT = 20;
@@ -224,7 +225,8 @@ export class ReviewService implements IReviewService {
       'create' | 'findLatestBySubmissionId' | 'deleteById'
     > & {
       listBySubmissionId?: (submissionId: string) => Promise<ReviewRunRecord[]>;
-    } = new ReviewsRepository()
+    } = new ReviewsRepository(),
+    private readonly maintenanceGate: MaintenanceGate = defaultMaintenanceGate
   ) {}
 
   executeReview(
@@ -271,11 +273,12 @@ export class ReviewService implements IReviewService {
     options?: ReviewExecutionOptions,
     explicitRequestId?: string
   ): Promise<ReviewExecutionResult> {
-    const totalStartMs = Date.now();
-    const requestId =
-      explicitRequestId || options?.requestId || `rev-${id.slice(0, 8)}`;
+    return await this.maintenanceGate.withSharedLock(async () => {
+      const totalStartMs = Date.now();
+      const requestId =
+        explicitRequestId || options?.requestId || `rev-${id.slice(0, 8)}`;
 
-    const subFetchStart = Date.now();
+      const subFetchStart = Date.now();
     const submission = await this.dependencies.submissions.getSubmissionById(id);
     const submissionRetrievalMs = Date.now() - subFetchStart;
     if (!submission) {
@@ -450,7 +453,8 @@ export class ReviewService implements IReviewService {
       }
       throw error;
     }
-  }
+  });
+}
 
   async getReviewBySubmissionId(
     submissionId: string
@@ -488,10 +492,11 @@ export class ReviewService implements IReviewService {
     input: RewriteContentInput,
     requestId?: string
   ): Promise<RewriteResponse> {
-    const totalStartMs = Date.now();
-    const traceId = requestId || `rew-${submissionId.slice(0, 8)}`;
+    return await this.maintenanceGate.withSharedLock(async () => {
+      const totalStartMs = Date.now();
+      const traceId = requestId || `rew-${submissionId.slice(0, 8)}`;
 
-    const id = uuidSchema.parse(submissionId);
+      const id = uuidSchema.parse(submissionId);
     const validatedInput = rewriteContentSchema.parse(input);
 
     const subFetchStart = Date.now();
@@ -702,5 +707,6 @@ export class ReviewService implements IReviewService {
       action: validatedInput.action,
       rationale: aiResult.rationale.trim(),
     };
-  }
+  });
+}
 }

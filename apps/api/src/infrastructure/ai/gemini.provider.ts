@@ -234,13 +234,21 @@ export function parseRetryAfterHeader(
 }
 
 export class GeminiAIProvider implements AIProvider {
+  private resolvedEmbeddingModel: string;
+
   constructor(
     private readonly apiKey = env.GEMINI_API_KEY,
     private readonly model = env.GEMINI_MODEL,
     private readonly embeddingModel = env.GEMINI_EMBEDDING_MODEL,
     private readonly fetcher: FetchLike = fetch,
     private readonly cache: EmbeddingCache = defaultEmbeddingCache
-  ) {}
+  ) {
+    this.resolvedEmbeddingModel = this.embeddingModel;
+  }
+
+  public getResolvedEmbeddingModel(): string {
+    return this.resolvedEmbeddingModel;
+  }
 
   async generateEmbedding(
     text: string,
@@ -253,12 +261,12 @@ export class GeminiAIProvider implements AIProvider {
     const dimensions = options.dimensions ?? EMBEDDING_DIMENSIONS;
 
     // Check bounded cryptographic cache first
-    const cached = this.cache.get(this.embeddingModel, dimensions, text);
+    const cached = this.cache.get(this.resolvedEmbeddingModel, dimensions, text);
     if (cached) {
       console.log(
         JSON.stringify({
           type: 'EMBEDDING_CACHE_HIT',
-          model: this.embeddingModel,
+          model: this.resolvedEmbeddingModel,
           dimensions,
         })
       );
@@ -266,9 +274,9 @@ export class GeminiAIProvider implements AIProvider {
     }
 
     const payload = await this.request(
-      `${this.embeddingModel}:embedContent`,
+      `${this.resolvedEmbeddingModel}:embedContent`,
       {
-        model: `models/${this.embeddingModel}`,
+        model: `models/${this.resolvedEmbeddingModel}`,
         content: { parts: [{ text }] },
         outputDimensionality: dimensions,
       }
@@ -281,7 +289,7 @@ export class GeminiAIProvider implements AIProvider {
       })
       .parse(payload).embedding.values;
 
-    this.cache.set(this.embeddingModel, dimensions, text, values);
+    this.cache.set(this.resolvedEmbeddingModel, dimensions, text, values);
     return values;
   }
 
@@ -472,6 +480,11 @@ export class GeminiAIProvider implements AIProvider {
     'gemini-3.5-flash-lite',
   ];
 
+  private static readonly VERIFIED_FALLBACK_EMBEDDING_MODELS = [
+    'gemini-embedding-2',
+    'gemini-embedding-001',
+  ];
+
   private async request(
     method: string,
     body: Record<string, unknown>,
@@ -482,16 +495,27 @@ export class GeminiAIProvider implements AIProvider {
     }
 
     const isGenerate = method.includes(':generateContent');
-    const actionPart = isGenerate ? ':generateContent' : '';
-    const requestedModel = isGenerate ? method.replace(':generateContent', '') : null;
+    const isEmbed = method.includes(':embedContent');
+    const actionPart = isGenerate ? ':generateContent' : isEmbed ? ':embedContent' : '';
+    const requestedModel = isGenerate
+      ? method.replace(':generateContent', '')
+      : isEmbed
+      ? method.replace(':embedContent', '')
+      : null;
     const modelsToTry =
       isGenerate && requestedModel
         ? Array.from(new Set([requestedModel, ...GeminiAIProvider.VERIFIED_FALLBACK_MODELS]))
+        : isEmbed && requestedModel
+        ? Array.from(new Set([requestedModel, ...GeminiAIProvider.VERIFIED_FALLBACK_EMBEDDING_MODELS]))
         : [method];
 
     let lastError: Error | null = null;
     for (const currentModel of modelsToTry) {
-      const targetEndpoint = isGenerate ? `${currentModel}${actionPart}` : method;
+      const targetEndpoint = isGenerate || isEmbed ? `${currentModel}${actionPart}` : method;
+      const requestBody =
+        isEmbed && body && typeof body === 'object' && 'model' in body
+          ? { ...body, model: `models/${currentModel}` }
+          : body;
       let attempt = 0;
       while (attempt <= maxRetries) {
         attempt++;
@@ -509,7 +533,7 @@ export class GeminiAIProvider implements AIProvider {
                 'content-type': 'application/json',
                 'x-goog-api-key': this.apiKey,
               },
-              body: JSON.stringify(body),
+              body: JSON.stringify(requestBody),
               signal: controller.signal,
             }
           );
@@ -632,6 +656,9 @@ export class GeminiAIProvider implements AIProvider {
           }
 
           const responseData = await response.json();
+          if (isEmbed) {
+            this.resolvedEmbeddingModel = currentModel;
+          }
           console.log(
             JSON.stringify({
               type: 'GEMINI_API_REQUEST',

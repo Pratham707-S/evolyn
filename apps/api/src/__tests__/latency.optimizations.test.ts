@@ -1674,5 +1674,327 @@ describe('Targeted AI Latency & Pipeline Optimizations', () => {
       assert.equal(stringified.includes('neon.tech'), false);
     });
   });
+
+  describe('gemini-embedding-2 Migration & Fail-Closed Brand Governance', () => {
+    it('generates a 768-dimensional embedding using gemini-embedding-2 with MRL truncation', async () => {
+      let capturedUrl = '';
+      let capturedBody: any = null;
+      const testVector = Array(768).fill(0.042);
+
+      const provider = new GeminiAIProvider(
+        'mock-api-key',
+        'gemini-flash-lite-latest',
+        'gemini-embedding-2',
+        async (input, init) => {
+          capturedUrl = String(input);
+          capturedBody = JSON.parse(String(init?.body));
+          return createMockResponse({
+            embedding: { values: testVector },
+          });
+        }
+      );
+
+      const embedding = await provider.generateEmbedding('Sample brand copy for embedding');
+
+      assert.equal(
+        capturedUrl,
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent'
+      );
+      assert.equal(capturedBody.model, 'models/gemini-embedding-2');
+      assert.equal(capturedBody.outputDimensionality, 768);
+      assert.equal(embedding.length, 768);
+      assert.deepEqual(embedding, testVector);
+      assert.equal(provider.getResolvedEmbeddingModel(), 'gemini-embedding-2');
+    });
+
+    it('switches cleanly from deprecated text-embedding-004 to gemini-embedding-2 on HTTP 404', async () => {
+      const attempts: string[] = [];
+      const testVector = Array(768).fill(0.099);
+
+      const provider = new GeminiAIProvider(
+        'mock-api-key',
+        'gemini-flash-lite-latest',
+        'text-embedding-004',
+        async (input, init) => {
+          const urlStr = String(input);
+          attempts.push(urlStr);
+          if (urlStr.includes('text-embedding-004')) {
+            return createMockResponse(
+              { error: { message: 'Gemini model text-embedding-004:embedContent not found' } },
+              false,
+              404
+            );
+          }
+          if (urlStr.includes('gemini-embedding-2')) {
+            const body = JSON.parse(String(init?.body));
+            assert.equal(body.model, 'models/gemini-embedding-2');
+            assert.equal(body.outputDimensionality, 768);
+            return createMockResponse({
+              embedding: { values: testVector },
+            });
+          }
+          return createMockResponse({}, false, 500);
+        }
+      );
+
+      // First call: encounters 404 on text-embedding-004 and switches to gemini-embedding-2
+      const result = await provider.generateEmbedding('Test text');
+      assert.equal(result.length, 768);
+      assert.deepEqual(result, testVector);
+      assert.equal(provider.getResolvedEmbeddingModel(), 'gemini-embedding-2');
+      assert.equal(attempts.length, 2);
+      assert.ok(attempts[0].includes('text-embedding-004:embedContent'));
+      assert.ok(attempts[1].includes('gemini-embedding-2:embedContent'));
+
+      // Second call: should directly use gemini-embedding-2 without retrying text-embedding-004
+      attempts.length = 0;
+      const result2 = await provider.generateEmbedding('Different text to bypass cache');
+      assert.equal(result2.length, 768);
+      assert.equal(attempts.length, 1);
+      assert.ok(attempts[0].includes('gemini-embedding-2:embedContent'));
+    });
+
+    it('fails closed when embedding generation fails: rolls back submission status and persists no review run', async () => {
+      let submissionStatus = 'PENDING';
+      const mockSubmission: ContentSubmission = {
+        id: 'a0000000-0000-4000-8000-000000000001',
+        title: 'Q4 Product Announcement',
+        rawText: 'Our groundbreaking new platform guarantees 100% uptime forever with zero defects.',
+        channel: 'WEBSITE',
+        status: 'PENDING',
+        submittedBy: 'marketing@evolyn.ai',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const mockDeps: ReviewDependencies = {
+        submissions: {
+          getSubmissionById: async () => ({ ...mockSubmission, status: submissionStatus as any }),
+          updateSubmissionStatus: async (_id, status) => {
+            submissionStatus = status;
+          },
+        },
+        guidelines: {
+          findRelevantRules: async () => [],
+        },
+        knowledge: {
+          findRelevantFacts: async () => [],
+        },
+        ai: {
+          generateEmbedding: async () => {
+            throw new Error('Gemini model gemini-embedding-2:embedContent not found (HTTP 404)');
+          },
+          auditContent: async () => ({ issues: [] }),
+        },
+        findings: {
+          recordFindings: async () => [],
+          getFindingsByReviewRunId: async () => [],
+        },
+      };
+
+      let reviewRunCreated = false;
+      const mockRepo: any = {
+        create: async (data: any) => {
+          reviewRunCreated = true;
+          return { id: 'run-001', ...data, createdAt: new Date() };
+        },
+        deleteById: async () => {
+          reviewRunCreated = false;
+        },
+        findLatestBySubmissionId: async () => null,
+      };
+
+      const service = new ReviewService(mockDeps, mockRepo);
+
+      await assert.rejects(
+        () => service.executeReview(mockSubmission.id),
+        (err: Error) => {
+          assert.ok(err.message.includes('HTTP 404'));
+          return true;
+        }
+      );
+
+      // Verify fail-closed behavior:
+      // Status must be restored to original PENDING, NOT left in ANALYZING
+      assert.equal(submissionStatus, 'PENDING');
+      // No review run must remain persisted
+      assert.equal(reviewRunCreated, false);
+    });
+
+    it('retrieves relevant brand rules and facts using gemini-embedding-2 vector and completes audit', async () => {
+      const mockVector = Array(768).fill(0.05);
+      let passedVectorToRules: number[] | null = null;
+      let passedVectorToFacts: number[] | null = null;
+
+      const mockRule: GuidelineRule = {
+        id: 'b0000000-0000-4000-8000-000000000002',
+        guidelineId: 'g0000000-0000-4000-8000-000000000001',
+        ruleStatement: 'Never guarantee 100% uptime in customer-facing copy.',
+        severity: 'HIGH',
+        prohibitedPhrases: ['100% uptime'],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const mockFact: ApprovedFact = {
+        id: 'f0000000-0000-4000-8000-000000000003',
+        claimStatement: 'Platform provides 99.9% uptime SLA.',
+        approvedProofSource: 'Engineering SLA Documentation 2026',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const mockSubmission: ContentSubmission = {
+        id: 'a0000000-0000-4000-8000-000000000002',
+        title: 'Status Page Announcement',
+        rawText: 'We guarantee 100% uptime across all cloud regions.',
+        channel: 'WEBSITE',
+        status: 'PENDING',
+        submittedBy: 'devops@evolyn.ai',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      let submissionStatus = 'PENDING';
+      const mockDeps: ReviewDependencies = {
+        submissions: {
+          getSubmissionById: async () => ({ ...mockSubmission, status: submissionStatus as any }),
+          updateSubmissionStatus: async (_id, status) => { submissionStatus = status; },
+        },
+        guidelines: {
+          findRelevantRules: async (vec) => {
+            passedVectorToRules = vec;
+            return [mockRule];
+          },
+        },
+        knowledge: {
+          findRelevantFacts: async (vec) => {
+            passedVectorToFacts = vec;
+            return [mockFact];
+          },
+        },
+        ai: {
+          generateEmbedding: async () => mockVector,
+          auditContent: async (params) => {
+            assert.equal(params.rules.length, 1);
+            assert.equal(params.facts.length, 1);
+            return {
+              issues: [
+                {
+                  ruleId: mockRule.id,
+                  issueType: 'UNSUBSTANTIATED_CLAIM',
+                  flaggedExcerpt: '100% uptime',
+                  explanation: 'Violates uptime SLA rule',
+                  suggestedFix: '99.9% uptime',
+                  sourceQuote: 'Never guarantee 100% uptime in customer-facing copy.',
+                  confidenceScore: 0.95,
+                  evidenceStrengthScore: 0.9,
+                },
+              ],
+            };
+          },
+        },
+        findings: {
+          recordFindings: async (_runId, items) => items.map((it, idx) => ({ id: `find-${idx}`, ...it } as any)),
+          getFindingsByReviewRunId: async () => [],
+        },
+      };
+
+      const mockRepo: any = {
+        create: async (data: any) => ({
+          id: 'run-valid-001',
+          ...data,
+          createdAt: new Date(),
+          summary: { passedChecksCount: 0, failedChecksCount: 1 },
+        }),
+        findLatestBySubmissionId: async () => null,
+      };
+
+      const service = new ReviewService(mockDeps, mockRepo);
+      const result = await service.executeReview(mockSubmission.id);
+
+      assert.ok(result);
+      assert.deepEqual(passedVectorToRules, mockVector);
+      assert.deepEqual(passedVectorToFacts, mockVector);
+      assert.equal(submissionStatus, 'REVIEWED');
+      assert.equal(result.issues.length, 1);
+      assert.equal(result.issues[0].ruleId, mockRule.id);
+    });
+
+    it('strictly enforces 768-dimension compatibility and rejects truncated, expanded, or NaN vectors', async () => {
+      // 1. Provider-level rejection of 512-dim vector from API
+      const invalid512Provider = new GeminiAIProvider(
+        'mock-api-key',
+        'gemini-flash-lite-latest',
+        'gemini-embedding-2',
+        async () => createMockResponse({
+          embedding: { values: Array(512).fill(0.1) }, // wrong dimensions
+        })
+      );
+      await assert.rejects(
+        () => invalid512Provider.generateEmbedding('Text'),
+        /768|length|invalid/i
+      );
+
+      // 2. Provider-level rejection of NaN vectors
+      const nanVector = Array(768).fill(0.1);
+      nanVector[42] = NaN;
+      const nanProvider = new GeminiAIProvider(
+        'mock-api-key',
+        'gemini-flash-lite-latest',
+        'gemini-embedding-2',
+        async () => createMockResponse({
+          embedding: { values: nanVector },
+        })
+      );
+      await assert.rejects(
+        () => nanProvider.generateEmbedding('Text'),
+        /finite|invalid/i
+      );
+
+      // 3. ReviewService-level rejection when embedding has wrong dimensions
+      let submissionStatus = 'PENDING';
+      const mockSubmission: ContentSubmission = {
+        id: 'a0000000-0000-4000-8000-000000000003',
+        title: 'Dimension test',
+        rawText: 'Checking dimensional fail-closed behavior in reviews.',
+        channel: 'WEBSITE',
+        status: 'PENDING',
+        submittedBy: 'tester@evolyn.ai',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const mockDeps: ReviewDependencies = {
+        submissions: {
+          getSubmissionById: async () => ({ ...mockSubmission, status: submissionStatus as any }),
+          updateSubmissionStatus: async (_id, status) => { submissionStatus = status; },
+        },
+        guidelines: { findRelevantRules: async () => [] },
+        knowledge: { findRelevantFacts: async () => [] },
+        ai: {
+          generateEmbedding: async () => Array(256).fill(0.5), // Invalid dimension
+          auditContent: async () => ({ issues: [] }),
+        },
+        findings: {
+          recordFindings: async () => [],
+          getFindingsByReviewRunId: async () => [],
+        },
+      };
+
+      const mockRepo: any = {
+        create: async () => ({ id: 'run-dim-001' }),
+        deleteById: async () => {},
+        findLatestBySubmissionId: async () => null,
+      };
+
+      const service = new ReviewService(mockDeps, mockRepo);
+      await assert.rejects(
+        () => service.executeReview(mockSubmission.id),
+        /Review embedding must contain 768 finite values/
+      );
+      assert.equal(submissionStatus, 'PENDING');
+    });
+  });
 });
 

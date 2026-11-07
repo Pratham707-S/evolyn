@@ -10,23 +10,34 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
 dotenv.config();
 
-const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  PORT: z.coerce.number().default(5001),
-  DATABASE_URL: z.string().default('postgresql://evolyn:evolyn_secret@localhost:5432/evolyn_db'),
-  DIRECT_URL: z.string().optional(),
+const envSchema = z
+  .object({
+    NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+    PORT: z.coerce.number().default(5001),
+    DATABASE_URL: z.string().default('postgresql://evolyn:evolyn_secret@localhost:5432/evolyn_db'),
+    DIRECT_URL: z.string().optional(),
 
-  // Gemini AI Model Configuration (strictly environment-driven)
-  GEMINI_API_KEY: z.string().optional().default(''),
-  GEMINI_MODEL: z.string().default('gemini-flash-lite-latest'),
-  GEMINI_EMBEDDING_MODEL: z.string().default('gemini-embedding-001'),
+    // Gemini AI Model Configuration (strictly environment-driven)
+    GEMINI_API_KEY: z.string().optional().default(''),
+    GEMINI_MODEL: z.string().default('gemini-flash-lite-latest'),
+    GEMINI_EMBEDDING_MODEL: z.string().default('gemini-embedding-2'),
 
-  // AWS S3 (optional in Phase 1 / local fallback)
-  AWS_REGION: z.string().default('us-east-1'),
-  AWS_S3_BUCKET: z.string().default('evolyn-guidelines-storage'),
-  AWS_ACCESS_KEY_ID: z.string().optional().default(''),
-  AWS_SECRET_ACCESS_KEY: z.string().optional().default(''),
-});
+    // AWS S3 (optional in Phase 1 / local fallback)
+    AWS_REGION: z.string().default('us-east-1'),
+    AWS_S3_BUCKET: z.string().default('evolyn-guidelines-storage'),
+    AWS_ACCESS_KEY_ID: z.string().optional().default(''),
+    AWS_SECRET_ACCESS_KEY: z.string().optional().default(''),
+  })
+  .superRefine((data, ctx) => {
+    if (data.NODE_ENV !== 'test' && (!data.DIRECT_URL || !data.DIRECT_URL.trim())) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'DIRECT_URL is strictly required for PostgreSQL session-level advisory locks. Silent fallback to transaction-pooling DATABASE_URL is prohibited.',
+        path: ['DIRECT_URL'],
+      });
+    }
+  });
 
 const parsed = envSchema.safeParse(process.env);
 

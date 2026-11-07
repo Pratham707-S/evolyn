@@ -12,7 +12,23 @@ export const pool = new Pool({
   connectionTimeoutMillis: 5000,
 });
 
+if (env.NODE_ENV !== 'test' && (!env.DIRECT_URL || !env.DIRECT_URL.trim())) {
+  throw new Error(
+    'DIRECT_URL is strictly required for advisory-lock coordination. Silent fallback to PgBouncer transaction-pooling endpoint is forbidden.'
+  );
+}
+
+// Dedicated unpooled pool strictly for session-level PostgreSQL advisory locks.
+// Unsafe fallback to DATABASE_URL is strictly forbidden.
+export const directPool = new Pool({
+  connectionString: env.DIRECT_URL || (env.NODE_ENV === 'test' ? 'postgresql://mock:mock@localhost:5432/mock' : undefined),
+  max: 5,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+});
+
 export const db = drizzle(pool, { schema });
+export const directDb = drizzle(directPool, { schema });
 
 // Helper to check DB connectivity
 export async function checkDatabaseConnection(): Promise<boolean> {
