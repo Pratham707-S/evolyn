@@ -107,7 +107,7 @@ export function ReviewEditor({
     editorProps: {
       attributes: {
         class:
-          'prose prose-sm max-w-none focus:outline-hidden min-h-[320px] text-[#25251F] leading-relaxed select-text font-sans p-4 sm:p-6',
+          'prose prose-sm max-w-none focus:outline-hidden min-h-[360px] text-[#25251F] leading-relaxed select-text font-sans p-5 sm:p-7 [&>p]:mb-4 [&>p]:leading-relaxed [&>h1]:mt-6 [&>h1]:mb-3 [&>h1]:font-serif [&>h1]:text-2xl [&>h2]:mt-6 [&>h2]:mb-3 [&>h2]:font-serif [&>h2]:text-xl [&>h2]:text-[#25251F] [&>h3]:mt-5 [&>h3]:mb-2 [&>h3]:font-serif [&>h3]:text-lg [&>h3]:text-[#25251F] [&>ul]:my-3 [&>ol]:my-3 [&>li]:my-1 [&>blockquote]:my-4 [&>blockquote]:p-3 [&>blockquote]:border-l-4 [&>blockquote]:border-[#68745D]',
       },
     },
     onUpdate: ({ editor: ed }) => {
