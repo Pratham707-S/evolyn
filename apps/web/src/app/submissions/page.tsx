@@ -124,10 +124,17 @@ function SubmissionsContent() {
     queryFn: () => fetchAllSubmissions(),
   });
 
+  const queryClient = useQueryClient();
+  const [dismissedDemoIds, setDismissedDemoIds] = useState<Set<string>>(new Set());
+
+  const isUuid = (id: string) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
   const isLive = Boolean(res?.submissions && res.submissions.length > 0);
 
   const submissions: SubmissionData[] = useMemo(() => {
-    if (res?.submissions && res.submissions.length > 0) {
+    // If real backend API responded with submissions list (including empty list after deletions)
+    if (res && Array.isArray(res.submissions)) {
       return res.submissions.map((s: ContentSubmission, idx: number) => ({
         id: s.id,
         title: s.title,
@@ -146,8 +153,9 @@ function SubmissionsContent() {
         version: `v1.${idx}`,
       }));
     }
-    return initialSubmissionsData;
-  }, [res]);
+    // Only fallback to sample items if backend query failed or before initial connection
+    return initialSubmissionsData.filter((item) => !dismissedDemoIds.has(item.id));
+  }, [res, dismissedDemoIds]);
 
   // Compute live metrics
   const metrics = {
@@ -184,8 +192,6 @@ function SubmissionsContent() {
     showToast('Submissions exported to CSV successfully');
   };
 
-  const queryClient = useQueryClient();
-
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       return apiClient.delete(`/api/submissions/${id}`);
@@ -215,11 +221,26 @@ function SubmissionsContent() {
   });
 
   const handleDeleteSubmission = (id: string) => {
+    if (!isUuid(id)) {
+      setDismissedDemoIds((prev) => new Set([...prev, id]));
+      showToast('Sample draft removed.');
+      return;
+    }
     deleteMutation.mutate(id);
   };
 
   const handleDeleteManySubmissions = (ids: string[]) => {
-    bulkDeleteMutation.mutate(ids);
+    const realIds = ids.filter(isUuid);
+    const demoIds = ids.filter((id) => !isUuid(id));
+
+    if (demoIds.length > 0) {
+      setDismissedDemoIds((prev) => new Set([...prev, ...demoIds]));
+    }
+    if (realIds.length > 0) {
+      bulkDeleteMutation.mutate(realIds);
+    } else if (demoIds.length > 0) {
+      showToast(`Removed ${demoIds.length} sample item${demoIds.length > 1 ? 's' : ''}.`);
+    }
   };
 
   return (
