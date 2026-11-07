@@ -6,6 +6,7 @@ import { Plus, Edit3, Sparkles, Wand2, Loader2, AlertCircle, AlertTriangle, X } 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AppShell, useAppShell } from '@/components/layout/app-shell';
 import { PageHeader } from '@/components/shared/page-header';
+import { useLanguage } from '@/lib/i18n/language-context';
 import { apiClient } from '@/lib/api/client';
 import type { DetectedIssue, ContentSubmission, ReviewRun } from '@evolyn/shared';
 import {
@@ -29,6 +30,7 @@ function ReviewWorkspaceInner() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { showToast, openNewSubmission } = useAppShell();
+  const { getAiLanguageInstruction, t } = useLanguage();
 
   const urlSubmissionId = searchParams.get('id');
   const urlStatus = searchParams.get('status');
@@ -136,6 +138,11 @@ function ReviewWorkspaceInner() {
       if (!subId) throw new Error('No active submission to rewrite.');
 
       const textToRewrite = currentContent || reviewData.submission.rawText;
+      const langRule = getAiLanguageInstruction();
+      const finalInstructions = instructions
+        ? `${instructions}. ${langRule}`
+        : `${label} conforming strictly to enterprise brand guidelines. ${langRule}`;
+
       return apiClient.post<{
         originalText?: string;
         rewrittenText?: string;
@@ -148,7 +155,7 @@ function ReviewWorkspaceInner() {
         {
           action,
           content: textToRewrite,
-          instructions: instructions || `${label} conforming strictly to enterprise brand guidelines`,
+          instructions: finalInstructions,
         },
         { timeoutMs: 60000 }
       );
@@ -379,7 +386,7 @@ function ReviewWorkspaceInner() {
     <div className="h-full flex flex-col gap-3 min-h-0">
       {/* 1. Page Header */}
       <PageHeader
-        title="Review Workspace"
+        title={t('nav.reviews') || 'Review Workspace'}
         description="Review and refine content with grounded Evolyn brand intelligence, compliance auditing, and evidence."
         showNotificationBell={true}
         unreadNotificationsCount={1}

@@ -19,6 +19,7 @@ import {
   ChevronDown,
   X,
 } from 'lucide-react';
+import { useLanguage } from '@/lib/i18n/language-context';
 
 interface SidebarProps {
   mobileOpen?: boolean;
@@ -49,29 +50,31 @@ export function DashboardSidebar({
   activeItem = 'Dashboard',
   onNavigate,
 }: SidebarProps) {
+  const { t } = useLanguage();
+
   const workspaceNav = [
-    { name: 'Dashboard', icon: LayoutDashboard },
-    { name: 'Submissions', icon: CheckSquare },
-    { name: 'Review Workspace', icon: FileEdit },
-    { name: 'Approvals', icon: CheckCircle2 },
-    { name: 'Decision History', icon: History },
+    { name: 'Dashboard', label: t('nav.dashboard', 'Dashboard'), icon: LayoutDashboard },
+    { name: 'Submissions', label: t('nav.submissions', 'Submissions'), icon: CheckSquare },
+    { name: 'Review Workspace', label: t('nav.reviews', 'Review Workspace'), icon: FileEdit },
+    { name: 'Approvals', label: t('nav.approvals', 'Approvals'), icon: CheckCircle2 },
+    { name: 'Decision History', label: t('nav.decisionHistory', 'Decision History'), icon: History },
   ];
 
   const brandNav = [
-    { name: 'Brand Setup', icon: Boxes },
-    { name: 'Guidelines', icon: FileText },
-    { name: 'Knowledge Library', icon: BookOpen },
+    { name: 'Brand Setup', label: t('nav.brandSetup', 'Brand Setup'), icon: Boxes },
+    { name: 'Guidelines', label: t('nav.guidelines', 'Guidelines'), icon: FileText },
+    { name: 'Knowledge Library', label: t('nav.knowledgeLibrary', 'Knowledge Library'), icon: BookOpen },
   ];
 
   const intelligenceNav = [
-    { name: 'Conflict Detector', icon: Sparkles },
-    { name: 'Claim Evidence', icon: ShieldCheck },
-    { name: 'Guideline Improvements', icon: Sliders },
+    { name: 'Conflict Detector', label: t('nav.conflictDetector', 'Conflict Detector'), icon: Sparkles },
+    { name: 'Claim Evidence', label: t('nav.claimEvidence', 'Claim Evidence'), icon: ShieldCheck },
+    { name: 'Guideline Improvements', label: t('nav.guidelineImprovements', 'Guideline Improvements'), icon: Sliders },
   ];
 
   const bottomNav = [
-    { name: 'Insights', icon: BarChart2 },
-    { name: 'Settings', icon: Settings },
+    { name: 'Insights', label: t('nav.insights', 'Insights'), icon: BarChart2 },
+    { name: 'Settings', label: t('nav.settings', 'Settings'), icon: Settings },
   ];
 
   const handleItemClick = (name: string) => {
@@ -119,7 +122,7 @@ export function DashboardSidebar({
         {/* Workspace */}
         <div>
           <div className="px-2 mb-2 text-[11px] font-semibold tracking-wider text-[#77766E] uppercase">
-            Workspace
+            {t('nav.workspace', 'Workspace')}
           </div>
           <div className="space-y-0.5">
             {workspaceNav.map((item) => {
@@ -141,7 +144,7 @@ export function DashboardSidebar({
                   <Icon
                     className={`w-4 h-4 ${isActive ? 'text-white' : 'text-[#77766E]'}`}
                   />
-                  <span>{item.name}</span>
+                  <span>{item.label}</span>
                 </Link>
               );
             })}
@@ -151,7 +154,7 @@ export function DashboardSidebar({
         {/* Brand */}
         <div>
           <div className="px-2 mb-2 text-[11px] font-semibold tracking-wider text-[#77766E] uppercase">
-            Brand
+            {t('nav.brand', 'Brand')}
           </div>
           <div className="space-y-0.5">
             {brandNav.map((item) => {
@@ -173,7 +176,7 @@ export function DashboardSidebar({
                   <Icon
                     className={`w-4 h-4 ${isActive ? 'text-white' : 'text-[#77766E]'}`}
                   />
-                  <span>{item.name}</span>
+                  <span>{item.label}</span>
                 </Link>
               );
             })}
@@ -183,7 +186,7 @@ export function DashboardSidebar({
         {/* Intelligence */}
         <div>
           <div className="px-2 mb-2 text-[11px] font-semibold tracking-wider text-[#77766E] uppercase">
-            Intelligence
+            {t('nav.intelligence', 'Intelligence')}
           </div>
           <div className="space-y-0.5">
             {intelligenceNav.map((item) => {
@@ -205,7 +208,7 @@ export function DashboardSidebar({
                   <Icon
                     className={`w-4 h-4 ${isActive ? 'text-white' : 'text-[#77766E]'}`}
                   />
-                  <span>{item.name}</span>
+                  <span>{item.label}</span>
                 </Link>
               );
             })}
@@ -233,7 +236,7 @@ export function DashboardSidebar({
                 <Icon
                   className={`w-4 h-4 ${isActive ? 'text-white' : 'text-[#77766E]'}`}
                 />
-                <span>{item.name}</span>
+                <span>{item.label}</span>
               </Link>
             );
           })}

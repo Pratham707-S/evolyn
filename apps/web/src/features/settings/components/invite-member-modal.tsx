@@ -40,6 +40,9 @@ export function InviteMemberModal({
       };
       current.push(newMember);
       localStorage.setItem('evolyn_team_members', JSON.stringify(current));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('evolyn_team_updated'));
+      }
     } catch {
       // storage unavailable
     }

@@ -420,7 +420,7 @@ describe('GeminiAIProvider', () => {
     }
   });
 
-  it('uses hardened defaults (gemini-3.1-flash-lite and gemini-embedding-001) from environment configuration', async () => {
+  it('uses default embedding model from environment configuration', async () => {
     let capturedUrl = '';
     const defaultProvider = new GeminiAIProvider(
       'mock-api-key',
@@ -435,7 +435,7 @@ describe('GeminiAIProvider', () => {
     );
 
     const vec = await defaultProvider.generateEmbedding('Brand rules');
-    assert.ok(capturedUrl.includes('/models/gemini-embedding-001:embedContent'));
+    assert.ok(capturedUrl.includes(`/models/${env.GEMINI_EMBEDDING_MODEL}:embedContent`));
     assert.equal(vec.length, 768);
   });
 

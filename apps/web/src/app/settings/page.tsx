@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell, useAppShell } from '@/components/layout/app-shell';
 import { PageHeader } from '@/components/shared/page-header';
+import { useLanguage } from '@/lib/i18n/language-context';
+import { apiClient } from '@/lib/api/client';
 import {
   SettingsTabs,
   SettingsTabId,
@@ -22,6 +24,7 @@ import {
 export default function SettingsPage() {
   const router = useRouter();
   const { showToast } = useAppShell();
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<SettingsTabId>('general');
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
@@ -35,16 +38,36 @@ export default function SettingsPage() {
     router.push('/guidelines');
   };
 
-  const handleExportData = () => {
-    showToast('Generating workspace backup archive (JSON)...');
+  const handleExportData = async () => {
+    showToast('Packaging complete workspace backup archive (JSON)...');
     try {
+      // Gather live backend resources where available
+      let guidelines = [];
+      let facts = [];
+      try {
+        const gRes = await apiClient<{ guidelines?: any[] }>('/api/guidelines');
+        guidelines = gRes?.guidelines || [];
+      } catch {
+        // fallback
+      }
+      try {
+        const fRes = await apiClient<{ facts?: any[] }>('/api/knowledge/facts');
+        facts = fRes?.facts || [];
+      } catch {
+        // fallback
+      }
+
       const backupData = {
         exportedAt: new Date().toISOString(),
-        platform: 'Evolyn Enterprise',
-        settings: typeof window !== 'undefined' ? localStorage.getItem('evolyn_workspace_settings') : null,
-        reviewPolicy: typeof window !== 'undefined' ? localStorage.getItem('evolyn_review_policy') : null,
-        notifications: typeof window !== 'undefined' ? localStorage.getItem('evolyn_notification_settings') : null,
-        teamMembers: typeof window !== 'undefined' ? localStorage.getItem('evolyn_team_members') : null,
+        platform: 'Evolyn Enterprise Brand Governance',
+        version: '1.0.0',
+        workspaceSettings: typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('evolyn_workspace_settings') || '{}') : {},
+        reviewPolicy: typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('evolyn_review_policy') || '{}') : {},
+        notificationSettings: typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('evolyn_notification_settings') || '{}') : {},
+        securitySettings: typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('evolyn_security_settings') || '{}') : {},
+        teamMembers: typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('evolyn_team_members') || '[]') : [],
+        guidelines,
+        approvedFacts: facts,
       };
 
       const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(backupData, null, 2));
@@ -55,7 +78,7 @@ export default function SettingsPage() {
       downloadAnchor.click();
       downloadAnchor.remove();
 
-      showToast('Workspace backup package downloaded successfully');
+      showToast('Workspace backup archive downloaded successfully');
     } catch {
       showToast('Unable to export workspace package');
     }
@@ -66,8 +89,8 @@ export default function SettingsPage() {
       <div className="space-y-4 sm:space-y-5 max-w-[1500px] mx-auto pb-8">
         {/* Page Header with Live Theme Toggle */}
         <PageHeader
-          title="Settings"
-          description="Manage your workspace, team, review process, and platform preferences."
+          title={t('settings.title') || 'Settings'}
+          description={t('settings.description') || 'Manage your workspace, team, review process, and platform preferences.'}
           showNotificationBell={true}
           showThemeToggle={true}
           unreadNotificationsCount={1}
@@ -131,6 +154,9 @@ export default function SettingsPage() {
           isOpen={isInviteModalOpen}
           onClose={() => setIsInviteModalOpen(false)}
           showToast={showToast}
+          onMemberAdded={() => {
+            if (typeof window !== 'undefined') window.dispatchEvent(new Event('evolyn_team_updated'));
+          }}
         />
       </div>
     </AppShell>

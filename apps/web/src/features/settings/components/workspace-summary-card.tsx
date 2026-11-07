@@ -44,52 +44,61 @@ export function WorkspaceSummaryCard() {
   });
 
   // 3. Fetch live submissions to deduce team members
-  const { data: teamData } = useQuery({
-    queryKey: ['settings', 'team-count'],
-    queryFn: async () => {
+  const [memberCount, setMemberCount] = React.useState(1);
+
+  React.useEffect(() => {
+    const updateCount = () => {
       try {
-        let localMembersCount = 5;
         if (typeof window !== 'undefined') {
           const stored = localStorage.getItem('evolyn_team_members');
           if (stored) {
             const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed)) localMembersCount = parsed.length;
+            if (Array.isArray(parsed)) {
+              setMemberCount(Math.max(1, parsed.length + 1));
+              return;
+            }
           }
         }
-        return { count: localMembersCount };
       } catch {
-        return { count: 5 };
+        // ignore
       }
-    },
-  });
+      setMemberCount(1);
+    };
 
-  const memberCount = teamData?.count ?? 5;
+    updateCount();
+    window.addEventListener('storage', updateCount);
+    window.addEventListener('evolyn_team_updated', updateCount);
+    return () => {
+      window.removeEventListener('storage', updateCount);
+      window.removeEventListener('evolyn_team_updated', updateCount);
+    };
+  }, []);
   const guidelinesCount = guidelinesData?.count ?? 42;
   const factsCount = factsData?.count ?? 56;
 
   return (
-    <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-2xl p-5 shadow-2xs relative overflow-hidden">
+    <div className="bg-[#FFFEFA] dark:bg-[#18181B] border border-[#E5E1D8] dark:border-[#27272A] rounded-2xl p-5 shadow-2xs relative overflow-hidden transition-colors">
       {/* Soft gradient ambient glow in upper-right */}
-      <div className="absolute top-0 right-0 w-44 h-44 bg-gradient-to-br from-[#EAE6FF]/60 via-[#F3EEFF]/40 to-transparent rounded-full blur-2xl pointer-events-none" />
+      <div className="absolute top-0 right-0 w-44 h-44 bg-gradient-to-br from-[#EAE6FF]/60 dark:from-[#3B2D71]/40 via-[#F3EEFF]/40 dark:via-[#261E47]/30 to-transparent rounded-full blur-2xl pointer-events-none" />
 
       {/* Top Header Row with 3D Cube Graphic */}
       <div className="flex items-start justify-between gap-3 relative z-10">
         <div className="flex items-center gap-3">
           {/* Black Cube Logo */}
-          <div className="w-10 h-10 rounded-xl bg-[#111111] flex items-center justify-center text-white flex-shrink-0 shadow-xs">
+          <div className="w-10 h-10 rounded-xl bg-[#111111] dark:bg-[#27272A] flex items-center justify-center text-white flex-shrink-0 shadow-xs">
             <Box className="w-5 h-5 stroke-[2.2]" />
           </div>
 
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-serif font-bold text-lg text-[#25251F] tracking-tight leading-tight">
+              <h3 className="font-serif font-bold text-lg text-[#25251F] dark:text-[#F4F4F5] tracking-tight leading-tight">
                 Evolyn
               </h3>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0]">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#ECFDF5] text-[#065F46] dark:bg-[#064E3B] dark:text-[#6EE7B7] border border-[#A7F3D0] dark:border-[#047857]">
                 Active
               </span>
             </div>
-            <p className="text-xs text-[#77766E] mt-0.5">Brand Workspace</p>
+            <p className="text-xs text-[#77766E] dark:text-[#A1A1AA] mt-0.5">Brand Workspace</p>
           </div>
         </div>
 
@@ -137,24 +146,24 @@ export function WorkspaceSummaryCard() {
       </div>
 
       {/* Feature / Stats list */}
-      <div className="mt-5 space-y-2.5 pt-4 border-t border-[#EFECE6] text-xs text-[#52524E] relative z-10">
+      <div className="mt-5 space-y-2.5 pt-4 border-t border-[#EFECE6] dark:border-[#27272A] text-xs text-[#52524E] dark:text-[#D4D4D8] relative z-10">
         <div className="flex items-center gap-2.5">
-          <Users className="w-4 h-4 text-[#77766E] flex-shrink-0" />
+          <Users className="w-4 h-4 text-[#77766E] dark:text-[#A1A1AA] flex-shrink-0" />
           <span className="font-medium">{memberCount} team members</span>
         </div>
 
         <div className="flex items-center gap-2.5">
-          <Layers className="w-4 h-4 text-[#77766E] flex-shrink-0" />
-          <span className="font-medium">8 review stages</span>
+          <Layers className="w-4 h-4 text-[#77766E] dark:text-[#A1A1AA] flex-shrink-0" />
+          <span className="font-medium">5 review stages</span>
         </div>
 
         <div className="flex items-center gap-2.5">
-          <FileText className="w-4 h-4 text-[#77766E] flex-shrink-0" />
+          <FileText className="w-4 h-4 text-[#77766E] dark:text-[#A1A1AA] flex-shrink-0" />
           <span className="font-medium">{guidelinesCount} guidelines</span>
         </div>
 
         <div className="flex items-center gap-2.5">
-          <BookOpen className="w-4 h-4 text-[#77766E] flex-shrink-0" />
+          <BookOpen className="w-4 h-4 text-[#77766E] dark:text-[#A1A1AA] flex-shrink-0" />
           <span className="font-medium">{factsCount} knowledge resources</span>
         </div>
       </div>
