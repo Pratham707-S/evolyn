@@ -7,4 +7,5 @@ export * from './review-sidebar-tools';
 export * from './review-ai-panel';
 export * from './rewrite-comparison-modal';
 export * from './review-workspace-skeleton';
+export * from './export-pdf-modal';
 

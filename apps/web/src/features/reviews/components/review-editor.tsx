@@ -30,9 +30,11 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
+  Download,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { getApiBaseUrl } from '@/lib/api/client';
+import { ExportPdfModal } from './export-pdf-modal';
 
 export interface ReviewEditorProps {
   initialTitle?: string;
@@ -143,6 +145,7 @@ export function ReviewEditor({
   const [pdfZoom, setPdfZoom] = useState(100);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(5);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   const effectivePdfUrl = React.useMemo(() => {
     if (!fileUrl) return null;
@@ -489,6 +492,16 @@ export function ReviewEditor({
 
             <button
               type="button"
+              onClick={() => setIsExportModalOpen(true)}
+              className="text-xs text-[#25251F] hover:text-[#1F2937] bg-[#E8EBE1]/70 hover:bg-[#E8EBE1] border border-[#68745D]/30 font-medium px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+              title="Export styled brand PDF"
+            >
+              <Download className="w-3.5 h-3.5 text-[#68745D]" />
+              <span className="hidden sm:inline">Export PDF</span>
+            </button>
+
+            <button
+              type="button"
               onClick={handleSave}
               disabled={isSaving}
               className="bg-[#25251F] hover:bg-[#383832] disabled:opacity-50 text-white text-xs font-medium px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors"
@@ -595,6 +608,16 @@ export function ReviewEditor({
                   </button>
                 </div>
 
+                <button
+                  type="button"
+                  onClick={() => setIsExportModalOpen(true)}
+                  className="px-2.5 py-1 text-xs text-[#25251F] hover:text-[#1F2937] bg-[#E8EBE1]/70 hover:bg-[#E8EBE1] border border-[#68745D]/30 rounded-lg font-medium transition-colors flex items-center gap-1 cursor-pointer"
+                  title="Export styled brand PDF"
+                >
+                  <Download className="w-3 h-3 text-[#68745D]" />
+                  <span>Export Styled</span>
+                </button>
+
                 {effectivePdfUrl && (
                   <a
                     href={effectivePdfUrl}
@@ -697,6 +720,15 @@ export function ReviewEditor({
           </div>
         )}
       </div>
+
+      <ExportPdfModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        title={initialTitle}
+        contentHtml={editor ? editor.getHTML() : cleanAndFormatPdfToHtml(initialContent)}
+        channel={channel}
+        complianceScore={100}
+      />
     </div>
   );
 }

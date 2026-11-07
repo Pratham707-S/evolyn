@@ -92,3 +92,4 @@ export function generateSimplePdf(title: string, text: string): Buffer {
 
   return Buffer.from(output, 'utf8');
 }
+
