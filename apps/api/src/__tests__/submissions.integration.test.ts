@@ -424,10 +424,10 @@ describe('Submissions Integration Tests (Express App E2E)', () => {
       assert.equal(res.body.error, 'Validation failed');
     });
 
-    it('disables deletion in production environments and returns 403 Forbidden', async () => {
-      const originalNodeEnv = env.NODE_ENV;
+    it('disables deletion when administrative policy disables deletion and returns 403 Forbidden', async () => {
+      const originalPolicy = process.env.DISABLE_SUBMISSION_DELETION;
       try {
-        (env as any).NODE_ENV = 'production';
+        process.env.DISABLE_SUBMISSION_DELETION = 'true';
 
         const res = await dispatch({
           method: 'DELETE',
@@ -435,7 +435,7 @@ describe('Submissions Integration Tests (Express App E2E)', () => {
         });
 
         assert.equal(res.statusCode, 403);
-        assert.match(res.body.error, /disabled in production/);
+        assert.match(res.body.error, /disabled by administrative policy/);
 
         const resBulk = await dispatch({
           method: 'DELETE',
@@ -444,9 +444,13 @@ describe('Submissions Integration Tests (Express App E2E)', () => {
         });
 
         assert.equal(resBulk.statusCode, 403);
-        assert.match(resBulk.body.error, /disabled in production/);
+        assert.match(resBulk.body.error, /disabled by administrative policy/);
       } finally {
-        (env as any).NODE_ENV = originalNodeEnv;
+        if (originalPolicy === undefined) {
+          delete process.env.DISABLE_SUBMISSION_DELETION;
+        } else {
+          process.env.DISABLE_SUBMISSION_DELETION = originalPolicy;
+        }
       }
     });
   });

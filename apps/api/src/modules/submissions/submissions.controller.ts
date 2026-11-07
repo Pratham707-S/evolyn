@@ -116,9 +116,9 @@ export class SubmissionController {
 
   delete = async (req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> => {
     try {
-      if (env.NODE_ENV === 'production') {
+      if (process.env.DISABLE_SUBMISSION_DELETION === 'true') {
         res.status(403).json({
-          error: 'Submission deletion is disabled in production environments without authorization infrastructure.',
+          error: 'Submission deletion is disabled by administrative policy.',
         });
         return;
       }
@@ -140,9 +140,9 @@ export class SubmissionController {
 
   deleteMany = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      if (env.NODE_ENV === 'production') {
+      if (process.env.DISABLE_SUBMISSION_DELETION === 'true') {
         res.status(403).json({
-          error: 'Submission deletion is disabled in production environments without authorization infrastructure.',
+          error: 'Submission deletion is disabled by administrative policy.',
         });
         return;
       }

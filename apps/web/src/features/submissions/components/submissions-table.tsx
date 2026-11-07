@@ -78,20 +78,20 @@ export function SubmissionsTable({
     switch (status) {
       case 'Approved':
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#EEF4EE] text-[#4E6B54] border border-[#D4DBC9]">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#EEF4EE] text-[#4E6B54] border border-[#D4DBC9] whitespace-nowrap">
             Approved
           </span>
         );
       case 'Needs Changes':
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#FDF2EC] text-[#B56E63] border border-[#F2D7CA]">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#FDF2EC] text-[#B56E63] border border-[#F2D7CA] whitespace-nowrap">
             Needs Changes
           </span>
         );
       case 'Pending Review':
       default:
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#F4F1EA] text-[#77766E] border border-[#E5E1D8]">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#F4F1EA] text-[#77766E] border border-[#E5E1D8] whitespace-nowrap">
             Pending Review
           </span>
         );
@@ -377,7 +377,7 @@ export function SubmissionsTable({
                       </td>
 
                       {/* Status Badge */}
-                      <td className="py-3.5 px-4">
+                      <td className="py-3.5 px-4 whitespace-nowrap">
                         {renderStatusBadge(item.status)}
                       </td>
 

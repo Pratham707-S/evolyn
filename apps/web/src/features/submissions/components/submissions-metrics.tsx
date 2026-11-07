@@ -67,7 +67,7 @@ export function SubmissionsMetrics({
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
       {cards.map((card) => {
         const Icon = card.icon;
         const isSelected =
@@ -79,7 +79,7 @@ export function SubmissionsMetrics({
             key={card.id}
             type="button"
             onClick={() => onSelectFilter && onSelectFilter(card.filterValue)}
-            className={`text-left rounded-xl transition-all p-5 border text-[#25251F] group relative focus:outline-none focus-visible:ring-1 focus-visible:ring-[#68745D] opacity-100 ${
+            className={`text-left rounded-xl transition-all p-5 sm:px-6 border text-[#25251F] group relative focus:outline-none focus-visible:ring-1 focus-visible:ring-[#68745D] opacity-100 ${
               isSelected
                 ? 'bg-[#FFFEFA] border-[#68745D] shadow-xs ring-1 ring-[#68745D]/20'
                 : 'bg-[#FFFEFA] border-[#E5E1D8] hover:border-[#68745D]/40'
