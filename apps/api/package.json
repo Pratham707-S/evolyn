@@ -17,6 +17,12 @@
   },
   "dependencies": {
     "@evolyn/shared": "*",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/multer": "^2.3.0",
+    "@types/node": "^22.13.1",
+    "@types/pdf-parse": "^1.1.5",
+    "@types/pg": "^8.11.11",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "drizzle-orm": "^0.38.4",
@@ -24,18 +30,12 @@
     "multer": "^2.5.0",
     "pdf-parse": "^2.4.5",
     "pg": "^8.13.1",
+    "typescript": "^5.7.3",
     "zod": "^3.24.2"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.17",
-    "@types/express": "^4.17.21",
-    "@types/multer": "^2.3.0",
-    "@types/node": "^22.13.1",
-    "@types/pdf-parse": "^1.1.5",
-    "@types/pg": "^8.11.11",
     "cross-env": "^10.1.0",
     "drizzle-kit": "^0.30.4",
-    "tsx": "^4.19.2",
-    "typescript": "^5.7.3"
+    "tsx": "^4.19.2"
   }
 }
