@@ -171,7 +171,7 @@ export function ReviewEditor({
     editorProps: {
       attributes: {
         class:
-          'prose prose-sm max-w-none focus:outline-hidden min-h-[420px] text-[#1E1E1A] leading-relaxed select-text font-sans p-6 sm:p-8 [&>p]:mb-4 [&>p]:leading-relaxed [&>p]:text-[15px] [&>h1]:mt-6 [&>h1]:mb-3 [&>h1]:font-bold [&>h1]:text-2xl [&>h1]:tracking-tight [&>h1]:text-[#1A1A17] [&>h2]:mt-6 [&>h2]:mb-3 [&>h2]:font-bold [&>h2]:text-xl [&>h2]:tracking-tight [&>h2]:text-[#1A1A17] [&>h3]:mt-5 [&>h3]:mb-2 [&>h3]:font-semibold [&>h3]:text-lg [&>h3]:tracking-tight [&>h3]:text-[#1A1A17] [&>ul]:my-3 [&>ol]:my-3 [&>li]:my-1 [&>blockquote]:my-4 [&>blockquote]:p-3 [&>blockquote]:border-l-4 [&>blockquote]:border-[#68745D] [&>blockquote]:bg-[#F4F2EC] [&>blockquote]:rounded-r-md',
+          'prose prose-sm max-w-none focus:outline-hidden min-h-[420px] text-[#1E1E1A] dark:text-[#F7F5F0] dark:prose-invert leading-relaxed select-text font-sans p-6 sm:p-8 [&>p]:mb-4 [&>p]:leading-relaxed [&>p]:text-[15px] [&>h1]:mt-6 [&>h1]:mb-3 [&>h1]:font-bold [&>h1]:text-2xl [&>h1]:tracking-tight [&>h1]:text-[#1A1A17] dark:[&>h1]:text-[#F7F5F0] [&>h2]:mt-6 [&>h2]:mb-3 [&>h2]:font-bold [&>h2]:text-xl [&>h2]:tracking-tight [&>h2]:text-[#1A1A17] dark:[&>h2]:text-[#F7F5F0] [&>h3]:mt-5 [&>h3]:mb-2 [&>h3]:font-semibold [&>h3]:text-lg [&>h3]:tracking-tight [&>h3]:text-[#1A1A17] dark:[&>h3]:text-[#F7F5F0] [&>ul]:my-3 [&>ol]:my-3 [&>li]:my-1 [&>blockquote]:my-4 [&>blockquote]:p-3 [&>blockquote]:border-l-4 [&>blockquote]:border-[#68745D] [&>blockquote]:bg-[#F4F2EC] dark:[&>blockquote]:bg-[#262520] dark:[&>blockquote]:text-[#F7F5F0] [&>blockquote]:rounded-r-md',
       },
     },
     onUpdate: ({ editor: ed }) => {
@@ -338,25 +338,25 @@ export function ReviewEditor({
   };
 
   return (
-    <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-2xl shadow-2xs flex flex-col h-full overflow-hidden">
+    <div className="bg-[#FFFEFA] dark:bg-[#1E1D19] border border-[#E5E1D8] dark:border-[#2C2B26] rounded-2xl shadow-2xs flex flex-col h-full overflow-hidden">
       {/* 1. Header Bar */}
-      <div className="px-4 sm:px-5 py-3 border-b border-[#E5E1D8] flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 shrink-0 bg-[#FFFEFA]">
+      <div className="px-4 sm:px-5 py-3 border-b border-[#E5E1D8] dark:border-[#2C2B26] flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 shrink-0 bg-[#FFFEFA] dark:bg-[#1E1D19]">
         <div className="flex items-center gap-2.5 min-w-0">
           <button
             type="button"
             onClick={() => window.history.back()}
-            className="p-1 -ml-1 text-[#77766E] hover:text-[#25251F] hover:bg-[#F1EFE8] rounded-md transition-colors"
+            className="p-1 -ml-1 text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0] hover:bg-[#F1EFE8] dark:hover:bg-[#262520] rounded-md transition-colors"
             title="Back to submissions"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
 
           <div className="min-w-0">
-            <h2 className="text-sm sm:text-base font-semibold text-[#25251F] truncate leading-tight">
+            <h2 className="text-sm sm:text-base font-semibold text-[#25251F] dark:text-[#F7F5F0] truncate leading-tight">
               {initialTitle}
             </h2>
-            <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-[11px] text-[#77766E] mt-0.5 flex-wrap">
-              <span className="font-medium text-[#68745D]">{channel}</span>
+            <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-[11px] text-[#77766E] dark:text-[#A09D92] mt-0.5 flex-wrap">
+              <span className="font-medium text-[#68745D] dark:text-[#8A987D]">{channel}</span>
               <span>•</span>
               <span>{getWordCount()} words</span>
               <span>•</span>
@@ -374,14 +374,14 @@ export function ReviewEditor({
         </div>
 
         {/* View Switcher: Editor / PDF / History */}
-        <div className="flex items-center gap-1 bg-[#FAF9F5] border border-[#E5E1D8] p-0.5 rounded-lg text-xs select-none">
+        <div className="flex items-center gap-1 bg-[#FAF9F5] dark:bg-[#141412] border border-[#E5E1D8] dark:border-[#2C2B26] p-0.5 rounded-lg text-xs select-none">
           <button
             type="button"
             onClick={() => setActiveTab('editor')}
             className={`px-2.5 py-1 rounded-md font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'editor'
-                ? 'bg-[#FFFEFA] text-[#25251F] shadow-2xs font-semibold'
-                : 'text-[#77766E] hover:text-[#25251F]'
+                ? 'bg-[#FFFEFA] dark:bg-[#262520] text-[#25251F] dark:text-[#F7F5F0] shadow-2xs font-semibold'
+                : 'text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0]'
             }`}
           >
             <Edit3 className="w-3.5 h-3.5" />
@@ -393,8 +393,8 @@ export function ReviewEditor({
             onClick={() => setActiveTab('pdf')}
             className={`px-2.5 py-1 rounded-md font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'pdf'
-                ? 'bg-[#FFFEFA] text-[#25251F] shadow-2xs font-semibold'
-                : 'text-[#77766E] hover:text-[#25251F]'
+                ? 'bg-[#FFFEFA] dark:bg-[#262520] text-[#25251F] dark:text-[#F7F5F0] shadow-2xs font-semibold'
+                : 'text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0]'
             }`}
           >
             <FileText className="w-3.5 h-3.5" />
@@ -406,8 +406,8 @@ export function ReviewEditor({
             onClick={() => setActiveTab('history')}
             className={`px-2.5 py-1 rounded-md font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'history'
-                ? 'bg-[#FFFEFA] text-[#25251F] shadow-2xs font-semibold'
-                : 'text-[#77766E] hover:text-[#25251F]'
+                ? 'bg-[#FFFEFA] dark:bg-[#262520] text-[#25251F] dark:text-[#F7F5F0] shadow-2xs font-semibold'
+                : 'text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0]'
             }`}
           >
             <History className="w-3.5 h-3.5" />
@@ -418,7 +418,7 @@ export function ReviewEditor({
 
       {/* 2. Interactive TipTap Formatting Toolbar */}
       {activeTab === 'editor' && editor && (
-        <div className="px-3 sm:px-4 py-2 border-b border-[#E5E1D8] bg-[#FAF8F5]/60 flex items-center justify-between gap-2 overflow-x-auto select-none shrink-0">
+        <div className="px-3 sm:px-4 py-2 border-b border-[#E5E1D8] dark:border-[#2C2B26] bg-[#FAF8F5]/60 dark:bg-[#181714] flex items-center justify-between gap-2 overflow-x-auto select-none shrink-0">
           <div className="flex items-center gap-1 text-xs">
             {/* Undo / Redo */}
             <button
@@ -426,7 +426,7 @@ export function ReviewEditor({
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => editor.chain().focus().undo().run()}
               disabled={!editor.can().undo()}
-              className="p-1.5 text-[#77766E] hover:text-[#25251F] hover:bg-[#E5E1D8] rounded-md transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              className="p-1.5 text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0] hover:bg-[#E5E1D8] dark:hover:bg-[#2C2B26] rounded-md transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               title="Undo (Ctrl+Z)"
             >
               <Undo2 className="w-3.5 h-3.5" />
@@ -436,13 +436,13 @@ export function ReviewEditor({
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => editor.chain().focus().redo().run()}
               disabled={!editor.can().redo()}
-              className="p-1.5 text-[#77766E] hover:text-[#25251F] hover:bg-[#E5E1D8] rounded-md transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              className="p-1.5 text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0] hover:bg-[#E5E1D8] dark:hover:bg-[#2C2B26] rounded-md transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               title="Redo (Ctrl+Y)"
             >
               <Redo2 className="w-3.5 h-3.5" />
             </button>
 
-            <div className="w-[1px] h-4 bg-[#E5E1D8] mx-1" />
+            <div className="w-[1px] h-4 bg-[#E5E1D8] dark:bg-[#2C2B26] mx-1" />
 
             {/* Headings */}
             <button
@@ -451,8 +451,8 @@ export function ReviewEditor({
               onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
               className={`p-1.5 rounded-md transition-colors ${
                 editor.isActive('heading', { level: 1 })
-                  ? 'bg-[#25251F] text-white shadow-2xs'
-                  : 'text-[#77766E] hover:text-[#25251F] hover:bg-[#E5E1D8]'
+                  ? 'bg-[#25251F] dark:bg-[#F7F5F0] text-white dark:text-[#141412] shadow-2xs'
+                  : 'text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0] hover:bg-[#E5E1D8] dark:hover:bg-[#2C2B26]'
               }`}
               title="Heading 1"
             >
@@ -464,15 +464,15 @@ export function ReviewEditor({
               onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
               className={`p-1.5 rounded-md transition-colors ${
                 editor.isActive('heading', { level: 2 })
-                  ? 'bg-[#25251F] text-white shadow-2xs'
-                  : 'text-[#77766E] hover:text-[#25251F] hover:bg-[#E5E1D8]'
+                  ? 'bg-[#25251F] dark:bg-[#F7F5F0] text-white dark:text-[#141412] shadow-2xs'
+                  : 'text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0] hover:bg-[#E5E1D8] dark:hover:bg-[#2C2B26]'
               }`}
               title="Heading 2"
             >
               <Heading2 className="w-3.5 h-3.5" />
             </button>
 
-            <div className="w-[1px] h-4 bg-[#E5E1D8] mx-1" />
+            <div className="w-[1px] h-4 bg-[#E5E1D8] dark:bg-[#2C2B26] mx-1" />
 
             {/* Bold, Italic, Underline, Strike */}
             <button
@@ -481,8 +481,8 @@ export function ReviewEditor({
               onClick={() => editor.chain().focus().toggleBold().run()}
               className={`p-1.5 rounded-md transition-colors ${
                 editor.isActive('bold')
-                  ? 'bg-[#25251F] text-white shadow-2xs'
-                  : 'text-[#77766E] hover:text-[#25251F] hover:bg-[#E5E1D8]'
+                  ? 'bg-[#25251F] dark:bg-[#F7F5F0] text-white dark:text-[#141412] shadow-2xs'
+                  : 'text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0] hover:bg-[#E5E1D8] dark:hover:bg-[#2C2B26]'
               }`}
               title="Bold"
             >
@@ -494,8 +494,8 @@ export function ReviewEditor({
               onClick={() => editor.chain().focus().toggleItalic().run()}
               className={`p-1.5 rounded-md transition-colors ${
                 editor.isActive('italic')
-                  ? 'bg-[#25251F] text-white shadow-2xs'
-                  : 'text-[#77766E] hover:text-[#25251F] hover:bg-[#E5E1D8]'
+                  ? 'bg-[#25251F] dark:bg-[#F7F5F0] text-white dark:text-[#141412] shadow-2xs'
+                  : 'text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0] hover:bg-[#E5E1D8] dark:hover:bg-[#2C2B26]'
               }`}
               title="Italic"
             >
@@ -507,8 +507,8 @@ export function ReviewEditor({
               onClick={() => editor.chain().focus().toggleUnderline().run()}
               className={`p-1.5 rounded-md transition-colors ${
                 editor.isActive('underline')
-                  ? 'bg-[#25251F] text-white shadow-2xs'
-                  : 'text-[#77766E] hover:text-[#25251F] hover:bg-[#E5E1D8]'
+                  ? 'bg-[#25251F] dark:bg-[#F7F5F0] text-white dark:text-[#141412] shadow-2xs'
+                  : 'text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0] hover:bg-[#E5E1D8] dark:hover:bg-[#2C2B26]'
               }`}
               title="Underline"
             >
@@ -520,15 +520,15 @@ export function ReviewEditor({
               onClick={() => editor.chain().focus().toggleStrike().run()}
               className={`p-1.5 rounded-md transition-colors ${
                 editor.isActive('strike')
-                  ? 'bg-[#25251F] text-white shadow-2xs'
-                  : 'text-[#77766E] hover:text-[#25251F] hover:bg-[#E5E1D8]'
+                  ? 'bg-[#25251F] dark:bg-[#F7F5F0] text-white dark:text-[#141412] shadow-2xs'
+                  : 'text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0] hover:bg-[#E5E1D8] dark:hover:bg-[#2C2B26]'
               }`}
               title="Strikethrough"
             >
               <Strikethrough className="w-3.5 h-3.5" />
             </button>
 
-            <div className="w-[1px] h-4 bg-[#E5E1D8] mx-1" />
+            <div className="w-[1px] h-4 bg-[#E5E1D8] dark:bg-[#2C2B26] mx-1" />
 
             {/* Lists */}
             <button
@@ -537,8 +537,8 @@ export function ReviewEditor({
               onClick={() => editor.chain().focus().toggleBulletList().run()}
               className={`p-1.5 rounded-md transition-colors ${
                 editor.isActive('bulletList')
-                  ? 'bg-[#25251F] text-white shadow-2xs'
-                  : 'text-[#77766E] hover:text-[#25251F] hover:bg-[#E5E1D8]'
+                  ? 'bg-[#25251F] dark:bg-[#F7F5F0] text-white dark:text-[#141412] shadow-2xs'
+                  : 'text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0] hover:bg-[#E5E1D8] dark:hover:bg-[#2C2B26]'
               }`}
               title="Bullet list"
             >
@@ -550,8 +550,8 @@ export function ReviewEditor({
               onClick={() => editor.chain().focus().toggleOrderedList().run()}
               className={`p-1.5 rounded-md transition-colors ${
                 editor.isActive('orderedList')
-                  ? 'bg-[#25251F] text-white shadow-2xs'
-                  : 'text-[#77766E] hover:text-[#25251F] hover:bg-[#E5E1D8]'
+                  ? 'bg-[#25251F] dark:bg-[#F7F5F0] text-white dark:text-[#141412] shadow-2xs'
+                  : 'text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0] hover:bg-[#E5E1D8] dark:hover:bg-[#2C2B26]'
               }`}
               title="Numbered list"
             >
@@ -564,13 +564,13 @@ export function ReviewEditor({
             <button
               type="button"
               onClick={handleCopy}
-              className="text-xs text-[#77766E] hover:text-[#25251F] flex items-center gap-1 px-2.5 py-1 rounded-md hover:bg-[#E5E1D8] transition-colors"
+              className="text-xs text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0] flex items-center gap-1 px-2.5 py-1 rounded-md hover:bg-[#E5E1D8] dark:hover:bg-[#2C2B26] transition-colors"
               title="Copy clean text"
             >
               {copied ? (
                 <>
-                  <Check className="w-3.5 h-3.5 text-[#64816A]" />
-                  <span className="text-[#64816A]">Copied</span>
+                  <Check className="w-3.5 h-3.5 text-[#64816A] dark:text-[#8A987D]" />
+                  <span className="text-[#64816A] dark:text-[#8A987D]">Copied</span>
                 </>
               ) : (
                 <>
@@ -583,10 +583,10 @@ export function ReviewEditor({
             <button
               type="button"
               onClick={() => setIsExportModalOpen(true)}
-              className="text-xs text-[#25251F] hover:text-[#1F2937] bg-[#E8EBE1]/70 hover:bg-[#E8EBE1] border border-[#68745D]/30 font-medium px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+              className="text-xs text-[#25251F] dark:text-[#F7F5F0] hover:text-[#1F2937] dark:hover:text-white bg-[#E8EBE1]/70 dark:bg-[#272B23] hover:bg-[#E8EBE1] dark:hover:bg-[#33382D] border border-[#68745D]/30 font-medium px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
               title="Export styled brand PDF"
             >
-              <Download className="w-3.5 h-3.5 text-[#68745D]" />
+              <Download className="w-3.5 h-3.5 text-[#68745D] dark:text-[#8A987D]" />
               <span className="hidden sm:inline">Export PDF</span>
             </button>
 
@@ -594,7 +594,7 @@ export function ReviewEditor({
               type="button"
               onClick={handleSave}
               disabled={isSaving}
-              className="bg-[#25251F] hover:bg-[#383832] disabled:opacity-50 text-white text-xs font-medium px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors"
+              className="bg-[#25251F] dark:bg-[#8A987D] hover:bg-[#383832] dark:hover:bg-[#97A689] disabled:opacity-50 text-white dark:text-[#141412] text-xs font-medium px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors"
             >
               {isSaving ? (
                 <>
@@ -616,7 +616,7 @@ export function ReviewEditor({
       <div
         ref={editorContainerRef}
         onClick={handleEditorClick}
-        className="flex-1 min-h-0 overflow-y-auto bg-[#FFFEFA] relative"
+        className="flex-1 min-h-0 overflow-y-auto bg-[#FFFEFA] dark:bg-[#1E1D19] relative"
       >
         {activeTab === 'editor' && (
           <div className="h-full relative">

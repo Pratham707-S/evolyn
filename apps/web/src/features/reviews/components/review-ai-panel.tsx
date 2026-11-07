@@ -235,11 +235,11 @@ export function ReviewAiPanel({
               <div
                 key={issueId}
                 onClick={() => onSelectFinding?.(issueId, issue.flaggedExcerpt)}
-                className={`bg-[#FFFEFA] border rounded-xl p-3.5 shadow-2xs transition-all cursor-pointer ${
+                className={`bg-[#FFFEFA] dark:bg-[#1E1D19] border rounded-xl p-3.5 shadow-2xs transition-all cursor-pointer ${
                   isSelected
                     ? 'border-[#68745D] ring-2 ring-[#68745D]/20 shadow-xs'
-                    : 'border-[#E5E1D8] hover:border-[#68745D]/40'
-                } ${isAccepted ? 'opacity-60 bg-[#EEF4EE]/50' : ''}`}
+                    : 'border-[#E5E1D8] dark:border-[#2C2B26] hover:border-[#68745D]/40'
+                } ${isAccepted ? 'opacity-60 bg-[#EEF4EE]/50 dark:bg-[#1A261C]/50' : ''}`}
               >
                 {/* Header */}
                 <div className="flex items-start justify-between gap-2">
@@ -247,15 +247,15 @@ export function ReviewAiPanel({
                     <div
                       className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${
                         issue.issueType?.includes('GRAMMAR') || issue.issueType?.includes('SPELL')
-                          ? 'bg-[#EBF1F7] text-[#4A6B82]'
+                          ? 'bg-[#EBF1F7] dark:bg-[#1E293B] text-[#4A6B82] dark:text-[#93C5FD]'
                           : issue.issueType?.includes('PROHIBITED') ||
                             issue.issueType?.includes('VIOLATION') ||
                             issue.issueType?.includes('COMPLIANCE') ||
                             issue.issueType?.includes('GUIDELINE')
-                          ? 'bg-[#FBEBE8] text-[#B56E63]'
+                          ? 'bg-[#FBEBE8] dark:bg-[#381E1C] text-[#B56E63] dark:text-[#FCA5A5]'
                           : issue.issueType?.includes('CLAIM') || issue.issueType?.includes('EVIDENCE')
-                          ? 'bg-[#FDF9F0] text-[#B78A4A]'
-                          : 'bg-[#E8EBE1] text-[#4E6B54]'
+                          ? 'bg-[#FDF9F0] dark:bg-[#332A18] text-[#B78A4A] dark:text-[#FDE047]'
+                          : 'bg-[#E8EBE1] dark:bg-[#202E23] text-[#4E6B54] dark:text-[#86EFAC]'
                       }`}
                     >
                       {issue.issueType?.includes('GRAMMAR') || issue.issueType?.includes('SPELL') ? (
@@ -272,7 +272,7 @@ export function ReviewAiPanel({
                       )}
                     </div>
                     <div>
-                      <h4 className="text-xs font-semibold text-[#25251F]">
+                      <h4 className="text-xs font-semibold text-[#25251F] dark:text-[#F7F5F0]">
                         {issue.issueType?.replace(/_/g, ' ')}
                       </h4>
                       <p className="text-[10px] text-[#A09D92]">
@@ -286,12 +286,12 @@ export function ReviewAiPanel({
 
                   <div className="flex items-center gap-1">
                     {isAccepted && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#E8EBE1] text-[#4E6B54] font-medium">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#E8EBE1] dark:bg-[#202E23] text-[#4E6B54] dark:text-[#86EFAC] font-medium">
                         Accepted
                       </span>
                     )}
                     {isOverridden && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#F1EFE8] text-[#77766E] font-medium">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#F1EFE8] dark:bg-[#262520] text-[#77766E] dark:text-[#A09D92] font-medium">
                         Dismissed
                       </span>
                     )}
@@ -301,7 +301,7 @@ export function ReviewAiPanel({
                         e.stopPropagation();
                         toggleExpand(issueId);
                       }}
-                      className="p-1 text-[#77766E] hover:text-[#25251F] rounded-md transition-colors"
+                      className="p-1 text-[#77766E] dark:text-[#A09D92] hover:text-[#25251F] dark:hover:text-[#F7F5F0] rounded-md transition-colors"
                     >
                       {isExpanded ? (
                         <ChevronUp className="w-3.5 h-3.5" />
@@ -314,19 +314,19 @@ export function ReviewAiPanel({
 
                 {/* Body when expanded */}
                 {isExpanded && (
-                  <div className="mt-2.5 pt-2 border-t border-[#E5E1D8]/60 space-y-2 text-xs">
+                  <div className="mt-2.5 pt-2 border-t border-[#E5E1D8]/60 dark:border-[#2C2B26] space-y-2 text-xs">
                     {/* Explanation */}
-                    <p className="text-[#25251F] text-[11px] leading-relaxed">
+                    <p className="text-[#25251F] dark:text-[#E4E2DC] text-[11px] leading-relaxed">
                       {issue.explanation}
                     </p>
 
                     {/* Flagged Excerpt */}
                     {issue.flaggedExcerpt && (
-                      <div className="p-2 rounded-lg bg-[#FAF9F5] border border-[#E5E1D8] text-[11px]">
-                        <span className="text-[10px] font-semibold text-[#77766E] uppercase tracking-wider block mb-0.5">
+                      <div className="p-2 rounded-lg bg-[#FAF9F5] dark:bg-[#2A2322] border border-[#E5E1D8] dark:border-[#4A2D2B] text-[11px]">
+                        <span className="text-[10px] font-semibold text-[#77766E] dark:text-[#A09D92] uppercase tracking-wider block mb-0.5">
                           Flagged Excerpt:
                         </span>
-                        <span className="text-[#B56E63] font-medium font-mono">
+                        <span className="text-[#B56E63] dark:text-[#F87171] font-medium font-mono">
                           "{issue.flaggedExcerpt}"
                         </span>
                       </div>
@@ -334,11 +334,11 @@ export function ReviewAiPanel({
 
                     {/* Suggested Fix */}
                     {issue.suggestedFix && (
-                      <div className="p-2 rounded-lg bg-[#EEF4EE] border border-[#D4DBC9] text-[11px]">
-                        <span className="text-[10px] font-semibold text-[#4E6B54] uppercase tracking-wider block mb-0.5">
+                      <div className="p-2 rounded-lg bg-[#EEF4EE] dark:bg-[#1A261C] border border-[#D4DBC9] dark:border-[#2D4530] text-[11px]">
+                        <span className="text-[10px] font-semibold text-[#4E6B54] dark:text-[#86EFAC] uppercase tracking-wider block mb-0.5">
                           Suggested Replacement:
                         </span>
-                        <span className="text-[#36533D] font-medium font-mono">
+                        <span className="text-[#36533D] dark:text-[#DCFCE7] font-medium font-mono">
                           "{issue.suggestedFix}"
                         </span>
                       </div>
@@ -346,8 +346,8 @@ export function ReviewAiPanel({
 
                     {/* Grounded Citation Source Quote */}
                     {issue.sourceQuote && (
-                      <div className="text-[10px] text-[#77766E] flex items-start gap-1 bg-[#FAF8F5] p-1.5 rounded-md border border-[#E5E1D8]/40">
-                        <BookOpen className="w-3 h-3 text-[#68745D] shrink-0 mt-0.5" />
+                      <div className="text-[10px] text-[#77766E] dark:text-[#A09D92] flex items-start gap-1 bg-[#FAF8F5] dark:bg-[#24231F] p-1.5 rounded-md border border-[#E5E1D8]/40 dark:border-[#2C2B26]">
+                        <BookOpen className="w-3 h-3 text-[#68745D] dark:text-[#8A987D] shrink-0 mt-0.5" />
                         <span className="italic leading-normal">
                           {issue.issueType?.includes('GRAMMAR') || issue.issueType?.includes('SPELL')
                             ? `Standard: "${issue.sourceQuote}"`

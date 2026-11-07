@@ -314,11 +314,11 @@ export function SubmissionsTable({
       </div>
 
       {/* Main Table Container */}
-      <div className="bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl overflow-hidden shadow-2xs">
+      <div className="bg-[#FFFEFA] dark:bg-[#1E1D19] border border-[#E5E1D8] dark:border-[#2C2B26] rounded-xl overflow-hidden shadow-2xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-[#E5E1D8] bg-[#FAF8F5]/60 text-[#77766E] font-medium select-none">
+              <tr className="border-b border-[#E5E1D8] dark:border-[#2C2B26] bg-[#FAF8F5]/60 dark:bg-[#262520] text-[#77766E] dark:text-[#A09D92] font-medium select-none">
                 <th className="py-3 px-4 w-10 text-center">
                   <input
                     type="checkbox"
@@ -330,20 +330,20 @@ export function SubmissionsTable({
                     className="w-3.5 h-3.5 rounded border-[#E5E1D8] text-[#68745D] accent-[#68745D] cursor-pointer"
                   />
                 </th>
-                <th className="py-3 px-4 font-normal text-[#77766E]">Content</th>
-                <th className="py-3 px-4 font-normal text-[#77766E] w-36">Channel</th>
-                <th className="py-3 px-4 font-normal text-[#77766E] w-32">Status</th>
-                <th className="py-3 px-4 font-normal text-[#77766E] w-28">Submitted</th>
-                <th className="py-3 px-4 font-normal text-[#77766E] w-32">Latest Review</th>
-                <th className="py-3 px-4 font-normal text-[#77766E] w-20 text-center">Actions</th>
+                <th className="py-3 px-4 font-normal text-[#77766E] dark:text-[#A09D92]">Content</th>
+                <th className="py-3 px-4 font-normal text-[#77766E] dark:text-[#A09D92] w-36">Channel</th>
+                <th className="py-3 px-4 font-normal text-[#77766E] dark:text-[#A09D92] w-32">Status</th>
+                <th className="py-3 px-4 font-normal text-[#77766E] dark:text-[#A09D92] w-28">Submitted</th>
+                <th className="py-3 px-4 font-normal text-[#77766E] dark:text-[#A09D92] w-32">Latest Review</th>
+                <th className="py-3 px-4 font-normal text-[#77766E] dark:text-[#A09D92] w-20 text-center">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#E5E1D8]/60">
+            <tbody className="divide-y divide-[#E5E1D8]/60 dark:divide-[#2C2B26]">
               {paginatedItems.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-[#77766E]">
+                  <td colSpan={7} className="py-12 text-center text-[#77766E] dark:text-[#A09D92]">
                     <FileText className="w-8 h-8 text-[#A09D92] mx-auto mb-2 opacity-60" />
-                    <p className="text-sm font-medium text-[#25251F]">No submissions found</p>
+                    <p className="text-sm font-medium text-[#25251F] dark:text-[#F7F5F0]">No submissions found</p>
                     <p className="text-xs text-[#A09D92] mt-1">
                       Try resetting your search query or channel/status filters.
                     </p>
@@ -370,8 +370,8 @@ export function SubmissionsTable({
                     <tr
                       key={item.id}
                       onClick={() => setPreviewItem(item)}
-                      className={`group hover:bg-[#F9F7F2]/60 transition-colors cursor-pointer ${
-                        isChecked ? 'bg-[#F4F1EA]/40' : ''
+                      className={`group hover:bg-[#F9F7F2]/60 dark:hover:bg-[#262520] transition-colors cursor-pointer ${
+                        isChecked ? 'bg-[#F4F1EA]/40 dark:bg-[#2A2924]' : ''
                       }`}
                     >
                       {/* Checkbox */}
@@ -390,14 +390,14 @@ export function SubmissionsTable({
                       {/* Content (File icon + Title + Excerpt) */}
                       <td className="py-3.5 px-4 max-w-md">
                         <div className="flex items-start gap-2.5">
-                          <div className="w-7 h-7 rounded-md bg-[#F1EFE8] border border-[#E5E1D8] flex items-center justify-center text-[#25251F] shrink-0 mt-0.5">
+                          <div className="w-7 h-7 rounded-md bg-[#F1EFE8] dark:bg-[#262520] border border-[#E5E1D8] dark:border-[#2C2B26] flex items-center justify-center text-[#25251F] dark:text-[#F7F5F0] shrink-0 mt-0.5">
                             <FileText className="w-3.5 h-3.5" />
                           </div>
                           <div className="min-w-0">
-                            <p className="font-medium text-xs sm:text-sm text-[#25251F] group-hover:text-[#68745D] transition-colors truncate">
+                            <p className="font-medium text-xs sm:text-sm text-[#25251F] dark:text-[#F7F5F0] group-hover:text-[#68745D] dark:group-hover:text-[#8A987D] transition-colors truncate">
                               {item.title}
                             </p>
-                            <p className="text-[11px] text-[#77766E] truncate mt-0.5 max-w-[280px] sm:max-w-md">
+                            <p className="text-[11px] text-[#77766E] dark:text-[#A09D92] truncate mt-0.5 max-w-[280px] sm:max-w-md">
                               {item.excerpt}
                             </p>
                           </div>
@@ -406,7 +406,7 @@ export function SubmissionsTable({
 
                       {/* Channel */}
                       <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-1.5 text-xs text-[#25251F]">
+                        <div className="flex items-center gap-1.5 text-xs text-[#25251F] dark:text-[#F7F5F0]">
                           {getChannelIcon(item.channel)}
                           <span className="font-normal">{item.channel}</span>
                         </div>
@@ -418,12 +418,12 @@ export function SubmissionsTable({
                       </td>
 
                       {/* Submitted Time */}
-                      <td className="py-3.5 px-4 text-[#77766E] text-xs font-normal">
+                      <td className="py-3.5 px-4 text-[#77766E] dark:text-[#A09D92] text-xs font-normal">
                         {item.submittedAt}
                       </td>
 
                       {/* Latest Review Time */}
-                      <td className="py-3.5 px-4 text-[#77766E] text-xs font-normal">
+                      <td className="py-3.5 px-4 text-[#77766E] dark:text-[#A09D92] text-xs font-normal">
                         {item.latestReview}
                       </td>
 
@@ -529,16 +529,16 @@ export function SubmissionsTable({
         </div>
 
         {/* Bottom Pagination Bar */}
-        <div className="p-3.5 px-4 bg-[#FAF8F5]/50 border-t border-[#E5E1D8] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-[#77766E]">
+        <div className="p-3.5 px-4 bg-[#FAF8F5]/50 dark:bg-[#1E1D19] border-t border-[#E5E1D8] dark:border-[#2C2B26] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-[#77766E] dark:text-[#A09D92]">
           {/* Summary Label: "Showing 1-5 of 12 submissions" */}
           <p>
             Showing{' '}
-            <strong className="text-[#25251F] font-medium">
+            <strong className="text-[#25251F] dark:text-[#F7F5F0] font-medium">
               {displayedTotal === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}-
               {Math.min(currentPage * itemsPerPage, displayedTotal)}
             </strong>{' '}
             of{' '}
-            <strong className="text-[#25251F] font-medium">
+            <strong className="text-[#25251F] dark:text-[#F7F5F0] font-medium">
               {displayedTotal}
             </strong>{' '}
             submissions
@@ -552,7 +552,7 @@ export function SubmissionsTable({
                 type="button"
                 disabled={currentPage === 1}
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                className="w-7 h-7 rounded-lg border border-[#E5E1D8] bg-[#FFFEFA] text-[#25251F] flex items-center justify-center hover:bg-[#F1EFE8] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="w-7 h-7 rounded-lg border border-[#E5E1D8] dark:border-[#2C2B26] bg-[#FFFEFA] dark:bg-[#262520] text-[#25251F] dark:text-[#F7F5F0] flex items-center justify-center hover:bg-[#F1EFE8] dark:hover:bg-[#33322C] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 aria-label="Previous page"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
@@ -566,8 +566,8 @@ export function SubmissionsTable({
                   onClick={() => setCurrentPage(pageNum)}
                   className={`w-7 h-7 rounded-lg text-xs font-medium flex items-center justify-center transition-colors ${
                     currentPage === pageNum
-                      ? 'bg-[#25251F] text-white shadow-xs'
-                      : 'bg-[#FFFEFA] border border-[#E5E1D8] text-[#25251F] hover:bg-[#F1EFE8]'
+                      ? 'bg-[#25251F] dark:bg-[#F7F5F0] text-white dark:text-[#141412] shadow-xs'
+                      : 'bg-[#FFFEFA] dark:bg-[#262520] border border-[#E5E1D8] dark:border-[#2C2B26] text-[#25251F] dark:text-[#F7F5F0] hover:bg-[#F1EFE8] dark:hover:bg-[#33322C]'
                   }`}
                 >
                   {pageNum}

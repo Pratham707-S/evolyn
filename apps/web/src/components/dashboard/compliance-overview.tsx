@@ -236,8 +236,8 @@ export function ComplianceOverview({
                   width="6"
                   height={height}
                   rx="1.5"
-                  fill="#EDE9E0"
-                  className="compliance-bar transition-colors duration-300 hover:fill-[#D8D2C5]"
+                  fill="currentColor"
+                  className="compliance-bar transition-colors duration-300 text-[#EDE9E0] dark:text-[#2E2C27] hover:text-[#D8D2C5] dark:hover:text-[#4A4842]"
                 />
               );
             })}
@@ -247,15 +247,16 @@ export function ComplianceOverview({
               ref={pathRef}
               d="M 15 118 C 90 110, 160 102, 230 96 C 300 90, 360 84, 410 50 C 440 28, 465 18, 485 15"
               fill="none"
-              stroke="#25251F"
-              strokeWidth="2"
+              stroke="currentColor"
+              className="text-[#25251F] dark:text-[#F7F5F0]"
+              strokeWidth="2.5"
               strokeLinecap="round"
             />
           </svg>
         </div>
 
         {/* Month labels evenly aligned */}
-        <div className="flex justify-between items-center text-[11px] sm:text-xs text-[#77766E] mt-2.5 sm:mt-3 px-1 border-t border-[#E5E1D8]/40 pt-2">
+        <div className="flex justify-between items-center text-[11px] sm:text-xs text-[#77766E] dark:text-[#A09D92] mt-2.5 sm:mt-3 px-1 border-t border-[#E5E1D8]/40 dark:border-[#2C2B26] pt-2">
           {months.map((m) => (
             <span key={m} className="compliance-month-label font-normal">
               {m}

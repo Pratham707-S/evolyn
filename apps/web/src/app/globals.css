@@ -58,7 +58,10 @@
   .dark .bg-\[\#F1EFE8\],
   .dark .bg-\[\#FAF9F5\],
   .dark .bg-\[\#FAF8F5\],
-  .dark .bg-\[\#FDFBF7\] {
+  .dark .bg-\[\#FDFBF7\],
+  .dark .bg-\[\#FDFCF7\],
+  .dark .bg-\[\#F9F7F2\],
+  .dark .bg-\[\#F4F1EA\] {
     background-color: #262520 !important;
   }
   .dark .border-\[\#E5E1D8\],
@@ -66,12 +69,18 @@
   .dark .border-\[\#D5D1C7\] {
     border-color: #2C2B26 !important;
   }
-  .dark .text-\[\#25251F\] {
+  .dark .text-\[\#25251F\],
+  .dark .text-\[\#1E1E1A\],
+  .dark .text-\[\#1A1A17\] {
     color: #F7F5F0 !important;
   }
   .dark .text-\[\#77766E\],
   .dark .text-\[\#52524E\] {
     color: #A09D92 !important;
+  }
+  .dark path[stroke="#25251F"],
+  .dark path[stroke="#1A1A17"] {
+    stroke: #F7F5F0 !important;
   }
   .dark input,
   .dark textarea,
@@ -79,6 +88,32 @@
     background-color: #262520 !important;
     border-color: #383630 !important;
     color: #F7F5F0 !important;
+  }
+
+  /* TipTap & ProseMirror Dark Mode */
+  .dark .ProseMirror,
+  .dark .tiptap,
+  .dark .ProseMirror * {
+    color: #F7F5F0 !important;
+  }
+  .dark .ProseMirror h1,
+  .dark .ProseMirror h2,
+  .dark .ProseMirror h3,
+  .dark .ProseMirror h4,
+  .dark .ProseMirror p,
+  .dark .ProseMirror li,
+  .dark .ProseMirror span,
+  .dark .ProseMirror strong {
+    color: #F7F5F0 !important;
+  }
+  .dark .ProseMirror blockquote {
+    background-color: #262520 !important;
+    color: #F7F5F0 !important;
+    border-left-color: #8A987D !important;
+  }
+  .dark .ProseMirror .evolyn-issue-mark {
+    color: #FCA5A5 !important;
+    background-color: rgba(239, 68, 68, 0.25) !important;
   }
 
   .font-serif {
