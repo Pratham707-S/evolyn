@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { Bell, Download, Plus, Menu } from 'lucide-react';
 import { AppShell, useAppShell } from '@/components/layout/app-shell';
+import { ThemeToggle } from '@/components/shared/theme-toggle';
 import {
   INITIAL_CATEGORIES,
   INITIAL_GUIDELINES,
@@ -166,6 +167,8 @@ function GuidelinesContent() {
 
         {/* Action Controls */}
         <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0">
+          <ThemeToggle />
+
           <button
             type="button"
             onClick={() => showToast('All notifications are up to date.')}

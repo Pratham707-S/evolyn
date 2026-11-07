@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Bell, Check, Menu } from 'lucide-react';
 import { AppShell, useAppShell } from '@/components/layout/app-shell';
+import { ThemeToggle } from '@/components/shared/theme-toggle';
 import {
   BrandSetupStepper,
   StepItem,
@@ -131,6 +132,8 @@ function BrandSetupContent() {
 
         {/* Action Controls */}
         <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0">
+          <ThemeToggle />
+
           <button
             type="button"
             onClick={() => showToast('All notifications are up to date.')}
