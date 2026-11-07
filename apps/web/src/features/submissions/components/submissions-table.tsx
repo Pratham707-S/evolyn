@@ -46,6 +46,7 @@ export function SubmissionsTable({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [menuCoords, setMenuCoords] = useState<{ top: number; right: number } | null>(null);
   const [previewItem, setPreviewItem] = useState<SubmissionData | null>(null);
 
   const itemsPerPage = 5;
@@ -54,6 +55,40 @@ export function SubmissionsTable({
   React.useEffect(() => {
     setSubmissions(initialSubmissions);
   }, [initialSubmissions]);
+
+  // Close floating menu on scroll or resize so it doesn't detach
+  React.useEffect(() => {
+    const handleClose = () => {
+      if (activeMenuId) {
+        setActiveMenuId(null);
+        setMenuCoords(null);
+      }
+    };
+    window.addEventListener('scroll', handleClose, true);
+    window.addEventListener('resize', handleClose);
+    return () => {
+      window.removeEventListener('scroll', handleClose, true);
+      window.removeEventListener('resize', handleClose);
+    };
+  }, [activeMenuId]);
+
+  const handleOpenMenu = (itemId: string, e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    if (activeMenuId === itemId) {
+      setActiveMenuId(null);
+      setMenuCoords(null);
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const menuHeight = 135;
+    const openUpwards = spaceBelow < menuHeight;
+    setMenuCoords({
+      top: openUpwards ? rect.top - menuHeight : rect.bottom + 4,
+      right: Math.max(16, window.innerWidth - rect.right),
+    });
+    setActiveMenuId(itemId);
+  };
 
   // Channel Icon Resolver
   const getChannelIcon = (channel: string) => {
@@ -165,6 +200,7 @@ export function SubmissionsTable({
       setSubmissions((prev) => prev.filter((s) => s.id !== id));
     }
     setActiveMenuId(null);
+    setMenuCoords(null);
   };
 
   const handleBulkDelete = () => {
@@ -299,7 +335,7 @@ export function SubmissionsTable({
                 <th className="py-3 px-4 font-normal text-[#77766E] w-32">Status</th>
                 <th className="py-3 px-4 font-normal text-[#77766E] w-28">Submitted</th>
                 <th className="py-3 px-4 font-normal text-[#77766E] w-32">Latest Review</th>
-                <th className="py-3 px-4 font-normal text-[#77766E] w-14 text-center">Actions</th>
+                <th className="py-3 px-4 font-normal text-[#77766E] w-20 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E5E1D8]/60">
@@ -393,35 +429,62 @@ export function SubmissionsTable({
 
                       {/* Actions Menu */}
                       <td
-                        className="py-3.5 px-4 text-center relative"
+                        className="py-3.5 px-4 text-center"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setActiveMenuId(isMenuOpen ? null : item.id)
-                          }
-                          className="w-7 h-7 rounded-md text-[#77766E] hover:text-[#25251F] hover:bg-[#E5E1D8]/60 inline-flex items-center justify-center transition-colors"
-                          aria-label="Actions"
-                        >
-                          <MoreHorizontal className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center justify-center gap-1">
+                          {/* Direct 1-Click Delete Button (No scrolling or dropdown needed!) */}
+                          <button
+                            type="button"
+                            onClick={(e) => handleDelete(item.id, e)}
+                            title="Delete Submission"
+                            className="w-7 h-7 rounded-md text-[#A09D92] hover:text-[#B56E63] hover:bg-[#FBEBE8] inline-flex items-center justify-center transition-colors cursor-pointer"
+                            aria-label="Delete Submission"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
 
-                        {/* Dropdown Menu */}
-                        {isMenuOpen && (
+                          {/* More Options Dropdown Button */}
+                          <button
+                            type="button"
+                            onClick={(e) => handleOpenMenu(item.id, e)}
+                            className={`w-7 h-7 rounded-md transition-colors cursor-pointer inline-flex items-center justify-center ${
+                              isMenuOpen
+                                ? 'bg-[#25251F] text-white'
+                                : 'text-[#77766E] hover:text-[#25251F] hover:bg-[#E5E1D8]/60'
+                            }`}
+                            aria-label="More Actions"
+                          >
+                            <MoreHorizontal className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {/* Floating Unclipped Dropdown Menu */}
+                        {isMenuOpen && menuCoords && (
                           <>
                             <div
                               className="fixed inset-0 z-40"
-                              onClick={() => setActiveMenuId(null)}
+                              onClick={() => {
+                                setActiveMenuId(null);
+                                setMenuCoords(null);
+                              }}
                             />
-                            <div className="absolute right-3 top-10 z-50 w-44 bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl shadow-lg p-1.5 text-left animate-in fade-in zoom-in-95 duration-100">
+                            <div
+                              style={{
+                                position: 'fixed',
+                                top: `${menuCoords.top}px`,
+                                right: `${menuCoords.right}px`,
+                              }}
+                              className="z-50 w-48 bg-[#FFFEFA] border border-[#E5E1D8] rounded-xl shadow-xl p-1.5 text-left animate-in fade-in zoom-in-95 duration-100"
+                            >
                               <button
                                 type="button"
                                 onClick={() => {
                                   setActiveMenuId(null);
+                                  setMenuCoords(null);
                                   router.push(`/reviews?id=${item.id}`);
                                 }}
-                                className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-[#25251F] hover:bg-[#F1EFE8] rounded-lg transition-colors"
+                                className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-[#25251F] hover:bg-[#F1EFE8] rounded-lg transition-colors cursor-pointer"
                               >
                                 <ExternalLink className="w-3.5 h-3.5 text-[#68745D]" />
                                 <span>Review Workspace</span>
@@ -431,9 +494,10 @@ export function SubmissionsTable({
                                 type="button"
                                 onClick={() => {
                                   setActiveMenuId(null);
+                                  setMenuCoords(null);
                                   setPreviewItem(item);
                                 }}
-                                className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-[#25251F] hover:bg-[#F1EFE8] rounded-lg transition-colors"
+                                className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-[#25251F] hover:bg-[#F1EFE8] rounded-lg transition-colors cursor-pointer"
                               >
                                 <Eye className="w-3.5 h-3.5 text-[#77766E]" />
                                 <span>Quick Preview</span>
@@ -443,11 +507,14 @@ export function SubmissionsTable({
 
                               <button
                                 type="button"
-                                onClick={(e) => handleDelete(item.id, e)}
-                                className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-[#B56E63] hover:bg-[#F7EBEA] rounded-lg transition-colors"
+                                onClick={(e) => {
+                                  setMenuCoords(null);
+                                  handleDelete(item.id, e);
+                                }}
+                                className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-[#B56E63] hover:bg-[#FBEBE8] rounded-lg transition-colors cursor-pointer font-medium"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
-                                <span>Remove Draft</span>
+                                <span>Delete Submission</span>
                               </button>
                             </div>
                           </>
