@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Download,
   RefreshCw,
@@ -26,6 +27,9 @@ import {
 } from '@/features/decisions';
 
 function ApprovalsContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlId = searchParams?.get('id');
   const { showToast } = useAppShell();
   const [decisions, setDecisions] = useState<DecisionItem[]>([]);
   const [selectedId, setSelectedId] = useState<string>('');
@@ -92,14 +96,18 @@ function ApprovalsContent() {
       });
 
       setDecisions(liveItems);
-      if (liveItems.length > 0 && (!selectedId || !liveItems.some((i) => i.id === selectedId))) {
-        setSelectedId(liveItems[0].id);
+      if (liveItems.length > 0) {
+        if (urlId && liveItems.some((i) => i.id === urlId)) {
+          setSelectedId(urlId);
+        } else if (!selectedId || !liveItems.some((i) => i.id === selectedId)) {
+          setSelectedId(liveItems[0].id);
+        }
       }
     } else {
       setDecisions([]);
       setSelectedId('');
     }
-  }, [queueData]);
+  }, [queueData, urlId]);
 
   const selectedItem = decisions.find((d) => d.id === selectedId) || decisions[0] || null;
 
@@ -141,7 +149,23 @@ function ApprovalsContent() {
           comments: notes || `Reviewed and recorded as ${decision}`,
         });
         await refetchQueue();
-        showToast(`Persisted decision: "${decision}" in PostgreSQL.`);
+
+        if (decision === 'Approved') {
+          showToast('Approved & Signed Off! Redirecting to Decision History audit trail...');
+          setTimeout(() => {
+            router.push('/decision-history');
+          }, 700);
+        } else if (decision === 'Changes Requested') {
+          showToast('Changes Requested! Redirecting back to Review Workspace...');
+          setTimeout(() => {
+            router.push(`/reviews?id=${itemId}&status=changes_requested`);
+          }, 700);
+        } else if (decision === 'Rejected') {
+          showToast('Submission Rejected. Redirecting to Decision History audit trail...');
+          setTimeout(() => {
+            router.push('/decision-history');
+          }, 700);
+        }
       } catch (err) {
         console.error('Failed to submit decision to server:', err);
         showToast(
@@ -399,7 +423,9 @@ function ApprovalsContent() {
 export default function ApprovalsPage() {
   return (
     <AppShell activeItem="Approvals">
-      <ApprovalsContent />
+      <Suspense fallback={<div className="p-8 text-center text-xs text-[#77766E]">Loading Approvals Workstation...</div>}>
+        <ApprovalsContent />
+      </Suspense>
     </AppShell>
   );
 }

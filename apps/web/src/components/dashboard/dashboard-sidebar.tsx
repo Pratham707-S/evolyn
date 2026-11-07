@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import {
   LayoutDashboard,
   CheckSquare,
@@ -25,6 +26,22 @@ interface SidebarProps {
   activeItem?: string;
   onNavigate?: (item: string) => void;
 }
+
+const navRoutes: Record<string, string> = {
+  Dashboard: '/',
+  Submissions: '/submissions',
+  'Review Workspace': '/reviews',
+  Approvals: '/approvals',
+  'Decision History': '/decision-history',
+  'Brand Setup': '/brand-setup',
+  Guidelines: '/guidelines',
+  'Knowledge Library': '/knowledge-library',
+  'Conflict Detector': '/conflict-detector',
+  'Claim Evidence': '/claim-evidence',
+  'Guideline Improvements': '/guideline-improvements',
+  Insights: '/insights',
+  Settings: '/settings',
+};
 
 export function DashboardSidebar({
   mobileOpen = false,
@@ -108,10 +125,12 @@ export function DashboardSidebar({
             {workspaceNav.map((item) => {
               const isActive = activeItem === item.name;
               const Icon = item.icon;
+              const route = navRoutes[item.name] || '#';
               return (
-                <button
+                <Link
                   key={item.name}
-                  type="button"
+                  href={route}
+                  prefetch={true}
                   onClick={() => handleItemClick(item.name)}
                   className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors text-left ${
                     isActive
@@ -123,7 +142,7 @@ export function DashboardSidebar({
                     className={`w-4 h-4 ${isActive ? 'text-white' : 'text-[#77766E]'}`}
                   />
                   <span>{item.name}</span>
-                </button>
+                </Link>
               );
             })}
           </div>
@@ -138,10 +157,12 @@ export function DashboardSidebar({
             {brandNav.map((item) => {
               const isActive = activeItem === item.name;
               const Icon = item.icon;
+              const route = navRoutes[item.name] || '#';
               return (
-                <button
+                <Link
                   key={item.name}
-                  type="button"
+                  href={route}
+                  prefetch={true}
                   onClick={() => handleItemClick(item.name)}
                   className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors text-left ${
                     isActive
@@ -153,7 +174,7 @@ export function DashboardSidebar({
                     className={`w-4 h-4 ${isActive ? 'text-white' : 'text-[#77766E]'}`}
                   />
                   <span>{item.name}</span>
-                </button>
+                </Link>
               );
             })}
           </div>
@@ -168,10 +189,12 @@ export function DashboardSidebar({
             {intelligenceNav.map((item) => {
               const isActive = activeItem === item.name;
               const Icon = item.icon;
+              const route = navRoutes[item.name] || '#';
               return (
-                <button
+                <Link
                   key={item.name}
-                  type="button"
+                  href={route}
+                  prefetch={true}
                   onClick={() => handleItemClick(item.name)}
                   className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors text-left ${
                     isActive
@@ -183,7 +206,7 @@ export function DashboardSidebar({
                     className={`w-4 h-4 ${isActive ? 'text-white' : 'text-[#77766E]'}`}
                   />
                   <span>{item.name}</span>
-                </button>
+                </Link>
               );
             })}
           </div>
@@ -194,10 +217,12 @@ export function DashboardSidebar({
           {bottomNav.map((item) => {
             const isActive = activeItem === item.name;
             const Icon = item.icon;
+            const route = navRoutes[item.name] || '#';
             return (
-              <button
+              <Link
                 key={item.name}
-                type="button"
+                href={route}
+                prefetch={true}
                 onClick={() => handleItemClick(item.name)}
                 className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors text-left ${
                   isActive
@@ -209,7 +234,7 @@ export function DashboardSidebar({
                   className={`w-4 h-4 ${isActive ? 'text-white' : 'text-[#77766E]'}`}
                 />
                 <span>{item.name}</span>
-              </button>
+              </Link>
             );
           })}
         </div>

@@ -1,10 +1,51 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { AppProviders } from '@/providers';
 import './globals.css';
 
+export const viewport: Viewport = {
+  themeColor: '#F7F5F0',
+  width: 'device-width',
+  initialScale: 1,
+};
+
 export const metadata: Metadata = {
-  title: 'Evolyn — AI-Powered Brand Governance Platform',
-  description: 'Grounded brand governance, claim verification, and continuous guideline improvement.',
+  metadataBase: new URL('https://evolyn-nhbb.vercel.app'),
+  title: {
+    default: 'Evolyn — AI-Powered Brand Governance Platform',
+    template: '%s | Evolyn',
+  },
+  description:
+    'Grounded brand governance, deterministic claim verification, AI style auditing, and continuous guideline improvement.',
+  keywords: [
+    'brand governance',
+    'AI compliance',
+    'claim verification',
+    'style guide auditing',
+    'enterprise brand safety',
+    'content integrity',
+  ],
+  authors: [{ name: 'Evolyn Team' }],
+  creator: 'Evolyn',
+  publisher: 'Evolyn',
+  openGraph: {
+    title: 'Evolyn — AI-Powered Brand Governance Platform',
+    description:
+      'Grounded brand governance, claim verification, and continuous guideline improvement.',
+    url: 'https://evolyn-nhbb.vercel.app',
+    siteName: 'Evolyn',
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Evolyn — AI-Powered Brand Governance Platform',
+    description:
+      'Grounded brand governance, claim verification, and continuous guideline improvement.',
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({

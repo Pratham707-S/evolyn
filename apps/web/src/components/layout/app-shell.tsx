@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardSidebar } from '../dashboard/dashboard-sidebar';
 import { NewSubmissionModal } from '../dashboard/new-submission-modal';
@@ -49,6 +49,15 @@ export function AppShell({ children, activeItem, noScroll = false }: AppShellPro
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Background prefetch core routes so page-to-page navigation is instant without freezes
+  useEffect(() => {
+    router.prefetch('/');
+    router.prefetch('/submissions');
+    router.prefetch('/reviews');
+    router.prefetch('/approvals');
+    router.prefetch('/decision-history');
+  }, [router]);
 
   const handleNavigate = (itemName: string) => {
     const route = navRoutes[itemName];
