@@ -73,7 +73,7 @@ export class BrandGovernanceAIProvider {
       throw new BrandGovernanceAIConfigError();
     }
     this.apiKey = resolvedKey.trim();
-    this.model = model || env.GEMINI_BRAND_GOVERNANCE_MODEL || 'gemini-1.5-pro';
+    this.model = model || env.GEMINI_BRAND_GOVERNANCE_MODEL || 'gemini-3.8-flash';
     this.fetcher = fetcher;
   }
 

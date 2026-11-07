@@ -24,7 +24,7 @@ const envSchema = z
 
     // Dedicated Brand Governance AI Configuration (strictly isolated from main AI)
     GEMINI_BRAND_GOVERNANCE_API_KEY: z.string().optional().default(''),
-    GEMINI_BRAND_GOVERNANCE_MODEL: z.string().default('gemini-1.5-pro'),
+    GEMINI_BRAND_GOVERNANCE_MODEL: z.string().default('gemini-3.8-flash'),
 
     // AWS S3 (optional in Phase 1 / local fallback)
     AWS_REGION: z.string().default('us-east-1'),
