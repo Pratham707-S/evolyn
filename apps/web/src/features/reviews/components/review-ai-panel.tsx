@@ -248,7 +248,9 @@ export function ReviewAiPanel({
             <AlertTriangle className="w-8 h-8 text-[#B56E63] mx-auto" />
             <div className="space-y-1">
               <h4 className="text-xs font-semibold text-[#25251F]">
-                Governance Audit Incomplete or Timed Out
+                {auditError.toLowerCase().includes('time')
+                  ? 'Governance Audit Timed Out'
+                  : 'Governance Audit Incomplete'}
               </h4>
               <p className="text-[11px] text-[#77766E] leading-relaxed max-w-xs mx-auto">
                 {auditError.includes('timeout') || auditError.includes('timed out')

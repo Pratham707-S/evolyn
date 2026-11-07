@@ -134,13 +134,31 @@ function mapGroundedAIResults(
     const isWritingQuality =
       issue.issueType === 'GRAMMAR_ERROR' || issue.issueType === 'SPELLING_ERROR';
 
+    let exactExcerpt = issue.flaggedExcerpt.trim();
+    const directIdx = content.indexOf(exactExcerpt);
+    if (directIdx === -1) {
+      const lowerIdx = content.toLowerCase().indexOf(exactExcerpt.toLowerCase());
+      if (lowerIdx !== -1) {
+        exactExcerpt = content.slice(lowerIdx, lowerIdx + exactExcerpt.length);
+      } else {
+        discardedCount += 1;
+        continue;
+      }
+    }
+
     if (isWritingQuality) {
+      const rawQuote = (issue.sourceQuote || '').trim();
+      const validQuote =
+        rawQuote.length > 0 && content.includes(rawQuote)
+          ? rawQuote
+          : exactExcerpt;
+
       findings.push({
         issueType: issueTypeSchema.parse(issue.issueType),
-        flaggedExcerpt: issue.flaggedExcerpt,
+        flaggedExcerpt: exactExcerpt,
         explanation: issue.explanation,
         suggestedFix: issue.suggestedFix,
-        sourceQuote: issue.sourceQuote || issue.flaggedExcerpt,
+        sourceQuote: validQuote,
         confidenceScore: issue.confidenceScore ?? 0.9,
         evidenceStrengthScore: issue.evidenceStrengthScore ?? 0.0,
         sourceText: 'Writing Quality Standard',
@@ -165,9 +183,7 @@ function mapGroundedAIResults(
         : null,
     ].filter(
       (source): source is { ruleId: string; sourceText: string } | { factId: string; sourceText: string } =>
-        source !== null &&
-        (source.sourceText.toLowerCase().includes(issue.sourceQuote.trim().toLowerCase()) ||
-          issue.sourceQuote.trim().length > 0)
+        source !== null
     );
 
     if (matchingSources.length === 0) {
@@ -176,15 +192,18 @@ function mapGroundedAIResults(
     }
 
     const source = matchingSources[0];
-    const sourceQuote = source.sourceText.toLowerCase().includes(issue.sourceQuote.trim().toLowerCase())
-      ? issue.sourceQuote
-      : source.sourceText;
+    const rawQuote = (issue.sourceQuote || '').trim();
+    const validSourceQuote =
+      rawQuote.length > 0 && source.sourceText.includes(rawQuote)
+        ? rawQuote
+        : source.sourceText;
+
     findings.push({
       issueType: issueTypeSchema.parse(issue.issueType),
-      flaggedExcerpt: issue.flaggedExcerpt,
+      flaggedExcerpt: exactExcerpt,
       explanation: issue.explanation,
       suggestedFix: issue.suggestedFix,
-      sourceQuote: issue.sourceQuote,
+      sourceQuote: validSourceQuote,
       confidenceScore: issue.confidenceScore,
       evidenceStrengthScore: issue.evidenceStrengthScore,
       ...( 'ruleId' in source ? { ruleId: source.ruleId } : { factId: source.factId }),
