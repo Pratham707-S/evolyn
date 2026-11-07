@@ -243,7 +243,9 @@ export class GeminiAIProvider implements AIProvider {
     return values;
   }
 
-  async auditContent(params: Parameters<AIProvider['auditContent']>[0]) {
+  async auditContent(
+    params: Parameters<AIProvider['auditContent']>[0]
+  ): Promise<Awaited<ReturnType<AIProvider['auditContent']>>> {
     const prompt = [
       'Audit the submitted content only against the supplied brand rules and verified facts.',
       'Return issues only when there is a specific, supportable violation or unsupported claim.',
@@ -316,7 +318,13 @@ export class GeminiAIProvider implements AIProvider {
     const parsed = auditResponseSchema.parse(response);
     return {
       issues: parsed.issues.map(({ ruleId, factId, ...issue }) => ({
-        ...issue,
+        issueType: issue.issueType,
+        flaggedExcerpt: issue.flaggedExcerpt,
+        explanation: issue.explanation,
+        suggestedFix: issue.suggestedFix,
+        sourceQuote: issue.sourceQuote,
+        confidenceScore: issue.confidenceScore,
+        evidenceStrengthScore: issue.evidenceStrengthScore,
         ...(ruleId ? { ruleId } : {}),
         ...(factId ? { factId } : {}),
       })),
