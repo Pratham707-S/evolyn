@@ -90,12 +90,18 @@ function ReviewWorkspaceInner() {
       let targetId = urlSubmissionId;
 
       if (!targetId) {
-        // Fetch all submissions: prioritize pending items, or fall back to latest reviewed submission
-        const subListRes = await apiClient<{ submissions: ContentSubmission[] }>('/api/submissions');
-        const activeSubmissions = subListRes.submissions || [];
+        // Fetch active queue submissions: strictly exclude APPROVED and REJECTED items
+        const subListRes = await apiClient<{ submissions: ContentSubmission[] }>(
+          '/api/submissions?pageSize=50'
+        );
+        const allSubs = subListRes.submissions || [];
+        const eligibleSubmissions = allSubs.filter(
+          (s) => s.status !== 'APPROVED' && s.status !== 'REJECTED'
+        );
         const targetSub =
-          activeSubmissions.find((s) => s.status === 'PENDING') ||
-          activeSubmissions.find((s) => s.status === 'REVIEWED');
+          eligibleSubmissions.find((s) => s.status === 'PENDING') ||
+          eligibleSubmissions.find((s) => s.status === 'REVIEWED') ||
+          eligibleSubmissions[0];
 
         if (targetSub) {
           targetId = targetSub.id;
@@ -159,13 +165,20 @@ function ReviewWorkspaceInner() {
     return null;
   }, [urlNotes, reviewData?.decision]);
 
-  const isApproved = reviewData?.decision?.decision === 'APPROVED';
+  const isApproved =
+    reviewData?.submission?.status === 'APPROVED' ||
+    reviewData?.decision?.decision === 'APPROVED';
+
+  const isRejected =
+    reviewData?.submission?.status === 'REJECTED' ||
+    reviewData?.decision?.decision === 'REJECTED';
+
+  const isTerminal = isApproved || isRejected;
 
   const isChangesRequested =
-    !isApproved &&
+    !isTerminal &&
     (urlStatus === 'changes_requested' ||
       reviewData?.decision?.decision === 'CHANGES_REQUESTED' ||
-      reviewData?.submission?.status === 'REJECTED' ||
       Boolean(urlNotes));
 
   // 2. Gemini Rewrite Mutation
@@ -704,17 +717,56 @@ function ReviewWorkspaceInner() {
         >
           {/* Approved Status Banner */}
           {isApproved && (
-            <div className="bg-[#EEF4EE] dark:bg-[#1A261C] border border-[#CDE0CF] dark:border-[#2D4530] rounded-xl px-3.5 py-2 mb-2.5 flex items-center justify-between gap-2.5 shadow-2xs shrink-0 animate-in fade-in">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <CheckCircle2 className="w-4 h-4 text-[#2D5A3A] dark:text-[#86EFAC] shrink-0" />
-                <span className="text-xs font-semibold text-[#2D5A3A] dark:text-[#86EFAC] truncate">
-                  Approved & Signed Off: &ldquo;{reviewData?.decision?.comments || 'Passed brand governance review'}&rdquo;
-                </span>
+            <div className="bg-[#EEF4EE] dark:bg-[#1A261C] border border-[#CDE0CF] dark:border-[#2D4530] rounded-xl px-4 py-3 mb-2.5 flex items-center justify-between gap-3 shadow-2xs shrink-0 animate-in fade-in">
+              <div className="flex items-center gap-3 min-w-0">
+                <CheckCircle2 className="w-5 h-5 text-[#2D5A3A] dark:text-[#86EFAC] shrink-0" />
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-[#2D5A3A] dark:text-[#86EFAC] uppercase tracking-wide">
+                      Approved & Sealed (Read-Only)
+                    </span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#D7E8D9] dark:bg-[#253D2A] text-[#244E2E] dark:text-[#A7F3D0] font-medium">
+                      Signed off by {reviewData?.decision?.reviewerName || 'Chief Brand Guardian'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#385E3F] dark:text-[#A7F3D0] mt-0.5 italic truncate">
+                    &ldquo;{reviewData?.decision?.comments || 'Passed brand governance review and signed off.'}&rdquo;
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => router.push('/decision-history')}
-                className="text-xs text-[#2D5A3A] dark:text-[#86EFAC] hover:underline font-medium shrink-0 cursor-pointer"
+                className="text-xs bg-[#2D5A3A] hover:bg-[#24482E] text-white px-2.5 py-1.5 rounded-lg font-medium shrink-0 cursor-pointer shadow-2xs transition-colors"
+              >
+                View Timeline →
+              </button>
+            </div>
+          )}
+
+          {/* Rejected Status Banner */}
+          {isRejected && (
+            <div className="bg-[#FDF2F2] dark:bg-[#2D1616] border border-[#FECACA] dark:border-[#572222] rounded-xl px-4 py-3 mb-2.5 flex items-center justify-between gap-3 shadow-2xs shrink-0 animate-in fade-in">
+              <div className="flex items-center gap-3 min-w-0">
+                <XCircle className="w-5 h-5 text-[#DC2626] dark:text-[#F87171] shrink-0" />
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-[#DC2626] dark:text-[#F87171] uppercase tracking-wide">
+                      Rejected Submission (Archived)
+                    </span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#FEE2E2] dark:bg-[#451A1A] text-[#991B1B] dark:text-[#FCA5A5] font-medium">
+                      Reviewed by {reviewData?.decision?.reviewerName || 'Chief Brand Guardian'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#991B1B] dark:text-[#FCA5A5] mt-0.5 italic truncate">
+                    &ldquo;{reviewData?.decision?.comments || 'Rejected during compliance review.'}&rdquo;
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => router.push('/decision-history')}
+                className="text-xs bg-[#DC2626] hover:bg-[#B91C1C] text-white px-2.5 py-1.5 rounded-lg font-medium shrink-0 cursor-pointer shadow-2xs transition-colors"
               >
                 View Timeline →
               </button>
@@ -794,6 +846,7 @@ function ReviewWorkspaceInner() {
             showToast={showToast}
             isSaving={saveMutation.isPending}
             brandSetup={brandSetup}
+            isReadOnly={isTerminal}
           />
         </div>
 
@@ -827,6 +880,7 @@ function ReviewWorkspaceInner() {
             }
             showToast={showToast}
             brandSetup={brandSetup}
+            decision={reviewData?.decision}
           />
         </div>
       </div>

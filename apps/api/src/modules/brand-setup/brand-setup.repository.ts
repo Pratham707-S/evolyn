@@ -92,6 +92,7 @@ export class BrandSetupRepository implements IBrandSetupRepository {
           .set({
             title,
             rawContent,
+            status: 'ACTIVE',
             updatedAt: new Date(),
           })
           .where(eq(guidelines.id, guidelineId));

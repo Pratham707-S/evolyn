@@ -208,10 +208,11 @@ function mapGroundedAIResults(
     const source = matchingSources[0];
     const rawQuote = (issue.sourceQuote || '').trim().replace(/^["'«“](.*)["'»”]$/s, '$1').trim();
     const fallbackQuote = 'ruleId' in source && rule ? rule.ruleStatement : fact ? fact.claimStatement : source.sourceText;
-    const validSourceQuote =
-      rawQuote.length > 0 && source.sourceText.includes(rawQuote)
-        ? rawQuote
-        : fallbackQuote;
+    const isVerbatimInSource = rawQuote.length > 0 && source.sourceText.includes(rawQuote);
+    const validSourceQuote = isVerbatimInSource ? rawQuote : fallbackQuote;
+    const evidenceStrengthScore = isVerbatimInSource
+      ? (issue.evidenceStrengthScore ?? 0.8)
+      : 0.0;
 
     findings.push({
       issueType: issueTypeSchema.parse(issue.issueType),
@@ -220,7 +221,7 @@ function mapGroundedAIResults(
       suggestedFix: issue.suggestedFix,
       sourceQuote: validSourceQuote,
       confidenceScore: issue.confidenceScore,
-      evidenceStrengthScore: issue.evidenceStrengthScore,
+      evidenceStrengthScore,
       ...( 'ruleId' in source ? { ruleId: source.ruleId } : { factId: source.factId }),
       sourceText: source.sourceText,
     });
@@ -505,9 +506,41 @@ export class ReviewService implements IReviewService {
 
       const dbWriteStart = Date.now();
       createdReviewRun = await this.repository.create(reviewRunInput);
+
+      const rulesMap = new Map(allAuditingRules.map((r) => [r.id, r]));
+      const factsMap = new Map(facts.map((f) => [f.id, f]));
+      const validatedFindings = findings.map((f) => {
+        if (f.issueType === 'GRAMMAR_ERROR' || f.issueType === 'SPELLING_ERROR') {
+          return f;
+        }
+        if (f.ruleId) {
+          const rule = rulesMap.get(f.ruleId);
+          if (rule && !rule.ruleStatement.includes(f.sourceQuote)) {
+            return {
+              ...f,
+              sourceQuote: rule.ruleStatement,
+              evidenceStrengthScore: 0.0,
+            };
+          }
+        } else if (f.factId) {
+          const fact = factsMap.get(f.factId);
+          if (fact) {
+            const factSource = `${fact.claimStatement}\n${fact.approvedProofSource}`;
+            if (!factSource.includes(f.sourceQuote)) {
+              return {
+                ...f,
+                sourceQuote: fact.claimStatement,
+                evidenceStrengthScore: 0.0,
+              };
+            }
+          }
+        }
+        return f;
+      });
+
       const persistedFindings = await this.dependencies.findings.recordFindings(
         createdReviewRun.id,
-        findings,
+        validatedFindings,
         contentToAudit
       );
       await this.dependencies.submissions.updateSubmissionStatus(id, 'REVIEWED');

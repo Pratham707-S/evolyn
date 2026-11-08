@@ -74,6 +74,7 @@ import {
   ZoomOut,
   Maximize2,
   Download,
+  Lock,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { getApiBaseUrl } from '@/lib/api/client';
@@ -96,6 +97,7 @@ export interface ReviewEditorProps {
   showToast: (msg: string) => void;
   isSaving?: boolean;
   brandSetup?: BrandSetup | null;
+  isReadOnly?: boolean;
 }
 
 export interface ActiveIssuePopover {
@@ -122,6 +124,7 @@ export function ReviewEditor({
   showToast,
   isSaving = false,
   brandSetup = null,
+  isReadOnly = false,
 }: ReviewEditorProps) {
   const [activeTab, setActiveTab] = useState<'editor' | 'pdf' | 'history'>('editor');
   const [copied, setCopied] = useState(false);
@@ -170,6 +173,7 @@ export function ReviewEditor({
       IssueHighlight,
     ],
     content: cleanAndFormatPdfToHtml(initialContent, issues),
+    editable: !isReadOnly,
     editorProps: {
       attributes: {
         class:
@@ -203,6 +207,12 @@ export function ReviewEditor({
       }
     }
   }, [editor, initialContent, issues, issuesHash]);
+
+  useEffect(() => {
+    if (editor) {
+      editor.setEditable(!isReadOnly);
+    }
+  }, [editor, isReadOnly]);
 
   // Handle click on .evolyn-issue-mark to display inline quick-fix popover
   const handleEditorClick = (e: React.MouseEvent) => {
@@ -620,24 +630,31 @@ export function ReviewEditor({
               <span className="hidden sm:inline">Export PDF</span>
             </button>
 
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={isSaving}
-              className="bg-[#25251F] dark:bg-[#8A987D] hover:bg-[#383832] dark:hover:bg-[#97A689] disabled:opacity-50 text-white dark:text-[#141412] text-xs font-medium px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors"
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Saving...</span>
-                </>
-              ) : (
-                <>
-                  <Save className="w-3.5 h-3.5" />
-                  <span>Save Revision</span>
-                </>
-              )}
-            </button>
+            {isReadOnly ? (
+              <div className="bg-[#FAF9F5] dark:bg-[#25241F] border border-[#E5E1D8] dark:border-[#2C2B26] text-[#77766E] dark:text-[#A09D92] text-xs font-semibold px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 shadow-2xs select-none">
+                <Lock className="w-3.5 h-3.5 text-[#68745D] dark:text-[#86EFAC]" />
+                <span className="hidden sm:inline">Sealed (Read-Only)</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={isSaving}
+                className="bg-[#25251F] dark:bg-[#8A987D] hover:bg-[#383832] dark:hover:bg-[#97A689] disabled:opacity-50 text-white dark:text-[#141412] text-xs font-medium px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Save Revision</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
       )}

@@ -36,7 +36,13 @@ function DecisionHistoryContent() {
     const currentDayIdx = (now.getDay() + 6) % 7;
 
     if (queueData?.submissions && queueData.submissions.length > 0) {
-      const liveItems: TimelineDecision[] = queueData.submissions.map((sub: ContentSubmission) => {
+      const decidedSubs = queueData.submissions.filter(
+        (sub: ContentSubmission) =>
+          sub.status === 'APPROVED' ||
+          sub.status === 'REJECTED' ||
+          Boolean((sub as any).decision)
+      );
+      const liveItems: TimelineDecision[] = decidedSubs.map((sub: ContentSubmission) => {
         const isApproved = sub.status === 'APPROVED';
         const isRejected = sub.status === 'REJECTED';
         const decisionText: 'Approved' | 'Changes Requested' | 'Rejected' =

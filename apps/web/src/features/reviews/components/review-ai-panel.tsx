@@ -36,6 +36,7 @@ export interface ReviewAiPanelProps {
   complianceScore?: number;
   showToast: (msg: string) => void;
   brandSetup?: BrandSetup | null;
+  decision?: { decision: string; reviewerName: string; comments?: string | null; createdAt?: string } | null;
 }
 
 type FilterCategory = 'ALL' | 'GRAMMAR' | 'BRAND' | 'EVIDENCE' | 'RECO';
@@ -54,6 +55,7 @@ export function ReviewAiPanel({
   complianceScore,
   showToast,
   brandSetup = null,
+  decision = null,
 }: ReviewAiPanelProps) {
   const [activeFilter, setActiveFilter] = useState<FilterCategory>('ALL');
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
@@ -149,6 +151,50 @@ export function ReviewAiPanel({
             : 'Grounded anti-hallucination citations and brand rule checks.'}
         </p>
       </div>
+
+      {/* Human Decision Sign-Off Card (Distinct from AI Evaluation) */}
+      {decision && (
+        <div
+          className={`mb-2.5 p-2.5 rounded-xl border shadow-2xs ${
+            decision.decision === 'APPROVED'
+              ? 'bg-[#EEF4EE] dark:bg-[#152518] border-[#C2D6C5] dark:border-[#274E2E]'
+              : decision.decision === 'REJECTED'
+              ? 'bg-[#FDF2F2] dark:bg-[#2D1616] border-[#FECACA] dark:border-[#572222]'
+              : 'bg-[#FAF5EA] dark:bg-[#2B2313] border-[#ECDAB8] dark:border-[#523F1C]'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#55544D] dark:text-[#C5C2BA]">
+              Human Sign-Off
+            </span>
+            <span
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                decision.decision === 'APPROVED'
+                  ? 'bg-[#D7E8D9] dark:bg-[#203D26] text-[#244E2E] dark:text-[#86EFAC] border-[#A8CBAE]'
+                  : decision.decision === 'REJECTED'
+                  ? 'bg-[#FEE2E2] dark:bg-[#451A1A] text-[#991B1B] dark:text-[#FCA5A5] border-[#FCA5A5]'
+                  : 'bg-[#FEF3C7] dark:bg-[#45371C] text-[#92400E] dark:text-[#FDE047] border-[#FCD34D]'
+              }`}
+            >
+              {decision.decision === 'APPROVED'
+                ? 'Approved & Signed Off'
+                : decision.decision === 'REJECTED'
+                ? 'Rejected'
+                : 'Changes Requested'}
+            </span>
+          </div>
+          <div className="mt-1 text-xs text-[#25251F] dark:text-[#F7F5F0]">
+            <p className="font-semibold text-[11px]">
+              Reviewer: <span className="font-medium text-[#55544D] dark:text-[#C5C2BA]">{decision.reviewerName || 'Chief Brand Guardian'}</span>
+            </p>
+            {decision.comments && (
+              <p className="text-[10px] text-[#55544D] dark:text-[#C5C2BA] mt-0.5 italic break-words">
+                &ldquo;{decision.comments}&rdquo;
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Brand Governance Decision & 4-Pillar Score Dashboard */}
       {governanceEvaluation && (

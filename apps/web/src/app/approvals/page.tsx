@@ -11,7 +11,7 @@ import {
   ShieldCheck,
   CheckCheck,
 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AppShell, useAppShell } from '@/components/layout/app-shell';
 import { PageHeader } from '@/components/shared/page-header';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,7 @@ import {
 
 function ApprovalsContent() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const urlId = searchParams?.get('id');
   const { showToast } = useAppShell();
@@ -153,6 +154,10 @@ function ApprovalsContent() {
           reviewerName: 'Chief Brand Guardian',
           comments: notes || `Reviewed and recorded as ${decision}`,
         });
+        queryClient.invalidateQueries({ queryKey: ['review'] });
+        queryClient.invalidateQueries({ queryKey: ['submissions'] });
+        queryClient.invalidateQueries({ queryKey: ['approvals'] });
+        queryClient.invalidateQueries({ queryKey: ['decisions'] });
         await refetchQueue();
       } catch (err) {
         console.warn('Decision persistence notice (proceeding with user flow):', err);
