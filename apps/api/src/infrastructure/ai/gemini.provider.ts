@@ -536,6 +536,12 @@ export class GeminiAIProvider implements AIProvider {
     'gemini-embedding-001',
   ];
 
+  private resolvedGenerateModel: string | null = null;
+
+  public getResolvedGenerateModel(): string | null {
+    return this.resolvedGenerateModel;
+  }
+
   private async request(
     method: string,
     body: Record<string, unknown>,
@@ -553,15 +559,24 @@ export class GeminiAIProvider implements AIProvider {
       : isEmbed
       ? method.replace(':embedContent', '')
       : null;
-    const modelsToTry =
-      isGenerate && requestedModel
-        ? Array.from(new Set([requestedModel, ...GeminiAIProvider.VERIFIED_FALLBACK_MODELS]))
-        : isEmbed && requestedModel
-        ? Array.from(new Set([requestedModel, ...GeminiAIProvider.VERIFIED_FALLBACK_EMBEDDING_MODELS]))
-        : [method];
+
+    const baseCandidates = isGenerate && requestedModel
+      ? Array.from(new Set([requestedModel, ...GeminiAIProvider.VERIFIED_FALLBACK_MODELS]))
+      : isEmbed && requestedModel
+      ? Array.from(new Set([requestedModel, ...GeminiAIProvider.VERIFIED_FALLBACK_EMBEDDING_MODELS]))
+      : [method];
+
+    // If a model was already verified and resolved to work in this session, prioritize it
+    const modelsToTry = isGenerate && this.resolvedGenerateModel && baseCandidates.includes(this.resolvedGenerateModel)
+      ? Array.from(new Set([this.resolvedGenerateModel, ...baseCandidates]))
+      : isEmbed && this.resolvedEmbeddingModel && baseCandidates.includes(this.resolvedEmbeddingModel)
+      ? Array.from(new Set([this.resolvedEmbeddingModel, ...baseCandidates]))
+      : baseCandidates;
 
     let lastError: Error | null = null;
-    for (const currentModel of modelsToTry) {
+    for (let modelIdx = 0; modelIdx < modelsToTry.length; modelIdx++) {
+      const currentModel = modelsToTry[modelIdx];
+      const isLastModel = modelIdx === modelsToTry.length - 1;
       const targetEndpoint = isGenerate || isEmbed ? `${currentModel}${actionPart}` : method;
       const requestBody =
         isEmbed && body && typeof body === 'object' && 'model' in body
@@ -571,7 +586,7 @@ export class GeminiAIProvider implements AIProvider {
       while (attempt <= maxRetries) {
         attempt++;
         const controller = new AbortController();
-        const timeoutMs = isGenerate ? 30000 : 15000;
+        const timeoutMs = isGenerate ? 20000 : 10000;
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
         const startTime = Date.now();
 
@@ -656,6 +671,21 @@ export class GeminiAIProvider implements AIProvider {
                 errorText || `Gemini request failed with HTTP ${response.status}`
               );
 
+              // If a 503 (service unavailable / high demand) or 500 occurs and fallback models exist,
+              // switch immediately to avoid wasting 10-30 seconds waiting on an overloaded model.
+              if ((response.status === 503 || response.status === 500) && !isLastModel) {
+                console.warn(
+                  JSON.stringify({
+                    type: 'GEMINI_FAST_FAILOVER',
+                    fromModel: currentModel,
+                    status: response.status,
+                    durationMs,
+                    action: 'SWITCHING_TO_NEXT_FALLBACK_MODEL',
+                  })
+                );
+                break;
+              }
+
               if (attempt <= maxRetries) {
                 // Respect Retry-After header if provided (RFC 9110 integer seconds or HTTP-date)
                 let backoffMs = Math.min(
@@ -670,8 +700,7 @@ export class GeminiAIProvider implements AIProvider {
 
                 if (parsedRetryDelay !== null) {
                   const MAX_SINGLE_MODEL_WAIT_MS = 10000;
-                  if (parsedRetryDelay > MAX_SINGLE_MODEL_WAIT_MS) {
-                    // Server requested cooldown longer than 10s: switch model immediately to avoid request starvation
+                  if (parsedRetryDelay > MAX_SINGLE_MODEL_WAIT_MS && !isLastModel) {
                     console.warn(
                       JSON.stringify({
                         type: 'GEMINI_RETRY_AFTER_EXCEEDED_THRESHOLD',
@@ -683,7 +712,6 @@ export class GeminiAIProvider implements AIProvider {
                     );
                     break;
                   }
-                  // Never retry earlier than server requested delay
                   backoffMs = parsedRetryDelay;
                 }
 
@@ -709,6 +737,8 @@ export class GeminiAIProvider implements AIProvider {
           const responseData = await response.json();
           if (isEmbed) {
             this.resolvedEmbeddingModel = currentModel;
+          } else if (isGenerate) {
+            this.resolvedGenerateModel = currentModel;
           }
           console.log(
             JSON.stringify({
@@ -733,6 +763,19 @@ export class GeminiAIProvider implements AIProvider {
               throw error;
             }
           }
+
+          // If request was aborted (timeout) and we have fallbacks, switch model immediately
+          if (error instanceof Error && error.name === 'AbortError' && !isLastModel) {
+            console.warn(
+              JSON.stringify({
+                type: 'GEMINI_TIMEOUT_FAILOVER',
+                fromModel: currentModel,
+                action: 'SWITCHING_TO_NEXT_FALLBACK_MODEL',
+              })
+            );
+            break;
+          }
+
           if (attempt <= maxRetries) {
             const backoff = Math.min(2000, 300 * Math.pow(1.5, attempt) + Math.random() * 150);
             await new Promise((r) => setTimeout(r, backoff));

@@ -319,10 +319,20 @@ export function ReviewAiPanel({
               <button
                 type="button"
                 onClick={onRunAudit}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#25251F] hover:bg-[#383832] text-white rounded-lg text-xs font-medium transition-colors shadow-2xs cursor-pointer mt-1"
+                disabled={isAuditing}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#25251F] hover:bg-[#383832] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-xs font-medium transition-colors shadow-2xs cursor-pointer mt-1"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Retry Governance Audit</span>
+                {isAuditing ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Auditing...</span>
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Retry Governance Audit</span>
+                  </>
+                )}
               </button>
             )}
           </div>

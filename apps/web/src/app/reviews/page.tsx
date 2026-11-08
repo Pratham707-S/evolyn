@@ -365,16 +365,22 @@ function ReviewWorkspaceInner() {
           content: text,
           force: true,
         },
-        { timeoutMs: 60000 }
+        { timeoutMs: 35000 }
       );
     },
     onSuccess: (data) => {
       showToast(`AI Governance audit completed: ${data.issues?.length || 0} issues detected.`);
+      queryClient.invalidateQueries({ queryKey: ['review'] });
+      queryClient.invalidateQueries({ queryKey: ['submissions'] });
       refetch();
-      brandGovMutation.mutate();
     },
     onError: (err: any) => {
-      showToast(`Audit failed: ${err.message || 'Server error'}`);
+      const msg = err.message || 'Server error';
+      if (msg.includes('timed out') || msg.includes('timeout')) {
+        showToast('Governance audit timed out. Please retry.');
+      } else {
+        showToast(`Audit failed: ${msg}`);
+      }
     },
   });
 
@@ -864,15 +870,11 @@ function ReviewWorkspaceInner() {
             onAcceptFinding={handleAcceptFinding}
             onDismissFinding={handleDismissFinding}
             onRunAudit={() => {
+              if (analyzeMutation.isPending) return;
               analyzeMutation.mutate();
-              brandGovMutation.mutate();
             }}
-            isAuditing={analyzeMutation.isPending || brandGovMutation.isPending}
-            auditError={
-              analyzeMutation.error?.message ||
-              (brandGovMutation.error as any)?.message ||
-              null
-            }
+            isAuditing={analyzeMutation.isPending}
+            auditError={analyzeMutation.error?.message || null}
             hasReviewRun={Boolean(reviewData?.reviewRun || governanceEvaluation)}
             complianceScore={
               governanceEvaluation?.overallGovernanceScore ??

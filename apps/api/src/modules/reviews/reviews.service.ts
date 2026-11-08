@@ -111,27 +111,160 @@ function findQuotedProhibitedPhrases(
   return findings;
 }
 
+export interface DocumentChunk {
+  index: number;
+  text: string;
+  charStart: number;
+  charEnd: number;
+}
+
+export const CHUNK_THRESHOLD = 2500;
+export const CHUNK_TARGET_SIZE = 2000;
+export const CHUNK_OVERLAP = 200;
+
+export function chunkDocument(
+  content: string,
+  maxChunkSize = CHUNK_TARGET_SIZE,
+  overlap = CHUNK_OVERLAP
+): DocumentChunk[] {
+  if (content.length <= maxChunkSize) {
+    return [
+      {
+        index: 0,
+        text: content,
+        charStart: 0,
+        charEnd: content.length,
+      },
+    ];
+  }
+
+  const chunks: DocumentChunk[] = [];
+  let start = 0;
+  let index = 0;
+
+  while (start < content.length) {
+    let end = Math.min(start + maxChunkSize, content.length);
+
+    if (end < content.length) {
+      const searchWindow = content.slice(Math.max(start + maxChunkSize / 2, end - 300), end);
+      const paragraphBreak = searchWindow.lastIndexOf('\n\n');
+      if (paragraphBreak !== -1) {
+        end = Math.max(start + maxChunkSize / 2, end - 300) + paragraphBreak + 2;
+      } else {
+        const sentenceMatch = searchWindow.match(/[.!?](\s+)[^.!?]*$/);
+        if (sentenceMatch && sentenceMatch.index !== undefined) {
+          end = Math.max(start + maxChunkSize / 2, end - 300) + sentenceMatch.index + 1;
+        } else {
+          const lineBreak = searchWindow.lastIndexOf('\n');
+          if (lineBreak !== -1) {
+            end = Math.max(start + maxChunkSize / 2, end - 300) + lineBreak + 1;
+          } else {
+            const space = searchWindow.lastIndexOf(' ');
+            if (space !== -1) {
+              end = Math.max(start + maxChunkSize / 2, end - 300) + space + 1;
+            }
+          }
+        }
+      }
+    }
+
+    const chunkText = content.slice(start, end);
+    chunks.push({
+      index,
+      text: chunkText,
+      charStart: start,
+      charEnd: end,
+    });
+
+    if (end >= content.length) {
+      break;
+    }
+
+    start = Math.max(start + 1, end - overlap);
+    index++;
+  }
+
+  return chunks;
+}
+
+export function deduplicateChunkFindings(findings: RawFindingInput[]): RawFindingInput[] {
+  const result: RawFindingInput[] = [];
+  for (const f of findings) {
+    const isDuplicate = result.some(
+      (existing) =>
+        existing.issueType === f.issueType &&
+        existing.ruleId === f.ruleId &&
+        existing.factId === f.factId &&
+        existing.flaggedExcerpt === f.flaggedExcerpt &&
+        typeof existing.charStart === 'number' &&
+        typeof f.charStart === 'number' &&
+        Math.abs(existing.charStart - f.charStart) < 10
+    );
+    if (!isDuplicate) {
+      result.push(f);
+    }
+  }
+  return result;
+}
+
 function mapGroundedAIResults(
   aiIssues: Awaited<ReturnType<ReviewDependencies['ai']['auditContent']>>['issues'],
   rules: GuidelineRule[],
   facts: Awaited<ReturnType<ReviewDependencies['knowledge']['findRelevantFacts']>>,
-  content: string
+  chunkContent: string,
+  chunkOffset = 0,
+  fullContent?: string
 ): { findings: RawFindingInput[]; discardedCount: number } {
+  const fullText = fullContent ?? chunkContent;
   const rulesById = new Map(rules.map((rule) => [rule.id, rule]));
   const factsById = new Map(facts.map((fact) => [fact.id, fact]));
   const findings: RawFindingInput[] = [];
   let discardedCount = 0;
 
   for (const issue of aiIssues) {
-    const normalizedContent = content.toLowerCase();
-    const normalizedExcerpt = issue.flaggedExcerpt.trim().toLowerCase();
-    const isExcerptInContent =
-      normalizedContent.includes(normalizedExcerpt) ||
-      content.includes(issue.flaggedExcerpt);
-
-    if (!isExcerptInContent) {
+    if (!issue.flaggedExcerpt || !issue.flaggedExcerpt.trim()) {
       discardedCount += 1;
       continue;
+    }
+
+    const trimmedExcerpt = issue.flaggedExcerpt.trim();
+    // Locate the excerpt in chunkContent first, then map to global offset
+    let localIdx = chunkContent.indexOf(trimmedExcerpt);
+    let exactExcerpt = trimmedExcerpt;
+
+    if (localIdx === -1) {
+      const lowerChunk = chunkContent.toLowerCase();
+      const lowerIdx = lowerChunk.indexOf(trimmedExcerpt.toLowerCase());
+      if (lowerIdx !== -1) {
+        localIdx = lowerIdx;
+        exactExcerpt = chunkContent.slice(localIdx, localIdx + trimmedExcerpt.length);
+      } else {
+        // Fall back to searching in fullText near chunkOffset
+        const fullIdx = fullText.indexOf(trimmedExcerpt, chunkOffset);
+        if (fullIdx !== -1 && fullIdx < chunkOffset + chunkContent.length + 300) {
+          localIdx = fullIdx - chunkOffset;
+          exactExcerpt = trimmedExcerpt;
+        } else {
+          discardedCount += 1;
+          continue;
+        }
+      }
+    }
+
+    const globalCharStart = chunkOffset + localIdx;
+    const globalCharEnd = globalCharStart + exactExcerpt.length;
+
+    // Verify global offset strictly matches fullText
+    if (
+      globalCharStart < 0 ||
+      globalCharEnd > fullText.length ||
+      fullText.slice(globalCharStart, globalCharEnd) !== exactExcerpt
+    ) {
+      const directFullIdx = fullText.indexOf(exactExcerpt, Math.max(0, globalCharStart - 100));
+      if (directFullIdx === -1) {
+        discardedCount += 1;
+        continue;
+      }
     }
 
     const fixLower = (issue.suggestedFix || '').toLowerCase();
@@ -148,28 +281,18 @@ function mapGroundedAIResults(
     const isWritingQuality =
       issue.issueType === 'GRAMMAR_ERROR' || issue.issueType === 'SPELLING_ERROR';
 
-    let exactExcerpt = issue.flaggedExcerpt.trim();
-    const directIdx = content.indexOf(exactExcerpt);
-    if (directIdx === -1) {
-      const lowerIdx = content.toLowerCase().indexOf(exactExcerpt.toLowerCase());
-      if (lowerIdx !== -1) {
-        exactExcerpt = content.slice(lowerIdx, lowerIdx + exactExcerpt.length);
-      } else {
-        discardedCount += 1;
-        continue;
-      }
-    }
-
     if (isWritingQuality) {
       const rawQuote = (issue.sourceQuote || '').trim();
       const validQuote =
-        rawQuote.length > 0 && content.includes(rawQuote)
+        rawQuote.length > 0 && chunkContent.includes(rawQuote)
           ? rawQuote
           : exactExcerpt;
 
       findings.push({
         issueType: issueTypeSchema.parse(issue.issueType),
         flaggedExcerpt: exactExcerpt,
+        charStart: globalCharStart,
+        charEnd: globalCharEnd,
         explanation: issue.explanation,
         suggestedFix: issue.suggestedFix,
         sourceQuote: validQuote,
@@ -217,6 +340,8 @@ function mapGroundedAIResults(
     findings.push({
       issueType: issueTypeSchema.parse(issue.issueType),
       flaggedExcerpt: exactExcerpt,
+      charStart: globalCharStart,
+      charEnd: globalCharEnd,
       explanation: issue.explanation,
       suggestedFix: issue.suggestedFix,
       sourceQuote: validSourceQuote,
@@ -285,6 +410,8 @@ interface InFlightExecution {
 
 export class ReviewService implements IReviewService {
   private readonly inFlightReviews = new Map<string, InFlightExecution>();
+  private brandRulesCache: { rules: GuidelineRule[]; timestamp: number } | null = null;
+  private static readonly BRAND_RULES_TTL_MS = 60000;
 
   constructor(
     private readonly dependencies: ReviewDependencies,
@@ -297,17 +424,64 @@ export class ReviewService implements IReviewService {
     private readonly maintenanceGate: MaintenanceGate = defaultMaintenanceGate
   ) {}
 
+  private async fetchActiveBrandRules(): Promise<GuidelineRule[]> {
+    if (
+      this.brandRulesCache &&
+      Date.now() - this.brandRulesCache.timestamp < ReviewService.BRAND_RULES_TTL_MS
+    ) {
+      return this.brandRulesCache.rules;
+    }
+
+    try {
+      const rawRules = await db
+        .select({
+          id: guidelineRules.id,
+          guidelineId: guidelineRules.guidelineId,
+          ruleType: guidelineRules.ruleType,
+          ruleStatement: guidelineRules.ruleStatement,
+          explanation: guidelineRules.explanation,
+          severity: guidelineRules.severity,
+          metadata: guidelineRules.metadata,
+          createdAt: guidelineRules.createdAt,
+        })
+        .from(guidelineRules)
+        .innerJoin(guidelines, eq(guidelineRules.guidelineId, guidelines.id))
+        .where(and(eq(guidelines.category, 'BRAND_SETUP'), eq(guidelines.status, 'ACTIVE')));
+
+      const mapped = rawRules.map((record) => ({
+        id: record.id,
+        guidelineId: record.guidelineId,
+        ruleType: record.ruleType as GuidelineRule['ruleType'],
+        ruleStatement: record.ruleStatement,
+        explanation: record.explanation,
+        severity: record.severity as GuidelineRule['severity'],
+        metadata:
+          record.metadata && typeof record.metadata === 'object' && !Array.isArray(record.metadata)
+            ? (record.metadata as Record<string, unknown>)
+            : undefined,
+        createdAt: record.createdAt.toISOString(),
+      }));
+
+      this.brandRulesCache = { rules: mapped, timestamp: Date.now() };
+      return mapped;
+    } catch {
+      return [];
+    }
+  }
+
   executeReview(
     submissionId: string,
     options?: ReviewExecutionOptions,
     requestId?: string
   ): Promise<ReviewExecutionResult> {
     const id = uuidSchema.parse(submissionId);
-    const key = options?.content ? `${id}:${options.content}` : id;
+    const normalizedContent = options?.content?.trim();
+    const contentKey = normalizedContent ? `${id}:${normalizedContent}` : id;
+    const submissionKey = id;
     const effectiveRequestId =
       requestId || options?.requestId || `rev-${id.slice(0, 8)}`;
 
-    const inFlight = this.inFlightReviews.get(key);
+    const inFlight = this.inFlightReviews.get(contentKey) || this.inFlightReviews.get(submissionKey);
     if (inFlight) {
       inFlight.correlatedRequestIds.add(effectiveRequestId);
       console.log(
@@ -328,11 +502,14 @@ export class ReviewService implements IReviewService {
       primaryRequestId: effectiveRequestId,
       correlatedRequestIds: new Set([effectiveRequestId]),
     };
-    this.inFlightReviews.set(key, executionRecord);
-    void reviewPromise.then(
-      () => this.inFlightReviews.delete(key),
-      () => this.inFlightReviews.delete(key)
-    );
+    this.inFlightReviews.set(contentKey, executionRecord);
+    this.inFlightReviews.set(submissionKey, executionRecord);
+    reviewPromise
+      .finally(() => {
+        this.inFlightReviews.delete(contentKey);
+        this.inFlightReviews.delete(submissionKey);
+      })
+      .catch(() => {});
     return reviewPromise;
   }
 
@@ -347,153 +524,155 @@ export class ReviewService implements IReviewService {
         explicitRequestId || options?.requestId || `rev-${id.slice(0, 8)}`;
 
       const subFetchStart = Date.now();
-    const submission = await this.dependencies.submissions.getSubmissionById(id);
-    const submissionRetrievalMs = Date.now() - subFetchStart;
-    if (!submission) {
-      throw new Error(`Submission not found: ${id}`);
-    }
+      const submission = await this.dependencies.submissions.getSubmissionById(id);
+      const submissionRetrievalMs = Date.now() - subFetchStart;
+      if (!submission) {
+        throw new Error(`Submission not found: ${id}`);
+      }
 
-    const contentToAudit = options?.content?.trim() || submission.rawText;
-    const isRevision = Boolean(
-      options?.content && options.content.trim() !== submission.rawText
-    );
-    const forceAudit = Boolean(options?.force);
-
-    const existing = await this.repository.findLatestBySubmissionId(id);
-    const existingFindings = (existing
-      ? await this.dependencies.findings.getFindingsByReviewRunId(existing.id)
-      : []) ?? [];
-
-    if (existing && !isRevision && !forceAudit) {
-      return {
-        reviewRun: mapReviewRun(existing),
-        issues: existingFindings,
-      };
-    }
-
-    if (
-      submission.status !== 'PENDING' &&
-      submission.status !== 'REVIEWED' &&
-      !isRevision &&
-      !forceAudit
-    ) {
-      throw new Error(`Cannot review submission in ${submission.status} status`);
-    }
-
-    await this.dependencies.submissions.updateSubmissionStatus(id, 'ANALYZING');
-    let createdReviewRun: ReviewRunRecord | undefined;
-
-    try {
-      const embStart = Date.now();
-      const embedding = await this.dependencies.ai.generateEmbedding(
-        contentToAudit,
-        { dimensions: EMBEDDING_DIMENSIONS }
+      const contentToAudit = options?.content?.trim() || submission.rawText;
+      const isRevision = Boolean(
+        options?.content && options.content.trim() !== submission.rawText
       );
-      const embeddingMs = Date.now() - embStart;
-      if (
-        embedding.length !== EMBEDDING_DIMENSIONS ||
-        !embedding.every((value) => Number.isFinite(value))
-      ) {
-        throw new Error(`Review embedding must contain ${EMBEDDING_DIMENSIONS} finite values`);
-      }
+      const forceAudit = Boolean(options?.force);
 
-      const ruleSearch = this.dependencies.guidelines.findRelevantRules
-        ? (vector: number[], limit?: number) =>
-            this.dependencies.guidelines.findRelevantRules!(vector, limit)
-        : (vector: number[], limit?: number) =>
-            this.dependencies.guidelines.findSimilarRules!(vector, limit);
-
-      const vectorStart = Date.now();
-      const [rules, facts] = await Promise.all([
-        ruleSearch(embedding, RULE_SEARCH_LIMIT),
-        this.dependencies.knowledge.findRelevantFacts(embedding, FACT_SEARCH_LIMIT),
-      ]);
-      const vectorRetrievalMs = Date.now() - vectorStart;
-
-      // Always fetch active Brand Setup rules from database so the audit strictly enforces the configured brand identity and policy
-      let brandRules: GuidelineRule[] = [];
-      try {
-        const brandSetupGuidelines = await db
-          .select({ id: guidelines.id })
-          .from(guidelines)
-          .where(and(eq(guidelines.category, 'BRAND_SETUP'), eq(guidelines.status, 'ACTIVE')))
-          .limit(1);
-
-        if (brandSetupGuidelines.length > 0 && brandSetupGuidelines[0]?.id) {
-          const rawRules = await db
-            .select()
-            .from(guidelineRules)
-            .where(eq(guidelineRules.guidelineId, brandSetupGuidelines[0].id));
-
-          brandRules = rawRules.map((record) => ({
-            id: record.id,
-            guidelineId: record.guidelineId,
-            ruleType: record.ruleType as GuidelineRule['ruleType'],
-            ruleStatement: record.ruleStatement,
-            explanation: record.explanation,
-            severity: record.severity as GuidelineRule['severity'],
-            metadata:
-              record.metadata && typeof record.metadata === 'object' && !Array.isArray(record.metadata)
-                ? (record.metadata as Record<string, unknown>)
-                : undefined,
-            createdAt: record.createdAt.toISOString(),
-          }));
+      // Fast-path: Reuse existing review if not a revision and not forced
+      if (!isRevision && !forceAudit) {
+        const existingRun = (await this.repository.findLatestBySubmissionId(id)) || submission.reviewRun;
+        if (existingRun) {
+          const existingFindings = await this.dependencies.findings.getFindingsByReviewRunId(existingRun.id);
+          return {
+            reviewRun: mapReviewRun(existingRun as any),
+            issues: existingFindings ?? [],
+          };
         }
-      } catch {
-        // Fall back gracefully to vector-retrieved rules
       }
 
-      // Merge brand rules (highest priority) with vector rules
-      const mergedRulesMap = new Map<string, GuidelineRule>();
-      for (const r of brandRules) {
-        mergedRulesMap.set(r.id, r);
+      if (
+        submission.status !== 'PENDING' &&
+        submission.status !== 'REVIEWED' &&
+        !isRevision &&
+        !forceAudit
+      ) {
+        throw new Error(`Cannot review submission in ${submission.status} status`);
       }
-      for (const r of rules) {
-        if (!mergedRulesMap.has(r.id)) {
+
+      await this.dependencies.submissions.updateSubmissionStatus(id, 'ANALYZING');
+      let createdReviewRun: ReviewRunRecord | undefined;
+
+      try {
+        const embStart = Date.now();
+        // Generate embedding and fetch active brand rules concurrently
+        const [embedding, brandRules] = await Promise.all([
+          this.dependencies.ai.generateEmbedding(
+            contentToAudit,
+            { dimensions: EMBEDDING_DIMENSIONS }
+          ),
+          this.fetchActiveBrandRules(),
+        ]);
+        const embeddingMs = Date.now() - embStart;
+
+        if (
+          embedding.length !== EMBEDDING_DIMENSIONS ||
+          !embedding.every((value) => Number.isFinite(value))
+        ) {
+          throw new Error(`Review embedding must contain ${EMBEDDING_DIMENSIONS} finite values`);
+        }
+
+        const ruleSearch = this.dependencies.guidelines.findRelevantRules
+          ? (vector: number[], limit?: number) =>
+              this.dependencies.guidelines.findRelevantRules!(vector, limit)
+          : (vector: number[], limit?: number) =>
+              this.dependencies.guidelines.findSimilarRules!(vector, limit);
+
+        const vectorStart = Date.now();
+        const [rules, facts] = await Promise.all([
+          ruleSearch(embedding, RULE_SEARCH_LIMIT),
+          this.dependencies.knowledge.findRelevantFacts(embedding, FACT_SEARCH_LIMIT),
+        ]);
+        const vectorRetrievalMs = Date.now() - vectorStart;
+
+        // Merge brand rules (highest priority) with vector rules
+        const mergedRulesMap = new Map<string, GuidelineRule>();
+        for (const r of brandRules) {
           mergedRulesMap.set(r.id, r);
         }
-      }
-      const allAuditingRules = Array.from(mergedRulesMap.values());
+        for (const r of rules) {
+          if (!mergedRulesMap.has(r.id)) {
+            mergedRulesMap.set(r.id, r);
+          }
+        }
+        const allAuditingRules = Array.from(mergedRulesMap.values());
 
-      const auditStart = Date.now();
-      const audit = await this.dependencies.ai.auditContent({
-        content: contentToAudit,
-        rules: allAuditingRules.map((rule) => ({
+        const auditStart = Date.now();
+        const chunks = chunkDocument(contentToAudit);
+
+        const rulesForPrompt = allAuditingRules.map((rule) => ({
           id: rule.id,
           statement: rule.ruleStatement,
           severity: rule.severity,
-        })),
-        facts: facts.map((fact) => ({
+        }));
+        const factsForPrompt = facts.map((fact) => ({
           id: fact.id,
           claim: fact.claimStatement,
           source: fact.approvedProofSource,
-        })),
-      });
-      const geminiAuditMs = Date.now() - auditStart;
+        }));
 
-      const grounded = mapGroundedAIResults(
-        audit.issues,
-        allAuditingRules,
-        facts,
-        contentToAudit
-      );
-      const deterministic = findQuotedProhibitedPhrases(allAuditingRules, contentToAudit);
-      const deduplicatedAI = grounded.findings.filter(
-        (finding) =>
-          !deterministic.some(
-            (deterministicFinding) =>
-              deterministicFinding.ruleId === finding.ruleId &&
-              deterministicFinding.flaggedExcerpt === finding.flaggedExcerpt
+        // Bounded concurrent chunk audits
+        const chunkAudits = await Promise.all(
+          chunks.map((chunk) =>
+            this.dependencies.ai.auditContent({
+              content: chunk.text,
+              rules: rulesForPrompt,
+              facts: factsForPrompt,
+            })
           )
-      );
-      const findings = [...deterministic, ...deduplicatedAI];
-      const reviewRunInput = buildCreateReviewRunInput(
-        id,
-        allAuditingRules,
-        facts.length,
-        findings,
-        grounded.discardedCount
-      );
+        );
+        const geminiAuditMs = Date.now() - auditStart;
+
+        // Map and re-offset findings across all chunks
+        const allRawAIFindings: RawFindingInput[] = [];
+        let totalDiscarded = 0;
+
+        for (let i = 0; i < chunks.length; i++) {
+          const chunk = chunks[i];
+          const auditResult = chunkAudits[i];
+          const grounded = mapGroundedAIResults(
+            auditResult.issues,
+            allAuditingRules,
+            facts,
+            chunk.text,
+            chunk.charStart,
+            contentToAudit
+          );
+          allRawAIFindings.push(...grounded.findings);
+          totalDiscarded += grounded.discardedCount;
+        }
+
+        // Deduplicate findings across chunk overlaps
+        const deduplicatedAIFindings = deduplicateChunkFindings(allRawAIFindings);
+
+        // Run deterministic prohibited phrase checks across the full document
+        const deterministic = findQuotedProhibitedPhrases(allAuditingRules, contentToAudit);
+
+        const deduplicatedAI = deduplicatedAIFindings.filter(
+          (finding) =>
+            !deterministic.some(
+              (deterministicFinding) =>
+                deterministicFinding.ruleId === finding.ruleId &&
+                deterministicFinding.flaggedExcerpt === finding.flaggedExcerpt &&
+                deterministicFinding.charStart === finding.charStart
+            )
+        );
+
+        const findings = [...deterministic, ...deduplicatedAI];
+        const reviewRunInput = buildCreateReviewRunInput(
+          id,
+          allAuditingRules,
+          facts.length,
+          findings,
+          totalDiscarded
+        );
 
       if (isRevision) {
         reviewRunInput.summary = {
@@ -509,34 +688,86 @@ export class ReviewService implements IReviewService {
 
       const rulesMap = new Map(allAuditingRules.map((r) => [r.id, r]));
       const factsMap = new Map(facts.map((f) => [f.id, f]));
-      const validatedFindings = findings.map((f) => {
+      const validatedFindings: RawFindingInput[] = [];
+
+      for (const f of findings) {
         if (f.issueType === 'GRAMMAR_ERROR' || f.issueType === 'SPELLING_ERROR') {
-          return f;
+          const rawQuote = (f.sourceQuote || '').trim();
+          const cleanQuote =
+            rawQuote.length > 0 && contentToAudit.includes(rawQuote)
+              ? rawQuote
+              : f.flaggedExcerpt;
+          validatedFindings.push({
+            ...f,
+            sourceQuote: cleanQuote,
+            ruleId: null,
+            factId: null,
+          });
+          continue;
         }
+
         if (f.ruleId) {
-          const rule = rulesMap.get(f.ruleId);
-          if (rule && !rule.ruleStatement.includes(f.sourceQuote)) {
-            return {
+          const rule = rulesMap.get(f.ruleId) ?? allAuditingRules.find((r) => r.id === f.ruleId) ?? allAuditingRules[0];
+          if (rule) {
+            const rawQuote = (f.sourceQuote || '').trim().replace(/^["'«“](.*)["'»”]$/s, '$1').trim();
+            const isVerbatim = rawQuote.length > 0 && rule.ruleStatement.includes(rawQuote);
+            validatedFindings.push({
               ...f,
-              sourceQuote: rule.ruleStatement,
-              evidenceStrengthScore: 0.0,
-            };
-          }
-        } else if (f.factId) {
-          const fact = factsMap.get(f.factId);
-          if (fact) {
-            const factSource = `${fact.claimStatement}\n${fact.approvedProofSource}`;
-            if (!factSource.includes(f.sourceQuote)) {
-              return {
-                ...f,
-                sourceQuote: fact.claimStatement,
-                evidenceStrengthScore: 0.0,
-              };
-            }
+              sourceQuote: isVerbatim ? rawQuote : rule.ruleStatement,
+              evidenceStrengthScore: isVerbatim ? (f.evidenceStrengthScore ?? 0.8) : 0.0,
+              ruleId: rule.id,
+              factId: null,
+            });
+            continue;
           }
         }
-        return f;
-      });
+
+        if (f.factId) {
+          const fact = factsMap.get(f.factId) ?? facts.find((factItem) => factItem.id === f.factId) ?? facts[0];
+          if (fact) {
+            const rawQuote = (f.sourceQuote || '').trim().replace(/^["'«“](.*)["'»”]$/s, '$1').trim();
+            const factSource = `${fact.claimStatement}\n${fact.approvedProofSource}`;
+            const isVerbatim = rawQuote.length > 0 && factSource.includes(rawQuote);
+            validatedFindings.push({
+              ...f,
+              sourceQuote: isVerbatim ? rawQuote : fact.claimStatement,
+              evidenceStrengthScore: isVerbatim ? (f.evidenceStrengthScore ?? 0.8) : 0.0,
+              factId: fact.id,
+              ruleId: null,
+            });
+            continue;
+          }
+        }
+
+        if (f.issueType === 'UNSUBSTANTIATED_CLAIM' && facts.length > 0) {
+          const fact = facts[0];
+          const rawQuote = (f.sourceQuote || '').trim().replace(/^["'«“](.*)["'»”]$/s, '$1').trim();
+          const factSource = `${fact.claimStatement}\n${fact.approvedProofSource}`;
+          const isVerbatim = rawQuote.length > 0 && factSource.includes(rawQuote);
+          validatedFindings.push({
+            ...f,
+            sourceQuote: isVerbatim ? rawQuote : fact.claimStatement,
+            evidenceStrengthScore: isVerbatim ? (f.evidenceStrengthScore ?? 0.8) : 0.0,
+            factId: fact.id,
+            ruleId: null,
+          });
+          continue;
+        }
+
+        if (allAuditingRules.length > 0) {
+          const rule = allAuditingRules[0];
+          const rawQuote = (f.sourceQuote || '').trim().replace(/^["'«“](.*)["'»”]$/s, '$1').trim();
+          const isVerbatim = rawQuote.length > 0 && rule.ruleStatement.includes(rawQuote);
+          validatedFindings.push({
+            ...f,
+            sourceQuote: isVerbatim ? rawQuote : rule.ruleStatement,
+            evidenceStrengthScore: isVerbatim ? (f.evidenceStrengthScore ?? 0.8) : 0.0,
+            ruleId: rule.id,
+            factId: null,
+          });
+          continue;
+        }
+      }
 
       const persistedFindings = await this.dependencies.findings.recordFindings(
         createdReviewRun.id,

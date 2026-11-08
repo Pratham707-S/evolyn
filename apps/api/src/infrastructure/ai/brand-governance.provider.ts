@@ -205,6 +205,9 @@ Audit this content against the brand setup, rules, and verified facts. Return st
         modelToTry
       )}:generateContent`;
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
       try {
         const res = await this.fetcher(url, {
           method: 'POST',
@@ -213,7 +216,9 @@ Audit this content against the brand setup, rules, and verified facts. Return st
             'x-goog-api-key': this.apiKey,
           },
           body: JSON.stringify(requestBody),
+          signal: controller.signal,
         });
+        clearTimeout(timeoutId);
 
         if (res.ok) {
           response = res;
@@ -235,6 +240,7 @@ Audit this content against the brand setup, rules, and verified facts. Return st
           );
         }
       } catch (err: any) {
+        clearTimeout(timeoutId);
         if (err.message && err.message.includes('Brand Governance AI Gemini request failed')) {
           throw err;
         }
