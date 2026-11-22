@@ -24,6 +24,22 @@
 import type { ApprovedFact, CreateApprovedFactInput } from '@evolyn/shared';
 import type { FactMatchResult } from './knowledge.types.js';
 
+export interface ClaimVerificationResult {
+  claim: string;
+  verdict: 'VERIFIED' | 'PARTIAL_EVIDENCE' | 'UNSUBSTANTIATED';
+  evidenceStrength: number;
+  confidence: number;
+  matchedFact: ApprovedFact | null;
+  corroboratingFacts: Array<ApprovedFact & { similarity: number }>;
+  verbatimVerification: {
+    isVerbatim: boolean;
+    proofSource?: string;
+    citationExcerpt?: string;
+  };
+  recommendation: string;
+  auditTimestamp: string;
+}
+
 export interface IKnowledgeService {
   createFact(input: CreateApprovedFactInput): Promise<ApprovedFact>;
   listFacts(topic?: string): Promise<ApprovedFact[]>;
@@ -31,6 +47,8 @@ export interface IKnowledgeService {
   deleteFact(id: string): Promise<boolean>;
   findRelevantFacts(queryVector: number[], limit?: number): Promise<FactMatchResult[]>;
   generateAndSaveEmbeddings(): Promise<number>;
+  verifyClaim(claimText: string): Promise<ClaimVerificationResult>;
+  seedSampleFacts(): Promise<ApprovedFact[]>;
 }
 
 export * from './knowledge.types.js';

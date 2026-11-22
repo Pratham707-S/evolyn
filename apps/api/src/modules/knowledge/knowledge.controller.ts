@@ -75,11 +75,43 @@ export function createKnowledgeController(
         }
     };
 
+    const verifyClaim = async (
+        req: Request,
+        res: Response,
+        next: NextFunction,
+    ) => {
+        try {
+            const { claim } = req.body;
+            if (!claim || typeof claim !== 'string') {
+                return res.status(400).json({ error: 'claim string is required in request body' });
+            }
+            const result = await service.verifyClaim(claim);
+            return res.status(200).json(result);
+        } catch (error) {
+            return next(error);
+        }
+    };
+
+    const seedSamples = async (
+        req: Request,
+        res: Response,
+        next: NextFunction,
+    ) => {
+        try {
+            const facts = await service.seedSampleFacts();
+            return res.status(201).json({ message: 'Sample facts ensured', facts, total: facts.length });
+        } catch (error) {
+            return next(error);
+        }
+    };
+
     return {
         createFact,
         getFacts,
         getFactById,
         deleteFact,
+        verifyClaim,
+        seedSamples,
     };
 }
 
