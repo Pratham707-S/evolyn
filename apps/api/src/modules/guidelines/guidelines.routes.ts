@@ -3,6 +3,26 @@ import { guidelinesController } from './guidelines.controller.js';
 
 export const guidelinesRouter = Router();
 
+guidelinesRouter.get(
+    '/conflicts',
+    guidelinesController.getAllConflicts,
+);
+
+guidelinesRouter.post(
+    '/detect-all-conflicts',
+    guidelinesController.detectAllConflicts,
+);
+
+guidelinesRouter.post(
+    '/conflicts/seed-sample',
+    guidelinesController.seedSampleConflict,
+);
+
+guidelinesRouter.patch(
+    '/conflicts/:conflictId',
+    guidelinesController.resolveConflict,
+);
+
 guidelinesRouter.post(
     '/',
     guidelinesController.createGuideline,

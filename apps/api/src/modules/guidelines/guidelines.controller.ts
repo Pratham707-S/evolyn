@@ -195,6 +195,86 @@ export function createGuidelinesController(
     }
   };
 
+  // GET: List all conflicts with enriched rule details
+  const getAllConflicts = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const status = req.query.status as string | undefined;
+      const conflicts = service.getAllConflicts
+        ? await service.getAllConflicts(status)
+        : [];
+      return res.status(200).json({
+        conflicts,
+        total: conflicts.length,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  };
+
+  // POST: Run workspace-wide conflict scan across all guidelines
+  const detectAllConflicts = async (
+    _req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const conflicts = service.detectAllConflicts
+        ? await service.detectAllConflicts()
+        : [];
+      return res.status(200).json({
+        conflicts,
+        total: conflicts.length,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  };
+
+  // PATCH: Resolve or update status of a conflict
+  const resolveConflict = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const { conflictId } = req.params;
+      const status = (req.body?.status || 'RESOLVED') as 'OPEN' | 'RESOLVED' | 'ACKNOWLEDGED';
+      const updated = service.updateConflictStatus
+        ? await service.updateConflictStatus(conflictId, status)
+        : null;
+      return res.status(200).json({
+        success: Boolean(updated),
+        conflict: updated,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  };
+
+  // POST: Inject sample contradictory rule pair for demonstration testing
+  const seedSampleConflict = async (
+    _req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const conflicts = service.seedSampleContradiction
+        ? await service.seedSampleContradiction()
+        : [];
+      return res.status(200).json({
+        message: 'Sample contradictory rule pair generated and conflict detected.',
+        conflicts,
+        total: conflicts.length,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  };
+
   return {
     createGuideline,
     getGuidelines,
@@ -203,6 +283,10 @@ export function createGuidelinesController(
     deleteGuideline,
     extractRules,
     detectConflicts,
+    getAllConflicts,
+    detectAllConflicts,
+    resolveConflict,
+    seedSampleConflict,
   };
 }
 

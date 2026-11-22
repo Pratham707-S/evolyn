@@ -459,6 +459,79 @@ export class GuidelinesService implements IGuidelineService {
             similarity: rule.similarity,
         }));
     }
+
+    async getAllConflicts(status?: string): Promise<any[]> {
+        if (typeof (this.repository as any).listAllConflicts === 'function') {
+            return (this.repository as any).listAllConflicts(status);
+        }
+        return [];
+    }
+
+    async detectAllConflicts(): Promise<any[]> {
+        let ruleRecords: any[] = [];
+        if (typeof (this.repository as any).findAllRules === 'function') {
+            ruleRecords = await (this.repository as any).findAllRules();
+        }
+
+        if (ruleRecords.length >= 2) {
+            const rules = ruleRecords.map(mapRule);
+            const detectedConflicts = detectRuleConflicts(rules);
+
+            if (detectedConflicts.length > 0 && typeof this.repository.createConflicts === 'function') {
+                await this.repository.createConflicts(detectedConflicts);
+            }
+        }
+
+        return this.getAllConflicts();
+    }
+
+    async updateConflictStatus(
+        conflictId: string,
+        status: 'OPEN' | 'RESOLVED' | 'ACKNOWLEDGED'
+    ): Promise<any> {
+        if (typeof (this.repository as any).updateConflictStatus === 'function') {
+            return (this.repository as any).updateConflictStatus(conflictId, status);
+        }
+        return null;
+    }
+
+    async seedSampleContradiction(): Promise<any> {
+        const existingGuidelines = await this.repository.findMany();
+        let targetGuideline = existingGuidelines[0];
+
+        if (!targetGuideline) {
+            targetGuideline = await this.repository.create({
+                title: 'Global Communications Policy',
+                category: 'GENERAL',
+                version: '1.0',
+                rawContent: 'Brand communications policy covering customer-facing pricing and enterprise naming.',
+            });
+        }
+
+        const rules = await this.repository.findRulesByGuidelineId(targetGuideline.id);
+        const hasRuleA = rules.some((r) => r.ruleStatement.includes('Always mention pricing tier upfront'));
+        const hasRuleB = rules.some((r) => r.ruleStatement.includes('Never mention pricing tier upfront'));
+
+        if (!hasRuleA || !hasRuleB) {
+            const rulesToInsert = [
+                {
+                    ruleType: 'MANDATORY' as const,
+                    ruleStatement: 'Always mention pricing tier upfront in customer communications.',
+                    explanation: 'Sales standard to establish transparent deal terms immediately.',
+                    severity: 'CRITICAL' as const,
+                },
+                {
+                    ruleType: 'PROHIBITED' as const,
+                    ruleStatement: 'Never mention pricing tier upfront in customer communications.',
+                    explanation: 'Legal standard forbidding public disclosure before discovery call.',
+                    severity: 'CRITICAL' as const,
+                },
+            ];
+            await this.repository.createRules(targetGuideline.id, rulesToInsert);
+        }
+
+        return this.detectAllConflicts();
+    }
 }
 
 // Default service instance

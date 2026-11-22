@@ -346,6 +346,69 @@ export class GuidelinesRepository {
             .onConflictDoNothing()
             .returning();
     }
+
+    async findAllRules(): Promise<GuidelineRuleRecord[]> {
+        return this.database
+            .select()
+            .from(guidelineRules)
+            .orderBy(desc(guidelineRules.createdAt));
+    }
+
+    async listAllConflicts(status?: string): Promise<any[]> {
+        const baseQuery = this.database
+            .select()
+            .from(guidelineConflicts)
+            .orderBy(desc(guidelineConflicts.createdAt));
+
+        const conflicts = status
+            ? await this.database
+                .select()
+                .from(guidelineConflicts)
+                .where(eq(guidelineConflicts.status, status))
+                .orderBy(desc(guidelineConflicts.createdAt))
+            : await baseQuery;
+
+        if (conflicts.length === 0) {
+            return [];
+        }
+
+        const ruleIds = Array.from(new Set(conflicts.flatMap((c) => [c.ruleAId, c.ruleBId])));
+        if (ruleIds.length === 0) return [];
+
+        const rules = await this.database
+            .select({
+                id: guidelineRules.id,
+                guidelineId: guidelineRules.guidelineId,
+                ruleType: guidelineRules.ruleType,
+                ruleStatement: guidelineRules.ruleStatement,
+                explanation: guidelineRules.explanation,
+                severity: guidelineRules.severity,
+                guidelineTitle: guidelines.title,
+            })
+            .from(guidelineRules)
+            .leftJoin(guidelines, eq(guidelineRules.guidelineId, guidelines.id))
+            .where(inArray(guidelineRules.id, ruleIds));
+
+        const rulesMap = new Map(rules.map((r) => [r.id, r]));
+
+        return conflicts.map((c) => ({
+            ...c,
+            ruleA: rulesMap.get(c.ruleAId) || null,
+            ruleB: rulesMap.get(c.ruleBId) || null,
+        }));
+    }
+
+    async updateConflictStatus(
+        conflictId: string,
+        status: 'OPEN' | 'RESOLVED' | 'ACKNOWLEDGED'
+    ): Promise<GuidelineConflictRecord | null> {
+        const [updated] = await this.database
+            .update(guidelineConflicts)
+            .set({ status })
+            .where(eq(guidelineConflicts.id, conflictId))
+            .returning();
+        return updated || null;
+    }
 }
 
 export const guidelinesRepository = new GuidelinesRepository();

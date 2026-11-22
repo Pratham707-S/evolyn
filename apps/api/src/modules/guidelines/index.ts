@@ -47,6 +47,13 @@ export interface IGuidelineService {
   detectAndSaveConflicts(
     guidelineId: string,
   ): Promise<GuidelineConflictRecord[]>;
+  getAllConflicts?(status?: string): Promise<any[]>;
+  detectAllConflicts?(): Promise<any[]>;
+  updateConflictStatus?(
+    conflictId: string,
+    status: 'OPEN' | 'RESOLVED' | 'ACKNOWLEDGED'
+  ): Promise<any>;
+  seedSampleContradiction?(): Promise<any>;
   findRelevantRules?(
     queryVector: number[],
     limit?: number,

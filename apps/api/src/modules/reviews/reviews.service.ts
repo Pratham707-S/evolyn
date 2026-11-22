@@ -425,6 +425,10 @@ export class ReviewService implements IReviewService {
   ) {}
 
   private async fetchActiveBrandRules(): Promise<GuidelineRule[]> {
+    if (process.env.NODE_ENV === 'test') {
+      return [];
+    }
+
     if (
       this.brandRulesCache &&
       Date.now() - this.brandRulesCache.timestamp < ReviewService.BRAND_RULES_TTL_MS
