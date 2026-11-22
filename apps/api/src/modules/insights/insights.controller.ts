@@ -14,6 +14,15 @@ export class InsightsController {
     }
   };
 
+  getAnalytics = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const summary = await this.service.getAnalytics();
+      return res.status(200).json(summary);
+    } catch (error) {
+      return next(error);
+    }
+  };
+
   refineRule = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { ruleId } = req.params;

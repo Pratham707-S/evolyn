@@ -5,6 +5,7 @@ import {
   insightsRepository,
   type EnrichedRecurringMistake,
   type InsightsRepository,
+  type GovernanceAnalyticsSummary,
 } from './insights.repository.js';
 import type { RuleRefinementSuggestion } from './insights.types.js';
 
@@ -18,6 +19,10 @@ export class InsightsService implements IInsightsService {
 
   async listRecurringMistakes(status?: string): Promise<EnrichedRecurringMistake[]> {
     return await this.repository.listAll(status);
+  }
+
+  async getAnalytics(): Promise<GovernanceAnalyticsSummary> {
+    return await this.repository.getAnalyticsSummary();
   }
 
   async generateRefinement(ruleId: string): Promise<RuleRefinementSuggestion> {
