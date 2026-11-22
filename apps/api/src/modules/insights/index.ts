@@ -20,12 +20,17 @@
 
 import type { RecurringMistake } from '@evolyn/shared';
 import type { RuleRefinementSuggestion } from './insights.types.js';
+import type { EnrichedRecurringMistake } from './insights.repository.js';
 
 export interface IInsightsService {
   trackViolation(ruleId: string, sampleExcerpt: string): Promise<void>;
-  listRecurringMistakes(): Promise<RecurringMistake[]>;
+  listRecurringMistakes(status?: string): Promise<EnrichedRecurringMistake[]>;
   generateRefinement(ruleId: string): Promise<RuleRefinementSuggestion>;
   applyRefinement(ruleId: string, newStatement: string): Promise<void>;
 }
 
 export * from './insights.types.js';
+export * from './insights.repository.js';
+export * from './insights.service.js';
+export * from './insights.controller.js';
+export * from './insights.routes.js';

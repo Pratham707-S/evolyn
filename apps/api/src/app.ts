@@ -12,6 +12,7 @@ import { reviewsRouter } from './modules/reviews/reviews.routes.js';
 import { decisionsRouter } from './modules/decisions/decisions.routes.js';
 import { brandSetupRouter } from './modules/brand-setup/brand-setup.routes.js';
 import { brandGovernanceRouter } from './modules/brand-governance/brand-governance.routes.js';
+import { insightsRouter } from './modules/insights/insights.routes.js';
 import { submissionService } from './modules/submissions/submissions.service.js';
 import { generateSimplePdf } from './modules/submissions/services/pdf-generator.service.js';
 
@@ -75,6 +76,7 @@ app.use('/api/guidelines', guidelinesRouter);
 app.use('/api/knowledge', knowledgeRouter);
 app.use('/api/brand-setup', brandSetupRouter);
 app.use('/api/brand-governance', brandGovernanceRouter);
+app.use('/api/insights', insightsRouter);
 
 // 404 Handler
 app.use((req, res) => {
