@@ -86,10 +86,14 @@ export class SubmissionRepository {
   async list(filter: {
     status?: SubmissionStatus;
     channel?: SubmissionChannel;
-  }): Promise<SubmissionRecord[]> {
+  }): Promise<Array<SubmissionRecord & { decision: DecisionRecord | null }>> {
     const rows = await db
-      .select()
+      .select({
+        submission: contentSubmissions,
+        decision: decisions,
+      })
       .from(contentSubmissions)
+      .leftJoin(decisions, eq(decisions.submissionId, contentSubmissions.id))
       .where(
         and(
           filter.status ? eq(contentSubmissions.status, filter.status) : undefined,
@@ -98,7 +102,21 @@ export class SubmissionRepository {
       )
       .orderBy(desc(contentSubmissions.createdAt));
 
-    return rows;
+    const latestBySubmission = new Map<string, DecisionRecord>();
+    for (const row of rows) {
+      if (!row.decision) continue;
+      const current = latestBySubmission.get(row.submission.id);
+      if (!current || row.decision.createdAt > current.createdAt ||
+          (row.decision.createdAt.getTime() === current.createdAt.getTime() && row.decision.id > current.id)) {
+        latestBySubmission.set(row.submission.id, row.decision);
+      }
+    }
+
+    return Array.from(new Map(rows.map(({ submission }) => [submission.id, submission])).values())
+      .map((submission) => ({
+        ...submission,
+        decision: latestBySubmission.get(submission.id) ?? null,
+      }));
   }
 
   async update(

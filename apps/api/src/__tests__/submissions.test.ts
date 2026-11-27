@@ -115,6 +115,29 @@ describe('SubmissionService', () => {
     await assert.rejects(service.listSubmissions({ status: 'UNKNOWN' }), isZodError);
   });
 
+  it('includes the latest human decision when mapping submissions for list responses', async () => {
+    const timestamp = new Date('2026-11-04T10:00:00.000Z');
+    const decision: DecisionRecord = {
+      id: 'e0a80123-4567-4890-a123-456789abcdef',
+      submissionId,
+      decision: 'CHANGES_REQUESTED',
+      reviewerName: 'Ayan',
+      comments: 'Please revise the headline',
+      overriddenIssueIds: [],
+      createdAt: timestamp,
+    };
+    const service = new SubmissionService(
+      createRepository({
+        list: async () => [{ ...createSubmissionRecord({ status: 'REVIEWED' }), decision }],
+      })
+    );
+
+    const submissions = await service.listSubmissions();
+
+    assert.equal(submissions[0]?.status, 'REVIEWED');
+    assert.equal(submissions[0]?.decision?.decision, 'CHANGES_REQUESTED');
+  });
+
   it('returns the submission with its latest review and decision', async () => {
     const timestamp = new Date('2026-11-04T10:00:00.000Z');
     const reviewRun: ReviewRunRecord = {

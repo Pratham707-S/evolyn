@@ -52,8 +52,11 @@ export default function Home() {
 
     const total = subsList.length;
     const approved = subsList.filter((s) => s.status === 'APPROVED').length;
-    const needsChanges = subsList.filter((s) => s.status === 'REJECTED' || s.status === 'REVIEWED').length;
-    const pending = subsList.filter((s) => s.status === 'PENDING' || s.status === 'ANALYZING').length;
+    const needsChanges = subsList.filter((s) => s.decision?.decision === 'CHANGES_REQUESTED').length;
+    const pending = subsList.filter(
+      (s) => s.status === 'PENDING' || s.status === 'ANALYZING' ||
+        (s.status === 'REVIEWED' && !s.decision)
+    ).length;
 
     return [
       {
@@ -82,7 +85,7 @@ export default function Home() {
       },
       {
         id: 'active-claims',
-        label: 'Pending review',
+        label: 'Awaiting approval',
         value: pending,
         delta: total > 0 ? 'In queue' : 'Empty',
         trend: 'up',
@@ -118,7 +121,7 @@ export default function Home() {
       }
 
       const chApproved = chSubs.filter((s) => s.status === 'APPROVED').length;
-      const chChanges = chSubs.filter((s) => s.status === 'REJECTED' || s.status === 'REVIEWED').length;
+      const chChanges = chSubs.filter((s) => s.decision?.decision === 'CHANGES_REQUESTED').length;
 
       return {
         channel: chName,
@@ -138,9 +141,11 @@ export default function Home() {
         status:
           s.status === 'APPROVED'
             ? 'Approved'
-            : s.status === 'REJECTED'
+            : s.decision?.decision === 'CHANGES_REQUESTED'
             ? 'Needs changes'
-            : 'Pending',
+            : s.decision?.decision === 'REJECTED' || s.status === 'REJECTED'
+            ? 'Rejected'
+            : 'Pending approval',
       }));
     }
 

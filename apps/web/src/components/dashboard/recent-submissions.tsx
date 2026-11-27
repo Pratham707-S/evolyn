@@ -7,7 +7,7 @@ export interface SubmissionItem {
   id: string;
   title: string;
   timestamp: string;
-  status: 'Approved' | 'Needs changes' | 'Pending';
+  status: 'Approved' | 'Needs changes' | 'Pending approval' | 'Rejected' | 'Pending';
 }
 
 interface RecentSubmissionsProps {
@@ -92,6 +92,11 @@ export function RecentSubmissions({
         <div className="divide-y divide-[#E5E1D8]/50">
           {items.map((sub) => {
             const isApproved = sub.status === 'Approved';
+            const statusClass = isApproved
+              ? 'bg-[#E8EBE1] text-[#4E6B54]'
+              : sub.status === 'Needs changes' || sub.status === 'Rejected'
+              ? 'bg-[#F8E8E6] text-[#9B4B43]'
+              : 'bg-[#F5EFE6] text-[#8A6B3D]';
 
             return (
               <div
@@ -111,11 +116,7 @@ export function RecentSubmissions({
                     {sub.timestamp}
                   </span>
                   <span
-                    className={`text-[10px] sm:text-[11px] font-medium px-2 sm:px-2.5 py-0.5 rounded-full inline-block shrink-0 ${
-                      isApproved
-                        ? 'bg-[#E8EBE1] text-[#4E6B54]'
-                        : 'bg-[#F5EFE6] text-[#8A6B3D]'
-                    }`}
+                    className={`text-[10px] sm:text-[11px] font-medium px-2 sm:px-2.5 py-0.5 rounded-full inline-block shrink-0 ${statusClass}`}
                   >
                     {sub.status}
                   </span>

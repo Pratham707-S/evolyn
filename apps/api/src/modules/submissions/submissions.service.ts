@@ -132,7 +132,10 @@ export class SubmissionService implements ISubmissionService {
     };
 
     const records = await this.repository.list(validatedFilter);
-    return records.map(mapSubmission);
+    return records.map((record) => ({
+      ...mapSubmission(record),
+      decision: record.decision ? mapDecision(record.decision) : null,
+    }));
   }
 
   async updateSubmissionStatus(id: string, status: SubmissionStatus): Promise<void> {

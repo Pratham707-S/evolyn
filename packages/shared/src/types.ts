@@ -86,6 +86,8 @@ export interface ContentSubmission {
   status: SubmissionStatus;
   createdAt: string;
   updatedAt: string;
+  /** Latest human decision, when a reviewer has made one. */
+  decision?: Decision | null;
 }
 
 export type IssueType = z.infer<typeof issueTypeSchema>;
