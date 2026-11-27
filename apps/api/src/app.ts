@@ -15,6 +15,7 @@ import { brandGovernanceRouter } from './modules/brand-governance/brand-governan
 import { insightsRouter } from './modules/insights/insights.routes.js';
 import { submissionService } from './modules/submissions/submissions.service.js';
 import { generateSimplePdf } from './modules/submissions/services/pdf-generator.service.js';
+import { inlineContentDisposition } from './utils/content-disposition.js';
 
 export const app = express();
 
@@ -35,7 +36,7 @@ app.get('/uploads/:filename', async (req, res, next) => {
         const buffer = Buffer.from(base64Data, 'base64');
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Length', buffer.length);
-        res.setHeader('Content-Disposition', `inline; filename="${submission.title || filename}"`);
+        res.setHeader('Content-Disposition', inlineContentDisposition(submission.title || filename));
         res.send(buffer);
         return;
       }
@@ -43,7 +44,7 @@ app.get('/uploads/:filename', async (req, res, next) => {
         const buffer = generateSimplePdf(submission.title || filename, submission.rawText);
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Length', buffer.length);
-        res.setHeader('Content-Disposition', `inline; filename="${submission.title || filename}"`);
+        res.setHeader('Content-Disposition', inlineContentDisposition(submission.title || filename));
         res.send(buffer);
         return;
       }

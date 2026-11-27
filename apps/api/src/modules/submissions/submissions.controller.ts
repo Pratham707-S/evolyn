@@ -14,6 +14,7 @@ import { localStorageProvider } from '../../infrastructure/storage/local.storage
 import { pdfExtractorService } from './services/pdf-extractor.service.js';
 import { urlExtractorService } from './services/url-extractor.service.js';
 import { generateSimplePdf } from './services/pdf-generator.service.js';
+import { inlineContentDisposition } from '../../utils/content-disposition.js';
 
 const listSubmissionsQuerySchema = z.object({
   status: submissionStatusSchema.optional(),
@@ -185,7 +186,10 @@ export class SubmissionController {
         const buffer = Buffer.from(base64Data, 'base64');
         res.setHeader('Content-Type', contentType);
         res.setHeader('Content-Length', buffer.length);
-        res.setHeader('Content-Disposition', `inline; filename="${submission.title || 'document'}.pdf"`);
+        res.setHeader(
+          'Content-Disposition',
+          inlineContentDisposition(`${submission.title || 'document'}.pdf`)
+        );
         res.send(buffer);
         return;
       }
@@ -196,7 +200,10 @@ export class SubmissionController {
         const localPath = path.resolve(process.cwd(), 'uploads', filename);
         if (fs.existsSync(localPath)) {
           res.setHeader('Content-Type', 'application/pdf');
-          res.setHeader('Content-Disposition', `inline; filename="${submission.title || 'document'}.pdf"`);
+          res.setHeader(
+            'Content-Disposition',
+            inlineContentDisposition(`${submission.title || 'document'}.pdf`)
+          );
           fs.createReadStream(localPath).pipe(res);
           return;
         }
@@ -216,7 +223,10 @@ export class SubmissionController {
         const buffer = generateSimplePdf(submission.title || 'Brand Document', submission.rawText);
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Length', buffer.length);
-        res.setHeader('Content-Disposition', `inline; filename="${submission.title || 'document'}.pdf"`);
+        res.setHeader(
+          'Content-Disposition',
+          inlineContentDisposition(`${submission.title || 'document'}.pdf`)
+        );
         res.send(buffer);
         return;
       }

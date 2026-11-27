@@ -382,6 +382,34 @@ describe('Submissions Integration Tests (Express App E2E)', () => {
   });
 
   // -------------------------------------------------------------
+  // GET /api/submissions/:id/file
+  // -------------------------------------------------------------
+  describe('GET /api/submissions/:id/file', () => {
+    it('returns a PDF with a valid UTF-8 filename for Unicode submission titles', async () => {
+      submissionRepository.findById = async () => ({
+        submission: createSampleSubmission({
+          title: 'TEST ONLY — env update verification',
+          fileUrl: null,
+        }),
+        reviewRun: null,
+        decision: null,
+      });
+
+      const res = await dispatch({
+        method: 'GET',
+        url: `/api/submissions/${validUuid}/file`,
+      });
+
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.headers['content-type'], 'application/pdf');
+      assert.equal(
+        res.headers['content-disposition'],
+        `inline; filename="TEST ONLY _ env update verification.pdf"; filename*=UTF-8''TEST%20ONLY%20%E2%80%94%20env%20update%20verification.pdf`
+      );
+    });
+  });
+
+  // -------------------------------------------------------------
   // DELETE /api/submissions/:id
   // -------------------------------------------------------------
   describe('DELETE /api/submissions/:id', () => {
