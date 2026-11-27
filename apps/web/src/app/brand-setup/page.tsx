@@ -193,6 +193,21 @@ function BrandSetupContent() {
       queryClient.invalidateQueries({ queryKey: ['active-brand-setup'] });
       queryClient.invalidateQueries({ queryKey: ['brand-governance-context'] });
       queryClient.invalidateQueries({ queryKey: ['guidelines'] });
+
+      let publishedSubmissionId: string | undefined;
+      if (isPublish) {
+        const submissionResponse = await apiClient.post<{ submission: ContentSubmission }>(
+          '/api/submissions',
+          {
+            title: `${profileData.brandName} Brand Description`,
+            channel: 'WEBSITE',
+            rawText: profileData.description,
+            submittedBy: 'Brand Setup',
+          }
+        );
+        publishedSubmissionId = submissionResponse.submission.id;
+      }
+
       showToast(
         isPublish
           ? `Brand Setup published and synced with Brand Governance AI.`
@@ -201,7 +216,7 @@ function BrandSetupContent() {
 
       if (isPublish) {
         setTimeout(() => {
-          router.push('/reviews');
+          router.push(`/reviews?id=${encodeURIComponent(publishedSubmissionId!)}`);
         }, 600);
       }
     } catch (err) {
