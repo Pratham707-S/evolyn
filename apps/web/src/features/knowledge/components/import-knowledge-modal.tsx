@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 interface ImportKnowledgeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onImportComplete: (count: number) => void;
+  onImportComplete: (file: File) => Promise<number>;
   showToast: (msg: string) => void;
 }
 
@@ -20,6 +20,7 @@ export function ImportKnowledgeModal({
   const [dragOver, setDragOver] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   if (!isOpen) return null;
 
@@ -37,20 +38,24 @@ export function ImportKnowledgeModal({
     }
   };
 
-  const handleExecuteImport = () => {
+  const handleExecuteImport = async () => {
     if (!selectedFile) {
       showToast('Please select a file to import');
       return;
     }
 
     setIsUploading(true);
-    setTimeout(() => {
+    setErrorMessage('');
+    try {
+      const count = await onImportComplete(selectedFile);
       setIsUploading(false);
-      onImportComplete(3);
-      showToast(`Successfully imported knowledge items from ${selectedFile.name}`);
+      showToast(`Saved ${count} approved facts from ${selectedFile.name}.`);
       onClose();
       setSelectedFile(null);
-    }, 900);
+    } catch (error) {
+      setIsUploading(false);
+      setErrorMessage(error instanceof Error ? error.message : 'Import failed. Some earlier facts may have saved; refresh the library to confirm.');
+    }
   };
 
   return (
@@ -67,7 +72,7 @@ export function ImportKnowledgeModal({
                 Import Knowledge Assets
               </h2>
               <p className="text-xs text-[#77766E] mt-0.5">
-                Upload CSV, JSON, or PDF benchmark documentation.
+                Import approved facts from a JSON file.
               </p>
             </div>
           </div>
@@ -101,7 +106,7 @@ export function ImportKnowledgeModal({
             <input
               type="file"
               id="file-upload-knowledge"
-              accept=".csv,.json,.pdf,.txt"
+              accept=".json,application/json"
               onChange={handleFileChange}
               className="hidden"
             />
@@ -121,8 +126,8 @@ export function ImportKnowledgeModal({
               </p>
               <p className="text-[11px] text-[#77766E]">
                 {selectedFile
-                  ? `${(selectedFile.size / 1024).toFixed(1)} KB • Ready to extract`
-                  : 'Supported formats: CSV, JSON, Markdown, or PDF (up to 25MB)'}
+                  ? `${(selectedFile.size / 1024).toFixed(1)} KB • JSON file selected`
+                  : 'JSON only, up to 5 MB; array entries need topic, claimStatement, and approvedProofSource'}
               </p>
             </label>
           </div>
@@ -131,13 +136,14 @@ export function ImportKnowledgeModal({
           <div className="p-3 bg-[#FAF8F5] border border-[#EFECE6] rounded-xl flex items-start gap-2.5 text-xs text-[#52524E]">
             <AlertCircle className="w-4 h-4 text-[#77766E] flex-shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-[#25251F]">Automatic Entity Grounding</p>
+              <p className="font-semibold text-[#25251F]">What happens when you import</p>
               <p className="text-[11px] text-[#77766E] mt-0.5 leading-relaxed">
-                Imported items are semantically parsed into facts, claims, and citations for immediate use in AI review runs.
+                Each JSON entry is validated and saved as an approved fact. Large documents and PDFs are not parsed by this importer.
               </p>
             </div>
           </div>
         </div>
+        {errorMessage && <p role="alert" className="px-5 pb-3 text-xs text-red-700">{errorMessage}</p>}
 
         {/* Footer */}
         <div className="p-4 sm:p-5 border-t border-[#E5E1D8] flex items-center justify-end gap-2.5 bg-white">

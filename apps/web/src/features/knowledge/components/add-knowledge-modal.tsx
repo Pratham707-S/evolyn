@@ -12,7 +12,7 @@ import {
 interface AddKnowledgeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (item: KnowledgeItem) => void;
+  onAdd: (item: KnowledgeItem) => Promise<void>;
   showToast: (msg: string) => void;
 }
 
@@ -29,11 +29,9 @@ export function AddKnowledgeModal({
   const [summary, setSummary] = useState('');
   const [ownedBy, setOwnedBy] = useState('Brand Team');
   const [proofSource, setProofSource] = useState('');
-  const [keyFacts, setKeyFacts] = useState<string[]>([
-    'Core verified product capability statement.',
-    'Evidence-backed for AI automated compliance review.',
-  ]);
+  const [keyFacts, setKeyFacts] = useState<string[]>([]);
   const [newFact, setNewFact] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   if (!isOpen) return null;
 
@@ -48,10 +46,10 @@ export function AddKnowledgeModal({
     setKeyFacts(keyFacts.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) {
-      showToast('Please enter a title for this knowledge resource');
+    if (title.trim().length < 1 || summary.trim().length < 5 || proofSource.trim().length < 5) {
+      showToast('Enter a title, a fact or claim (at least 5 characters), and its proof citation (at least 5 characters).');
       return;
     }
 
@@ -75,12 +73,10 @@ export function AddKnowledgeModal({
       updatedAtDate: new Date().toISOString(),
       ownedBy: ownedBy.trim() || 'Brand Team',
       version: 'v1.0',
-      summary:
-        summary.trim() ||
-        `Authoritative documentation and verified brand proof for ${title}.`,
-      keyFacts: keyFacts.length > 0 ? keyFacts : ['Verified for automated review.'],
-      content: `## ${title}\n\nApproved baseline content and operational specifications for ${product}.`,
-      proofSource: proofSource.trim() || 'Internal Brand Authority Spec 2026',
+      summary: summary.trim(),
+      keyFacts,
+      content: [summary.trim(), ...keyFacts].filter(Boolean).join('\n'),
+      proofSource: proofSource.trim(),
       proofSourceUrl: undefined,
       usageStats: {
         linkedSubmissions: 0,
@@ -97,15 +93,27 @@ export function AddKnowledgeModal({
       ],
     };
 
-    onAdd(newItem);
-    showToast(`Added "${newItem.title}" to Knowledge Library`);
+    setIsSaving(true);
+    try {
+      await onAdd(newItem);
+    } catch {
+      showToast('Could not save this fact. Check the API and try again.');
+      setIsSaving(false);
+      return;
+    }
+    setIsSaving(false);
     onClose();
 
     // Reset form
     setTitle('');
     setSubtitle('');
+    setType('Product Facts');
+    setProduct('Evolyn Platform');
     setSummary('');
+    setOwnedBy('Brand Team');
     setProofSource('');
+    setKeyFacts([]);
+    setNewFact('');
   };
 
   return (
@@ -206,13 +214,15 @@ export function AddKnowledgeModal({
           {/* Summary */}
           <div>
             <label className="block text-xs font-semibold text-[#25251F] mb-1">
-              Summary Description
+              Fact or claim *
             </label>
             <textarea
               rows={2}
+              required
+              minLength={5}
               value={summary}
               onChange={(e) => setSummary(e.target.value)}
-              placeholder="Authoritative overview of this resource for humans and AI review agents..."
+              placeholder="Enter the exact approved fact or claim..."
               className="w-full px-3 py-2 text-xs sm:text-sm bg-white border border-[#E5E1D8] rounded-xl focus:outline-none focus:border-[#25251F] text-[#25251F] resize-none"
             />
           </div>
@@ -275,10 +285,12 @@ export function AddKnowledgeModal({
             </div>
             <div>
               <label className="block text-xs font-semibold text-[#25251F] mb-1">
-                Verified Proof Citation
+                Verified Proof Citation *
               </label>
               <input
                 type="text"
+                required
+                minLength={5}
                 value={proofSource}
                 onChange={(e) => setProofSource(e.target.value)}
                 placeholder="e.g., Memo LG-2026 or URL"
@@ -292,8 +304,8 @@ export function AddKnowledgeModal({
             <Button type="button" variant="ghost" size="md" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" variant="primary" size="md">
-              Save Resource
+            <Button type="submit" variant="primary" size="md" disabled={isSaving}>
+              {isSaving ? 'Saving…' : 'Save Approved Fact'}
             </Button>
           </div>
         </form>

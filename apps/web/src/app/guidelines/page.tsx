@@ -8,7 +8,6 @@ import { AppShell, useAppShell } from '@/components/layout/app-shell';
 import { SetupStepperBanner } from '@/components/shared/setup-stepper-banner';
 import {
   INITIAL_CATEGORIES,
-  INITIAL_GUIDELINES,
   GuidelineCategoryItem,
   GuidelineItem,
   GuidelineItemStatus,
@@ -31,24 +30,25 @@ function GuidelinesContent() {
 
   // Categories & Guidelines state
   const [categories, setCategories] = useState<GuidelineCategoryItem[]>(INITIAL_CATEGORIES);
-  const [guidelines, setGuidelines] = useState<GuidelineItem[]>(INITIAL_GUIDELINES);
+  const [guidelines, setGuidelines] = useState<GuidelineItem[]>([]);
 
   // TanStack Query for live guidelines from Express backend
   const {
     data: backendGuidelines,
     isLoading: isGuidelinesLoading,
+    isError: isGuidelinesError,
     refetch: refetchGuidelines,
   } = useQuery({
     queryKey: ['guidelines', 'list'],
     queryFn: () => fetchAllGuidelines(),
   });
 
-  // Merge live backend guidelines when available
+  // The backend is the source of truth; never mix seeded preview rows into live results.
   useEffect(() => {
-    if (backendGuidelines && backendGuidelines.length > 0) {
+    if (backendGuidelines) {
       const mappedBackendItems: GuidelineItem[] = backendGuidelines.map((bg: BackendGuidelineWithRules) => ({
         id: bg.id,
-        categoryId: bg.category?.toLowerCase() || 'messaging',
+        categoryId: ({ TONE: 'tone-voice', TERMINOLOGY: 'tone-voice', CLAIMS: 'claims-evidence', VISUAL: 'visual-assets', LEGAL: 'restrictions', GENERAL: 'messaging' } as Record<string, string>)[bg.category] || 'messaging',
         categoryName: bg.category || 'General',
         title: bg.title,
         description: bg.rawContent.slice(0, 160) + (bg.rawContent.length > 160 ? '...' : ''),
@@ -58,10 +58,7 @@ function GuidelinesContent() {
         ruleStatement: bg.rawContent,
       }));
 
-      // Combine unique by ID with initial sample items
-      const existingIds = new Set(mappedBackendItems.map((m) => m.id));
-      const remainingInitial = INITIAL_GUIDELINES.filter((ig) => !existingIds.has(ig.id));
-      setGuidelines([...mappedBackendItems, ...remainingInitial]);
+      setGuidelines(mappedBackendItems);
     }
   }, [backendGuidelines]);
 
@@ -78,6 +75,11 @@ function GuidelinesContent() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isEditCategoryModalOpen, setIsEditCategoryModalOpen] = useState(false);
   const [editingGuideline, setEditingGuideline] = useState<GuidelineItem | null>(null);
+
+  const toBackendCategory = (categoryId: string) => ({
+    'tone-voice': 'TONE', messaging: 'GENERAL', 'claims-evidence': 'CLAIMS',
+    restrictions: 'LEGAL', 'visual-assets': 'VISUAL',
+  } as Record<string, string>)[categoryId] || 'GENERAL';
 
   // Compute dynamic category counts based on current guidelines array
   const categoryCounts = useMemo(() => {
@@ -134,14 +136,15 @@ function GuidelinesContent() {
       try {
         await updateGuideline(data.id, {
           title: data.title,
-          category: data.categoryName.toUpperCase().replace(/\s+/g, '_'),
+          category: toBackendCategory(data.categoryId),
           rawContent: data.description + (data.ruleStatement ? `\nRule: ${data.ruleStatement}` : ''),
         });
         refetchGuidelines();
         showToast(`Updated and persisted guideline: "${data.title}"`);
       } catch (err) {
         console.error('Failed to update guideline in database:', err);
-        showToast(`Updated guideline: "${data.title}" (local state fallback).`);
+        showToast('Could not save guideline. Please retry.');
+        return;
       }
 
       setGuidelines((prev) =>
@@ -160,7 +163,7 @@ function GuidelinesContent() {
       try {
         const created = await createGuideline({
           title: data.title,
-          category: data.categoryName.toUpperCase().replace(/\s+/g, '_'),
+          category: toBackendCategory(data.categoryId),
           rawContent: data.description + (data.ruleStatement ? `\nRule: ${data.ruleStatement}` : ''),
           version: '1.0',
         });
@@ -175,28 +178,20 @@ function GuidelinesContent() {
         showToast(`Persisted guideline "${data.title}" to database.`);
       } catch (err) {
         console.error('Failed to persist guideline to database:', err);
-        // Optimistic fallback
-        const newItem: GuidelineItem = {
-          id: `g-${Date.now()}`,
-          ...data,
-          updatedAt: 'Just now',
-        };
-        setGuidelines((prev) => [newItem, ...prev]);
-        showToast(`Created guideline "${data.title}" (local state fallback).`);
+        showToast('Could not save guideline. Please retry.');
       }
     }
   };
 
   const handleDeleteGuideline = async (guidelineId: string) => {
     const target = guidelines.find((g) => g.id === guidelineId);
-    setGuidelines((prev) => prev.filter((g) => g.id !== guidelineId));
-
     try {
       await deleteGuideline(guidelineId);
+      setGuidelines((prev) => prev.filter((g) => g.id !== guidelineId));
       refetchGuidelines();
       showToast(`Deleted guideline: "${target?.title || guidelineId}" from database.`);
     } catch {
-      showToast(`Deleted guideline: "${target?.title || guidelineId}"`);
+      showToast('Could not delete guideline. Please retry.');
     }
   };
 
@@ -249,7 +244,7 @@ function GuidelinesContent() {
                 Brand Guidelines
               </h1>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#E8EBE1] text-[#4E6B54] border border-[#68745D]/20">
-                {backendGuidelines && backendGuidelines.length > 0 ? 'Live Sync' : 'Seeded'}
+                {isGuidelinesLoading ? 'Loading' : isGuidelinesError ? 'Unavailable' : 'Live data'}
               </span>
             </div>
             <p className="text-xs sm:text-sm text-[#77766E] mt-0.5">
@@ -306,6 +301,16 @@ function GuidelinesContent() {
       <SetupStepperBanner currentModule="guidelines" />
 
       {/* 2. Horizontal Category Pills (Quick-filter) */}
+      {isGuidelinesError && (
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          Guidelines could not be loaded. Check the API connection and refresh.
+        </div>
+      )}
+      {!isGuidelinesLoading && !isGuidelinesError && guidelines.length === 0 && (
+        <div className="rounded-lg border border-[#E5E1D8] bg-[#FFFEFA] px-3 py-3 text-sm text-[#52524E]">
+          No saved guidelines yet. Create one to get started.
+        </div>
+      )}
       <CategoryPills
         categories={categories}
         selectedCategoryId={selectedCategoryId}

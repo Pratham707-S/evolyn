@@ -6,13 +6,8 @@ export interface BackendGuidelineWithRules extends Guideline {
 }
 
 export async function fetchAllGuidelines(): Promise<BackendGuidelineWithRules[]> {
-  try {
-    const data = await apiClient.get<BackendGuidelineWithRules[]>('/api/guidelines');
-    return Array.isArray(data) ? data : [];
-  } catch (error) {
-    console.error('Failed to fetch guidelines from backend API:', error);
-    return [];
-  }
+  const data = await apiClient.get<BackendGuidelineWithRules[]>('/api/guidelines');
+  return Array.isArray(data) ? data : [];
 }
 
 export async function fetchGuidelineDetails(
@@ -49,12 +44,7 @@ export async function updateGuideline(
 }
 
 export async function deleteGuideline(id: string): Promise<boolean> {
-  try {
-    await apiClient.delete(`/api/guidelines/${id}`);
-    return true;
-  } catch (error) {
-    console.error(`Failed to delete guideline ${id}:`, error);
-    return false;
-  }
+  await apiClient.delete(`/api/guidelines/${id}`);
+  return true;
 }
 

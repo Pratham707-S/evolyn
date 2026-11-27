@@ -34,6 +34,7 @@ export class KnowledgeRepository {
                 topic: input.topic,
                 claimStatement: input.claimStatement,
                 approvedProofSource: input.approvedProofSource,
+                metadata: input.metadata ?? {},
                 validUntil: input.validUntil
                     ? new Date(input.validUntil)
                     : null,

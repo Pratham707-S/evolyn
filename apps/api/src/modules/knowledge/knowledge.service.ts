@@ -42,6 +42,7 @@ function mapFact(record: ApprovedFactRecord): ApprovedFact {
         approvedProofSource: record.approvedProofSource,
         validUntil: record.validUntil?.toISOString() ?? null,
         createdAt: record.createdAt.toISOString(),
+        metadata: (record.metadata ?? {}) as Record<string, unknown>,
     };
 }
 
@@ -158,7 +159,7 @@ export class KnowledgeService implements IKnowledgeService {
         };
 
         const claimTokens = tokenize(trimmedClaim);
-        const claimNumbers = (trimmedClaim.match(/\b\d+(\.\d+)?%?|\b[A-Z0-9-]{3,}\b/gi) || []).map((s) => s.toLowerCase());
+        const claimNumbers = (trimmedClaim.match(/\b\d+(?:\.\d+)?%?/g) || []).map((s) => s.toLowerCase());
         const hasHyperbole = HYPERBOLIC_TERMS.some((h) => trimmedClaim.toLowerCase().includes(h));
 
         const scoredFacts: Array<ApprovedFact & { score: number; verbatimMatch: string | null }> = [];
@@ -166,7 +167,9 @@ export class KnowledgeService implements IKnowledgeService {
         for (const fact of facts) {
             const factContent = `${fact.claimStatement} ${fact.approvedProofSource}`;
             const factTokens = new Set(tokenize(factContent));
-            const factNumbers = (factContent.match(/\b\d+(\.\d+)?%?|\b[A-Z0-9-]{3,}\b/gi) || []).map((s) => s.toLowerCase());
+            // Compare figures asserted by the fact itself, not dates or section numbers
+            // that only appear in the citation.
+            const factNumbers = (fact.claimStatement.match(/\b\d+(?:\.\d+)?%?/g) || []).map((s) => s.toLowerCase());
 
             // 1. Token Jaccard overlap
             const commonTokens = claimTokens.filter((t) => factTokens.has(t));
@@ -174,9 +177,12 @@ export class KnowledgeService implements IKnowledgeService {
 
             // 2. Numeric / statistical match bonus
             let numberMatchCount = 0;
+            let hasMismatchedClaimNumber = false;
             for (const num of claimNumbers) {
                 if (factNumbers.includes(num)) {
                     numberMatchCount++;
+                } else {
+                    hasMismatchedClaimNumber = true;
                 }
             }
 
@@ -195,6 +201,12 @@ export class KnowledgeService implements IKnowledgeService {
             // 4. Hyperbole penalty
             if (hasHyperbole && !factContent.toLowerCase().includes('100%')) {
                 score = Math.max(0.05, score - 0.45);
+            }
+
+            // A close text match cannot verify a different numeric assertion.
+            // Keep it eligible for PARTIAL_EVIDENCE so the reviewer sees the related source.
+            if (hasMismatchedClaimNumber) {
+                score = Math.min(score, 0.64);
             }
 
             // 5. Substring match

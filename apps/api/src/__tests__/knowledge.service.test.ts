@@ -33,6 +33,13 @@ const mockFact: ApprovedFactRecord = {
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
 };
 
+const uptimeFact: ApprovedFactRecord = {
+    ...mockFact,
+    topic: 'Platform Uptime',
+    claimStatement: 'Evolyn achieved 99.98% platform uptime across all production clusters during fiscal year 2025.',
+    approvedProofSource: 'SOC 2 Type II Independent Audit Report 2025, Section 4.2',
+};
+
 const validInput: CreateApprovedFactInput = {
     topic: 'Product',
     claimStatement: 'Our product supports secure cloud storage.',
@@ -81,6 +88,20 @@ describe('KnowledgeService', () => {
         assert.equal(result.validUntil, null);
     });
 
+    it('persists and returns knowledge library display metadata', async () => {
+        const metadata = { type: 'Approved Claims', product: 'Platform', ownedBy: 'Legal' };
+        let receivedMetadata: Record<string, unknown> | undefined;
+        repository.create = async (input) => {
+            receivedMetadata = input.metadata;
+            return { ...mockFact, metadata: input.metadata ?? {} };
+        };
+
+        const result = await service.createFact({ ...validInput, metadata });
+
+        assert.deepEqual(receivedMetadata, metadata);
+        assert.deepEqual(result.metadata, metadata);
+    });
+
     it('rejects invalid approved fact input', async () => {
         await assert.rejects(
             service.createFact({
@@ -109,6 +130,41 @@ describe('KnowledgeService', () => {
 
         assert.equal(receivedTopic, 'Product');
         assert.equal(result.length, 1);
+    });
+
+    it('does not verify a claim whose metric differs from the approved fact', async () => {
+        repository.findMany = async () => [uptimeFact];
+        service = new KnowledgeService(repository as unknown as KnowledgeRepository);
+
+        const result = await service.verifyClaim(
+            'Our platform uptime is approximately 99.9% with low review latency.',
+        );
+
+        assert.equal(result.verdict, 'PARTIAL_EVIDENCE');
+        assert.equal(result.matchedFact?.claimStatement, uptimeFact.claimStatement);
+        assert.match(result.recommendation, /specific figures or timeline require verification/i);
+    });
+
+    it('verifies an exact numeric claim against its approved fact', async () => {
+        repository.findMany = async () => [uptimeFact];
+        service = new KnowledgeService(repository as unknown as KnowledgeRepository);
+
+        const result = await service.verifyClaim(uptimeFact.claimStatement);
+
+        assert.equal(result.verdict, 'VERIFIED');
+        assert.equal(result.matchedFact?.id, uptimeFact.id);
+        assert.equal(result.verbatimVerification.isVerbatim, true);
+    });
+
+    it('does not treat wording differences as mismatched numeric claims', async () => {
+        repository.findMany = async () => [uptimeFact];
+        service = new KnowledgeService(repository as unknown as KnowledgeRepository);
+
+        const result = await service.verifyClaim(
+            'Our platform uptime reached 99.98% for production systems in 2025.',
+        );
+
+        assert.equal(result.verdict, 'VERIFIED');
     });
 
     it('retrieves semantically relevant facts', async () => {

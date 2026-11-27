@@ -27,7 +27,7 @@ import Link from 'next/link';
 
 interface GuidelineRuleDetail {
   id: string;
-  statement: string;
+  ruleStatement: string;
   ruleType: string;
   severity: string;
   guidelineId: string;
@@ -163,8 +163,8 @@ export default function ConflictDetectorPage() {
       // Search filter
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
-        const ruleAText = c.ruleA?.statement?.toLowerCase() || '';
-        const ruleBText = c.ruleB?.statement?.toLowerCase() || '';
+        const ruleAText = c.ruleA?.ruleStatement?.toLowerCase() || '';
+        const ruleBText = c.ruleB?.ruleStatement?.toLowerCase() || '';
         const expText = c.explanation?.toLowerCase() || '';
         const guideAText = c.ruleA?.guidelineTitle?.toLowerCase() || '';
         const guideBText = c.ruleB?.guidelineTitle?.toLowerCase() || '';
@@ -550,7 +550,7 @@ export default function ConflictDetectorPage() {
                           </span>
                         </div>
                         <p className="text-xs text-[#25251F] font-medium leading-relaxed bg-white border border-[#E5E1D8] p-2.5 rounded-md">
-                          &ldquo;{conflict.ruleA?.statement || 'Rule statement not available'}&rdquo;
+                          &ldquo;{conflict.ruleA?.ruleStatement || 'Rule statement not available'}&rdquo;
                         </p>
                       </div>
 
@@ -565,7 +565,7 @@ export default function ConflictDetectorPage() {
                           </span>
                         </div>
                         <p className="text-xs text-[#25251F] font-medium leading-relaxed bg-white border border-[#E5E1D8] p-2.5 rounded-md">
-                          &ldquo;{conflict.ruleB?.statement || 'Rule statement not available'}&rdquo;
+                          &ldquo;{conflict.ruleB?.ruleStatement || 'Rule statement not available'}&rdquo;
                         </p>
                       </div>
                     </div>

@@ -70,6 +70,7 @@ export interface ApprovedFact {
   approvedProofSource: string;
   validUntil?: string | null;
   createdAt: string;
+  metadata?: Record<string, unknown>;
 }
 
 export type SubmissionChannel = z.infer<typeof submissionChannelSchema>;

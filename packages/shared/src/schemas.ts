@@ -50,6 +50,7 @@ export const createApprovedFactSchema = z.object({
   claimStatement: z.string().min(5, 'Claim statement is required'),
   approvedProofSource: z.string().min(5, 'Proof source/citation is mandatory'),
   validUntil: z.string().optional().nullable(), // ISO Date string
+  metadata: z.record(z.unknown()).optional(),
 });
 
 // ----------------------------------------

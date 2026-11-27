@@ -16,7 +16,7 @@ describe('Database Migrations Integrity & Hardening', () => {
         const journal = JSON.parse(fs.readFileSync(journalPath, 'utf8'));
         assert.equal(journal.dialect, 'postgresql');
         assert.ok(Array.isArray(journal.entries));
-        assert.equal(journal.entries.length, 2);
+        assert.equal(journal.entries.length, 3);
 
         // Verify ordering
         assert.equal(journal.entries[0].idx, 0);
@@ -25,9 +25,35 @@ describe('Database Migrations Integrity & Hardening', () => {
         assert.equal(journal.entries[1].idx, 1);
         assert.equal(journal.entries[1].tag, '0001_add_conflicts_unique_index');
 
+        assert.equal(journal.entries[2].idx, 2);
+        assert.equal(journal.entries[2].tag, '0002_add_approved_facts_metadata');
+
+        const migrationFiles = fs
+            .readdirSync(migrationsDir)
+            .filter((file) => /^\d+_.+\.sql$/.test(file));
+        assert.equal(migrationFiles.length, journal.entries.length);
+        for (const [index, entry] of journal.entries.entries()) {
+            assert.equal(entry.idx, index, 'Migration indexes must be strictly sequential');
+            assert.ok(
+                fs.existsSync(path.join(migrationsDir, `${entry.tag}.sql`)),
+                `Migration ${entry.tag} must have a matching SQL file`,
+            );
+        }
+
         // Verify corresponding SQL file exists on disk
         const migration1Path = path.join(migrationsDir, '0001_add_conflicts_unique_index.sql');
         assert.ok(fs.existsSync(migration1Path), '0001_add_conflicts_unique_index.sql must exist on disk');
+        const migration2Path = path.join(migrationsDir, '0002_add_approved_facts_metadata.sql');
+        assert.ok(fs.existsSync(migration2Path), '0002_add_approved_facts_metadata.sql must exist on disk');
+    });
+
+    it('0002 migration adds the approved fact metadata column idempotently', () => {
+        const migration2Path = path.join(migrationsDir, '0002_add_approved_facts_metadata.sql');
+        const sqlContent = fs.readFileSync(migration2Path, 'utf8').replace(/\r\n/g, '\n');
+        assert.ok(
+            sqlContent.includes('ALTER TABLE "approved_facts" ADD COLUMN IF NOT EXISTS "metadata" jsonb'),
+            'Must add the approved_facts metadata column without failing if it already exists',
+        );
     });
 
     it('0001 migration contains self-conflict purge, deduplication, normalization, strict check constraint, and unique index', () => {

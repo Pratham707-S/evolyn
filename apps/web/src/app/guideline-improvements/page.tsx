@@ -503,11 +503,11 @@ export default function GuidelineImprovementsPage() {
                       </p>
                     </div>
 
-                    {/* Real-World Flagged Excerpts */}
+                    {/* Flagged Excerpts */}
                     {mistake.sampleExcerpts && mistake.sampleExcerpts.length > 0 && (
                       <div className="space-y-1.5">
                         <span className="text-[10px] font-semibold text-[#73736C] uppercase tracking-wider">
-                          Real-World Flagged Excerpts ({mistake.sampleExcerpts.length})
+                          Flagged excerpts ({mistake.sampleExcerpts.length})
                         </span>
                         <div className="flex flex-wrap gap-2">
                           {mistake.sampleExcerpts.map((excerpt, idx) => (
@@ -528,7 +528,7 @@ export default function GuidelineImprovementsPage() {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5 text-xs font-semibold text-[#68745D]">
                             <Sparkles className="w-3.5 h-3.5" />
-                            <span>AI Proposed Clarified Guideline Phrasing</span>
+                            <span>Suggested clarified guideline phrasing</span>
                           </div>
                           {isApplied && (
                             <span className="text-[10px] bg-[#EEF2EB] text-[#68745D] px-2 py-0.5 rounded font-medium">

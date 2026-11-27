@@ -53,7 +53,7 @@ export function KnowledgeTable({
   showToast,
 }: KnowledgeTableProps) {
   // Checkbox selections for batch actions
-  const [selectedIds, setSelectedIds] = useState<string[]>(['kn-1']);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
   // Pagination state
@@ -366,6 +366,7 @@ export function KnowledgeTable({
                             <button
                               type="button"
                               onClick={() => {
+                                if (!window.confirm(`Delete "${item.title}" permanently? This removes the approved fact from the library.`)) return;
                                 onDeleteItem(item.id);
                                 setActiveMenuId(null);
                               }}
